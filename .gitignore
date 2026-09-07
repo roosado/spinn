@@ -35,3 +35,6 @@ slprj/
 Thumbs.db
 .vscode/
 .idea/
+
+# Teaching workspace -- local learning material, never published
+learning/
