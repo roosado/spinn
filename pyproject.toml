@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spinn"
+version = "0.1.0"
+description = "Spintronic neural network simulator: ideal crossbar design in Python, handed off to a MATLAB as-built device-error model."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "h5py>=3.10",
+    "torch>=2.2",
+    "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+# spinn-hw/ is MATLAB and is deliberately not a Python package.
+[tool.setuptools]
+packages = ["spinn"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
