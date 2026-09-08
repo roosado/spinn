@@ -526,3 +526,25 @@ Plan 01 left a test asserting that `mc.error_sources("crossbar")` *raises*, with
 saying that if it ever failed, plan 04 had happened and it should be replaced rather than
 deleted. It failed today, and was replaced — by an assertion that the arch exists, plus a
 new one that a genuinely unknown arch is still rejected.
+
+---
+
+## 2026-09-08 — the error budget: threshold and array size, declared first
+
+**Written before any sweep was run.** Choosing what counts as "fails" after seeing the
+curves is how a tolerance study quietly becomes an argument, so the pass mark and the
+array size are fixed here and this entry is committed before the driver produces a
+number.
+
+| | |
+|---|---|
+| **Pass mark** | **95% of ideal accuracy**, i.e. **0.6978** against the recorded ideal of 0.7345. photonn's own convention — its `/tolerance` page carries a `>= 0.7591` bar against an ideal of 0.799, which is the same 95%. Using a different rule would make the two rows incomparable on the one axis the table exists for. |
+| **Array size** | **36 × 10 logical, 720 devices** (differential pairs). Fixed for the comparable core and reported in the row, because IR drop grows with array size and a tolerance number for source 3 is meaningless without it. |
+| **Edges** | Read off the magnitude ladder as a **bracket** — "holds at X, fails at Y" — never interpolated. `mc.pack` stores mean and standard deviation only, and no fitted crossing point, deliberately. |
+| **Realizations** | 20 for the stochastic source. Deterministic sources are run at 3, which is enough to show the variance really is zero and not enough to waste time proving it. |
+| **Seeds** | `baseSeed = 20260908`, partitioned by `mc.sweep` as `baseSeed + 100*i` per magnitude and by the driver as `+ i - 1` per realization. Recorded with the results. |
+
+A ladder that never fails has not found an edge; it has found a too-narrow ladder. Each
+source is swept over a range wide enough to bracket its edge from both sides, and if one
+does not, the ladder is widened and the run repeated — that is a property of the ladder,
+not a result.
