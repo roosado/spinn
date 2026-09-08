@@ -22,9 +22,10 @@ belongs in the device physics and the error model.
 
 - Laptop-only. No cluster, no GPU, no fabrication, no measurement. Everything is
   simulation against sourced parameters.
-- Python 3.12 in a repo-local `.venv`. **Currently only `pytest` and `numpy` are
-  installed** — `torch`, `h5py`, `scipy` and `matplotlib` are declared in
-  `pyproject.toml` but deliberately not installed until something imports them.
+- Python 3.12 in a repo-local `.venv`: `pytest`, `numpy`, `h5py`. `matplotlib` is
+  declared in `pyproject.toml` and not installed, because nothing draws a figure yet;
+  `torch` and `scipy` were removed rather than deferred. A dependency goes in when
+  something imports it.
 - MATLAB base, no toolboxes. Flag it if one becomes necessary. `-batch` startup is ~27 s
   cold and ~6.6 s warm, which is why the whole MATLAB suite is one invocation.
 - Node, for the two web runners.
@@ -39,13 +40,14 @@ belongs in the device physics and the error model.
 spinn/
 ├── crossbar.py       # the ideal forward pass: program, read, decode
 ├── task.py           # the frozen shared task, MNIST at 6x6
-├── export.py         # handoff writer          — INHERITED, optical, not yet adapted
-└── handoff.py        # the single Python reader — INHERITED, does not import
+├── export.py         # the one handoff writer
+└── handoff.py        # the one Python reader
 
 spinn-hw/
-├── +mc/              # sweep, pack, validate_config, error_sources — the shared harness
-├── +err/             # detector_noise only, so far
-└── +io/read_handoff.m  # the single MATLAB reader — INHERITED, optical
+├── +mc/              # sweep, pack, validate_config, error_sources + the crossbar driver
+├── +model/           # program, encode, crossbar — the as-built forward pass
+├── +err/             # conductance_variation, quantize, ir_drop (+ inherited detector_noise)
+└── +io/read_handoff.m  # the one MATLAB reader
 
 apps/
 ├── train_crossbar.py # trains the ideal array; NumPy, no autograd
@@ -89,15 +91,22 @@ turned out to be more coupled than recorded.
 
 ### Handoff contract
 
-**Unsettled.** `export.py`, `handoff.py` and `+io/read_handoff.m` still describe photonn's
-optical schema, and the last of these will not even import. The operating point cannot be
-closed before there is a model to operate, so this is owned by `plans/04-the-seam.md`.
+Schema **0.1.0** — spinn's own, restarted rather than continuing photonn's 0.3.0.
 
-What is already decided: the boundary is **one-directional** — Python designs, MATLAB
-measures — with **one writer and one reader on each side**, and a **closed** operating
-point that refuses both an unknown key and a missing required one. A default is
-indistinguishable from a correct value downstream, which is how a renamed field becomes a
-plausible wrong answer instead of a stack trace.
+The boundary is **one-directional**: Python designs, MATLAB measures, one writer and one
+reader on each side. The operating point is a **closed set of five** — `g_min_s`,
+`g_max_s`, `read_voltage_v`, `readout_gain`, `signed_scheme_code` — and refuses both an
+unknown key and a missing required one, on both sides. Neither reader supplies a default:
+a default is indistinguishable from a correct value downstream, which is how a renamed
+field becomes a plausible wrong answer instead of a stack trace.
+
+`states_per_device` deliberately does **not** cross. How many levels a device resolves is
+an as-built property and belongs in the error config, not the ideal design.
+
+The seam is proven by round trip: MATLAB rebuilds the array from the file alone and must
+reproduce the accuracy Python recorded. That is the only detector for a transposed weight
+matrix, a column-major image flatten, an assumed signed scheme or a defaulted gain — none
+of which raise.
 
 ---
 
@@ -110,8 +119,8 @@ by running something.
 |---|---|---|
 | 01 | prove the harness | **done** — Tier 1 and 2 executed |
 | 02 | trim the inheritance | **done** — the web layer cut to a spine, this file |
-| 03 | the ideal crossbar | **done** — 0.7345 ideal, differential pairs, 92 tests |
-| 04 | the seam | closed handoff, `+model/crossbar`, `+err` sources 1–3, the config API |
+| 03 | the ideal crossbar | **done** — 0.7345 ideal, differential pairs |
+| 04 | the seam | **done** — closed handoff, `+model/crossbar`, `+err` 1–3, 120 tests |
 | 05 | the budget and the row | binding source, its edge in effective bits, energy, latency |
 
 ---
@@ -145,7 +154,9 @@ by running something.
 - The site pages beyond `index.html`. There is no result to write about yet.
 - An array-size sweep. IR drop grows with array size, so the row's number is one point on
   a curve — but the size is fixed and stated first.
-- `torch`. Whether a single crossbar layer needs it is decided in plan 03, on evidence.
+- A self-consistent IR-drop solve. Source 3 is first-order and one pass overstates the
+  drop; iterating is the refinement if it turns out to bind.
+- Error sources 4–7, and the keys that name them.
 
 ---
 
@@ -182,6 +193,8 @@ Do not assume an answer; ask.
 1. **A source for the conductance window.** `g_max/g_min` is the platform's
    characteristic constraint and the current value is a placeholder. This is the largest
    open sourcing gap.
+   Also unsourced, and needed by plan 05: a wire resistance for `wire_resistance_ohm`,
+   and the energy and latency constants.
 2. **The failure threshold for the tolerance sweeps.** What counts as "fails" must be
    declared before the sweeps run, not chosen after seeing the curves. Plan 05, step 1.
 
@@ -194,9 +207,13 @@ Kept so a later session does not reopen a question already answered.
   independent error draws raise σ by √2 against a range that doubles, a net √2 in SNR,
   before counting the pedestal an offset scheme must subtract downstream. Both schemes
   are implemented because the choice crosses the handoff; ideally they are identical.
-- **Quantisation applies to devices, not weights.** A device holds the state. Under a
-  pair the effective weight is a difference of two quantised conductances and resolves
-  finer than either — two-state devices give three weights.
+- **Quantisation applies to the effective weight**, over the lattice a legal combination
+  of device states can reach — `states` levels for an offset, `2·states − 1` for a pair.
+  The devices are what have finite states, but the programmer picks the pair that best
+  represents the target. Rounding each rail independently collapses the pair to a sign
+  bit at twice an offset's device count, silently; plan 04's round-trip test caught it.
+- **Both sides round half away from zero.** NumPy rounds half to even and MATLAB does
+  not, and they differ exactly where a weight sits between two device states.
 - **NumPy, not PyTorch.** One 36×10 linear map; the gradient is `X.T @ (p − Y)`. `torch`
   and `scipy` were removed from `pyproject.toml` rather than installed.
 - **The window bounds the weight pattern's shape, not its scale.** Train unconstrained,

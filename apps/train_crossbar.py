@@ -47,6 +47,7 @@ import os
 import numpy as np
 
 from spinn.crossbar import Crossbar, accuracy
+from spinn.export import SIGNED_SCHEMES, validate_handoff, write_handoff
 from spinn.task import N_CLASSES, load_shared_task, one_hot
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -169,6 +170,35 @@ def main():
         ideal_accuracy=ideal, epochs=args.epochs, lr=args.lr, batch=args.batch,
     )
     print(f"wrote {out}")
+
+    handoff = os.path.join(EXPORTS, "crossbar_handoff.h5")
+    write_handoff(
+        handoff,
+        model_type="crossbar",
+        parameters={"weights": weights},
+        geometry={
+            "n_rows": cb.n_inputs,
+            "n_cols": cb.n_outputs,
+            "devices_per_weight": cb.devices_per_weight,
+        },
+        operating_point={
+            "g_min_s": cb.g_min,
+            "g_max_s": cb.g_max,
+            "read_voltage_v": cb.read_voltage,
+            "readout_gain": gain,
+            "signed_scheme_code": SIGNED_SCHEMES[cb.scheme],
+        },
+        test_images=task.test_images,
+        test_labels=task.test_labels,
+        description=(
+            f"spintronic crossbar | {cb.n_inputs}x{cb.n_outputs} {args.scheme} | "
+            f"{cb.n_devices} devices | ideal_acc={ideal:.4f} | seed={args.seed} | "
+            f"weights index [g_min_s, g_max_s]; readout_gain restores the logit scale"
+        ),
+        test_acc=ideal,
+    )
+    validate_handoff(handoff)
+    print(f"wrote {handoff} (validated)")
 
 
 if __name__ == "__main__":

@@ -403,3 +403,126 @@ row of devices at a fixed voltage, and that is device count spent outside the th
 measured. No quantisation-aware training — the states knob exists and defaults off, and
 it is error source 2, which belongs behind the handoff. The trained weights land in
 `exports/`, which is gitignored: they are regenerable from the recorded seed.
+
+---
+
+## 2026-09-08 — the seam, and a differential pair reduced to a sign bit
+
+Python designs, MATLAB measures, and the handoff crosses one way. That boundary now
+exists for the crossbar: `spinn/export.py` writes it, `spinn/handoff.py` and
+`spinn-hw/+io/read_handoff.m` are the two readers, `+model/crossbar.m` is the as-built
+forward pass, and `+err` sources 1–3 sit behind it. Tests 92 → 120.
+
+**MATLAB reproduces the accuracy Python recorded, exactly.** That single comparison is
+the whole point of the plan: every way of getting the seam wrong yields a *valid* array
+that is not the trained one — a transposed weight matrix, an image flattened
+column-major, the signed scheme assumed rather than read, `readout_gain` defaulted to
+1.0. None of them raise. The accuracy is the only detector, and it only detects with
+trained weights, so the round-trip fixture trains briefly and a companion assertion
+checks the transposed-input variant really does score differently. Otherwise the
+headline check passes for free.
+
+### The config API, named once
+
+`+mc/error_sources.m` gained a `"crossbar"` arch with three keys, deliberately and
+**not earlier**. Plan 02 had scheduled this for the audit; it was moved here because the
+names encode a parameterisation that did not exist then, and a recorded Monte Carlo
+result is keyed to them.
+
+| key | source | why the name |
+|---|---|---|
+| `sigma_g_rel` | conductance variation | **relative to the window span, not siemens.** The reporting unit is `log2(range/σ)`, so `bits = -log2(sigma_g_rel)` directly, with no `UNSOURCED` window in the conversion |
+| `states_per_device` | resolvable states | levels per *device*, not per weight |
+| `wire_resistance_ohm` | IR drop | ohms per segment between adjacent cells |
+
+Sources 4–7 get their keys when they get their implementations. Each key is tested
+against its own plausible typo, because one passing check does not cover three keys.
+
+### The error I made, and what caught it
+
+Plan 03 recorded the rule "quantisation applies to devices, not to weights", reasoning
+that a device is the object with finite states. That is true about the *constraint* and
+wrong about the *operation*, and the difference is not small.
+
+Rounding each rail independently, two-state devices, target `w = 0.3`: the positive rail
+rounds up, the negative rounds down, and the pair lands on `+1` — where the nearest
+representable weight is `0`. **The differential pair collapses to a sign bit, at twice
+the device count of an offset.** Every argument for choosing it in plan 03 is voided,
+silently, and the only symptom is a lattice with two values in it instead of three.
+
+A real programmer knows the target weight and picks the pair of states that best
+represents it. Quantisation therefore applies to the **effective weight**, over the set
+a legal combination of device states can reach — `states` levels for an offset,
+`2·states − 1` for a pair. Both sides were rewritten; `err.quantize` now takes weights
+rather than conductances, and `model.program` gained the states argument, because
+choosing which states represent a weight is part of programming rather than a
+perturbation of it.
+
+The round-trip test found it: MATLAB reported two effective weights where a Python probe
+had reported three. The probe included an exact zero and the trained matrix did not, so
+each side was right about what it measured and the model underneath was wrong.
+
+### A second cross-language trap, found while fixing the first
+
+`np.round` rounds half to **even**; MATLAB's `round` rounds half **away from zero**. They
+differ only on exact halves — which is exactly where a weight sits between two device
+states. Left alone the two sides would quantise such a weight differently, agree on
+everything else, and disagree on an accuracy by a sample or two with nothing to point at.
+Both sides now round half away from zero, with the Python side using an explicit helper.
+
+### What crosses, and what does not
+
+The operating point is a closed set of five: `g_min_s`, `g_max_s`, `read_voltage_v`,
+`readout_gain`, `signed_scheme_code`. An unknown key fails at write time and a missing
+one before the file exists; there is a test per field, so adding a field adds its guard.
+`requiredAttr` on the MATLAB side keeps photonn's discipline of having **no default** — a
+default is indistinguishable from a correct value downstream.
+
+Two fields describe one fact — `devices_per_weight` and `signed_scheme_code` — and the
+writer checks them against each other, because they are read by different parts of the
+as-built model and one of them would be wrong.
+
+`states_per_device` deliberately does **not** cross. How many levels a device resolves is
+an as-built property and belongs in the error config, not in the ideal design the handoff
+records.
+
+The schema restarts at **0.1.0**. This is spinn's contract, not a continuation of
+photonn's 0.3.0, and reusing their numbering would imply a compatibility that does not
+exist.
+
+### IR drop, and the approximation in it
+
+Error source 3 is the crossbar's characteristic failure and has no photonic counterpart.
+Row drivers sit at the column-1 edge and sense amplifiers at the row-1 edge; the segment
+of wire before a cell carries the current every cell beyond it will draw, so the far
+corner is starved worst, and **the effect grows with array size** — which is why the size
+is fixed and reported beside any number derived from it.
+
+It is computed **first order and deliberately not iterated**: the drops come from the
+currents the ideal voltages would draw, rather than from a self-consistent solve. A
+reduced voltage draws less current and so less drop, meaning one pass *overstates* the
+effect. That is the safe direction for a tolerance study and it is not the same as being
+right; iterating is the obvious refinement if this source turns out to bind.
+
+photonn's `err.thermal_crosstalk` transfers conceptually and not at all in
+implementation: that is a `conv2` blur over a phase mask, this is an accumulation along a
+wire.
+
+### The driver, and a zero that is not a bug
+
+`mc.run_montecarlo_crossbar` satisfies `mc.sweep`'s contract and is passed to it
+**explicitly**, because `sweep.m:16` still defaults to `@mc.run_montecarlo` — which this
+repo does not have. Leaving `sweep.m` byte-identical is worth the inconvenience: its seed
+partitioning is what keeps the two platforms' tolerance tables comparable.
+
+Only source 1 is stochastic. A configuration carrying just sources 2 and 3 therefore has
+**zero spread across realizations**, and `mc.pack` reports a standard deviation of
+exactly zero. That is correct rather than broken, and it is pinned by a test so nobody
+reads it later as a run that failed to vary.
+
+### One guard retired on schedule
+
+Plan 01 left a test asserting that `mc.error_sources("crossbar")` *raises*, with a note
+saying that if it ever failed, plan 04 had happened and it should be replaced rather than
+deleted. It failed today, and was replaced — by an assertion that the arch exists, plus a
+new one that a genuinely unknown arch is still rejected.

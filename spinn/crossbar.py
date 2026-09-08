@@ -19,12 +19,17 @@ scheme. Both are implemented and the choice is a parameter, because it has to
 cross the handoff rather than be assumed independently on each side. The default
 is ``"differential"``; the argument is in :class:`Crossbar`.
 
-**Where quantisation applies.** To the *devices*, not to the weight. A device holds
-a state; that is the physical object with a finite number of levels. Under a
-differential pair the effective weight is a difference of two quantised
-conductances, which resolves more finely than either device does -- modelling it
-on the weight instead would understate the scheme and make error source 2 look
-worse than it is.
+**Where quantisation applies.** The *devices* are what have finite states -- that
+is the physical constraint -- but the snapping happens on the **effective weight**,
+over the set a legal combination of device states can reach. A programmer knows the
+target weight and picks the states that best represent it.
+
+Rounding each device independently instead looks equivalent and is not. With
+two-state devices and a target of ``w = 0.3`` the positive rail rounds up while the
+negative rail rounds down, landing on ``+1`` where the nearest representable weight
+is ``0`` -- the differential pair reduced to a sign bit at twice the device count of
+an offset. That was the first implementation here, and the round-trip test is what
+caught it.
 
 **Which numbers matter.** ``g_min``, ``g_max`` and ``read_voltage`` are all
 ``UNSOURCED``. The ideal accuracy does not depend on them: they scale out of the
@@ -55,6 +60,19 @@ G_MAX = 3.0e-6  # UNSOURCED
 READ_VOLTAGE = 0.1  # UNSOURCED
 
 SCHEMES = ("differential", "offset")
+
+
+def _round(x: np.ndarray) -> np.ndarray:
+    """Round half away from zero, matching MATLAB's ``round``.
+
+    ``np.round`` rounds half to **even**, MATLAB's rounds half **away from zero**.
+    They differ only on exact halves -- and an exact half is precisely what a
+    weight sitting between two device states is. Left alone, the two sides of the
+    seam would quantise such a weight to different levels, agree on everything
+    else, and disagree on an accuracy by one or two samples with nothing to point
+    at. Both sides now use this convention.
+    """
+    return np.sign(x) * np.floor(np.abs(x) + 0.5)
 
 
 @dataclass(frozen=True)
@@ -141,19 +159,48 @@ class Crossbar:
 
     # -- programming ---------------------------------------------------------
 
-    def quantise(self, g: np.ndarray) -> np.ndarray:
-        """Snap conductances to ``states`` levels across ``[g_min, g_max]``.
+    @property
+    def representable_weights(self) -> int | None:
+        """How many distinct effective weights the array can hold, or ``None``.
 
-        A bounded range, not a cyclic one. photonn's quantiser wraps to ``[0, 2*pi)``
-        because a phase is cyclic; applying that here would wrap the largest weight
-        onto the smallest, which is not subtle but would still produce a plausible
+        ``states`` for an offset. **``2 * states - 1`` for a differential pair**,
+        because the effective weight is a *difference* of two device states: two
+        binary devices span ``{-1, 0, +1}``.
+        """
+        if self.states is None:
+            return None
+        return 2 * self.states - 1 if self.scheme == "differential" else self.states
+
+    def quantise_weights(self, w: np.ndarray) -> np.ndarray:
+        """Snap weights to the lattice the devices can actually represent.
+
+        Quantisation applies at the **weight**, on the set reachable by a legal
+        combination of device states -- not to each device in isolation.
+
+        The distinction is the whole value of the differential pair, and getting it
+        wrong is silent. Rounding each rail independently, with two-state devices
+        and a target of ``w = 0.3``: the positive rail rounds up, the negative rail
+        rounds down, and the pair lands on ``+1`` when the nearest representable
+        weight is ``0``. That is not a subtler quantiser being modelled, it is the
+        scheme's advantage being thrown away -- a differential pair reduced to a
+        sign bit, at twice the device count of an offset.
+
+        A real programmer knows the target weight and picks the pair of states that
+        best represents it, which is what this does. Every device still lands on one
+        of its own ``states`` levels; see :meth:`program`.
+
+        The range is **bounded, not cyclic**. photonn's quantiser wraps to
+        ``[0, 2*pi)`` because a phase is cyclic, and the planning note claiming it
+        transfers "directly" was wrong: wrapping here would map the largest weight
+        onto the smallest, which is not subtle but would still return a plausible
         accuracy.
         """
         if self.states is None:
-            return g
-        levels = self.states - 1
-        step = self.span / levels
-        return self.g_min + np.round((g - self.g_min) / step) * step
+            return w
+        n = self.states - 1
+        if self.scheme == "differential":
+            return _round(w * n) / n
+        return 2.0 * _round((1.0 + w) / 2.0 * n) / n - 1.0
 
     def program(self, weights: np.ndarray) -> np.ndarray:
         """Map weights in ``[-1, 1]`` onto device conductances.
@@ -162,19 +209,36 @@ class Crossbar:
         and negative rails -- and ``(1, n_inputs, n_outputs)`` for an offset. The
         leading axis is the device index within one weight, so both schemes present
         the same shape to everything downstream, including the handoff.
+
+        Under quantisation the pair is chosen as ``(max(k, 0), max(-k, 0))`` for the
+        integer level ``k``, which is the representation that draws the least
+        current. Centring the pair instead would keep both devices further from
+        their extremes; that is a real alternative and is not taken here, because
+        the low-current choice is also the one whose zero weight is two devices in
+        the same state.
         """
         w = np.clip(np.asarray(weights, dtype="f8"), -1.0, 1.0)
         if w.shape != (self.n_inputs, self.n_outputs):
             raise ValueError(
                 f"weights must be {(self.n_inputs, self.n_outputs)}; got {w.shape}"
             )
+        if self.states is None:
+            if self.scheme == "differential":
+                return np.stack([
+                    self.g_min + (1.0 + w) / 2.0 * self.span,
+                    self.g_min + (1.0 - w) / 2.0 * self.span,
+                ])
+            return (self.g_min + (1.0 + w) / 2.0 * self.span)[None]
+
+        n = self.states - 1
         if self.scheme == "differential":
-            g_pos = self.g_min + (1.0 + w) / 2.0 * self.span
-            g_neg = self.g_min + (1.0 - w) / 2.0 * self.span
-            g = np.stack([g_pos, g_neg])
-        else:
-            g = (self.g_min + (1.0 + w) / 2.0 * self.span)[None]
-        return self.quantise(g)
+            k = _round(w * n)
+            return np.stack([
+                self.g_min + np.maximum(k, 0.0) / n * self.span,
+                self.g_min + np.maximum(-k, 0.0) / n * self.span,
+            ])
+        i = _round((1.0 + w) / 2.0 * n)
+        return (self.g_min + i / n * self.span)[None]
 
     # -- reading -------------------------------------------------------------
 

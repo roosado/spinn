@@ -52,9 +52,21 @@ function v = check_validate()
         v.message = string(e.message);
     end
 
+    % "crossbar" became a real arch in plan 04, so the unknown-arch guard needs an
+    % arch that is genuinely unknown. The registry is the selection mechanism; an
+    % architecture it does not know must fail loudly rather than return nothing.
+    v.knownArches = sort(["crossbar", "d2nn", "mesh"]);
+    v.crossbarKnown = true;
+    try
+        v.crossbarKeys = sort(mc.error_sources("crossbar"));
+    catch
+        v.crossbarKnown = false;
+        v.crossbarKeys = string.empty;
+    end
+
     v.unknownArchRejected = false;
     try
-        mc.error_sources("crossbar");
+        mc.error_sources("memristor");
     catch e
         v.unknownArchRejected = true;
         v.archIdentifier = string(e.identifier);

@@ -62,14 +62,22 @@ def test_a_misspelled_field_is_rejected_and_the_nearest_key_suggested(out):
     )
 
 
-def test_crossbar_is_not_yet_a_known_architecture(out):
-    """Guards the ordering, not the code.
+def test_the_crossbar_arch_now_exists(out):
+    """Replaces the guard that held the ordering until plan 04.
 
-    ``mc.error_sources`` knows "d2nn" and "mesh". Naming the crossbar's keys is
-    plan 04's, deliberately: they are the config API, and renaming one after a run
-    exists invalidates every result keyed to it. If this test starts failing, plan
-    04 has happened and it should be replaced rather than deleted.
+    Until the crossbar's parameterisation existed, ``mc.error_sources("crossbar")``
+    raised, and a test here asserted that it did -- the keys are the config API and
+    naming them early guarantees a rename. It now exists, so the guard becomes an
+    assertion that it does. The keys themselves are checked at the seam, in
+    ``test_handoff_roundtrip.py``, next to the code that reads them.
     """
+    v = out["validate"]
+    assert v["crossbarKnown"]
+    assert "sigma_g_rel" in v["crossbarKeys"]
+
+
+def test_an_unknown_architecture_is_still_rejected(out):
+    """The registry is the selection mechanism, so it must not answer for anything."""
     v = out["validate"]
     assert v["unknownArchRejected"]
     assert v["archIdentifier"] == "mc:error_sources:badArch"
