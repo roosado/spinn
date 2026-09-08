@@ -63,10 +63,16 @@ tests/                # pytest drives everything, including Node and MATLAB
 └── fixtures/shared_task_6x6.npz   # the frozen task, committed
 ```
 
-### The model, as it stands
+### The model, and the row it produced
 
 36 inputs × 10 columns, **differential pairs**, so 720 devices. Ideal accuracy on the
 shared task is **0.7345** (seed `20260908`), with `readout_gain = 5.4271`.
+
+The comparable core is complete. **Conductance variation binds, at 4.84 effective
+bits**; the full row and its brackets are in `docs/comparison_row.md`, and that is the
+single statement of it — the hub refers to it rather than copying it. Delivered
+precision, energy per inference and latency are all `UNSOURCED`, so no margin is
+claimed and that column is omitted.
 
 `g_min`, `g_max` and `read_voltage` are `UNSOURCED` placeholders and **cancel exactly**
 in the decode — a test asserts the ideal accuracy is unchanged across unrelated windows.
@@ -121,7 +127,7 @@ by running something.
 | 02 | trim the inheritance | **done** — the web layer cut to a spine, this file |
 | 03 | the ideal crossbar | **done** — 0.7345 ideal, differential pairs |
 | 04 | the seam | **done** — closed handoff, `+model/crossbar`, `+err` 1–3, 120 tests |
-| 05 | the budget and the row | binding source, its edge in effective bits, energy, latency |
+| 05 | the budget and the row | **done** — conductance variation binds at 4.84 bits |
 
 ---
 
@@ -195,8 +201,9 @@ Do not assume an answer; ask.
    open sourcing gap.
    Also unsourced, and needed by plan 05: a wire resistance for `wire_resistance_ohm`,
    and the energy and latency constants.
-2. **The failure threshold for the tolerance sweeps.** What counts as "fails" must be
-   declared before the sweeps run, not chosen after seeing the curves. Plan 05, step 1.
+2. **Whether IR drop matters at all**, which cannot be answered without a sourced wire
+   resistance. Its cliff is sharp — 100 Ω holds, 1 kΩ is chance — so the sourced value
+   decides between "irrelevant" and "fatal" with little in between at this array size.
 
 ### Resolved
 
@@ -222,6 +229,12 @@ Kept so a later session does not reopen a question already answered.
   window was binding. It was the optimiser. photonn does the same thing with `sigma`.
 - **The array size is 36×10**, 720 devices. Fixed for the comparable core and stated in
   the row, because IR drop grows with array size.
+- **The pass mark is 95% of ideal**, photonn's own convention, declared before the
+  sweeps ran (commit `3c97a6b`) so the ordering is checkable rather than asserted.
+- **Edges are brackets, never interpolated.** `mc.pack` stores no fitted crossing point.
+- **Joint-equals-sum is not a test of the seeding.** Accuracy saturates, so drops are
+  sub-additive even when seeding is perfect. The property that matters — a source's
+  draw not depending on what else is active — is tested directly instead.
 
 - **MATLAB for the as-built half, and why.** Reversed from an initial "Python for both" on
   inspecting `photonn-hw`: `mc.sweep` takes a driver handle and requires only

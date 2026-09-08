@@ -179,4 +179,24 @@ function sw = checkSweep(h)
     det = mc.run_montecarlo_crossbar(h, struct('states_per_device', 3, 'subset', 1:200), 3, 1);
     sw.deterministicStd = std(det.acc);
     sw.deterministicSeeds = det.seeds(:).';
+
+    % The property the per-source seed offsets exist for, tested directly rather
+    % than inferred from a joint run being the sum of the independents -- which it
+    % is not, because accuracy saturates.
+    %
+    % What must hold is that adding a source cannot change the draw another source
+    % gets. Here: the same seed must produce the same *perturbation*, whatever base
+    % conductances it is applied to. If it did not, a joint configuration would be
+    % comparing against draws the independent runs never saw.
+    G0 = model.program(h);
+    G2 = model.program(h, h.parameters.weights, 4);   % a different base
+    n1 = err.conductance_variation(G0, 0.05, h, 42) - G0;
+    n2 = err.conductance_variation(G2, 0.05, h, 42) - G2;
+    % Clamping at the window edge makes the two differ where a base sits against an
+    % edge, so compare only where neither is clamped -- the draw itself.
+    gmin = h.operating_point.g_min_s; gmax = h.operating_point.g_max_s;
+    free = (G0 > gmin) & (G0 < gmax) & (G2 > gmin) & (G2 < gmax) & ...
+           (abs(n1) < (gmax - gmin) * 0.5) & (abs(n2) < (gmax - gmin) * 0.5);
+    sw.drawIndependentOfBase = max(abs(n1(free) - n2(free))) < 1e-18;
+    sw.drawComparedCount = sum(free(:));
 end

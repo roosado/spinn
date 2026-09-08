@@ -548,3 +548,108 @@ A ladder that never fails has not found an edge; it has found a too-narrow ladde
 source is swept over a range wide enough to bracket its edge from both sides, and if one
 does not, the ladder is widened and the run repeated — that is a property of the ladder,
 not a result.
+
+---
+
+## 2026-09-08 — the budget, and the row
+
+The sweeps were run against the pass mark declared in the entry above, which was
+committed at `3c97a6b` before the driver had produced a number. Results in
+`docs/comparison_row.md`; raw output in `exports/error_budget.json`, gitignored and
+regenerable. Tests 120 → 142.
+
+### The row
+
+| | |
+|---|---|
+| Ideal accuracy | **0.7345** on the shared task |
+| Which source binds | **conductance variation** |
+| Required precision | **4.84 effective bits** on the binding source |
+| Delivered precision | `UNSOURCED` |
+| Margin | *omitted* |
+| Energy per inference | `UNSOURCED`; array read power **1.577 µW** |
+| Latency per inference | `UNSOURCED` |
+
+Array 36×10, 720 devices, differential pairs. Pass mark 0.6978.
+
+### The edges, as brackets
+
+| source | holds at | fails at | bits |
+|---|---|---|---|
+| 1. conductance variation | σ = 0.035 of the window → 0.7003 | σ = 0.05 → 0.6671 | **4.84 / 4.32** |
+| 2. resolvable states | 7 states/device → 0.7010 | 5 states → 0.6615 | 3.70 / 3.17 |
+| 3. IR drop | 100 Ω per segment → 0.7250 | 300 Ω → 0.6845 | *not a bit depth* |
+
+**Conductance variation binds, as predicted before any of this was written.** It
+demands 4.84 bits where the states knob demands 3.70, and both are expressed against
+the same conductance window, so that is like for like rather than two numbers sharing
+a column.
+
+**IR drop is deliberately not converted to bits.** It is a position-dependent
+systematic, not a spread on a stored value, so `log2(range/σ)` has no σ to take.
+Forcing it into the unit would be a category error. Its cliff is also unusually
+sharp: 100 Ω holds at 0.7250, 300 Ω fails at 0.6845, and 1 kΩ collapses to 0.12 —
+roughly chance. Whatever the sourced wire resistance turns out to be, this source
+either barely matters or destroys the array, with little in between at this size.
+That behaviour is what "grows with array size" looks like from the inside, and it is
+the strongest argument for the size sweep being the sequel.
+
+### The joint run, and a check that was the wrong instrument
+
+All three sources at the last magnitude each individually held: **0.6819 ± 0.0119**,
+which is **below** the pass mark. Budgeting every source to its own edge leaves
+nothing over.
+
+The joint drop is 0.0526 against 0.0772 for the sum of the independent drops —
+**sub-additive**. Plan 05 proposed checking "a joint run is the sum of the
+independent ones" and treating agreement as evidence the seeding is sound. That is
+the wrong instrument: accuracy saturates, because a sample already misclassified by
+one source cannot be misclassified again by the next, so drops are sub-additive even
+when the seeding is perfect. A sum-check would have failed for reasons unrelated to
+what it was testing.
+
+The property the per-source seed offsets actually exist for is that **adding a source
+cannot change the draw another source gets**, and that is now tested directly: the
+same seed must produce the same perturbation whatever base conductances it is applied
+to. It does, on every device not clamped at a window edge.
+
+### Two things in the data worth stating rather than smoothing
+
+**The states ladder is not monotonic.** 33 states scores 0.7350, marginally *above*
+the unquantised ideal of 0.7345, and 17 states (0.7170) scores below 9 states
+(0.7260). Quantisation at coarse steps perturbs a handful of borderline samples in
+whichever direction the rounding happens to fall, and at 2000 samples one flip is
+0.0005. The bracket [7 holds, 5 fails] is unaffected, but a reader should not take
+the curve as smooth.
+
+**The differential pair's advantage grows with state count, and is smallest where it
+is most often argued for.** `log2(2n−1) − log2(n)` approaches 1 bit as `n` grows and
+is only `log2(3) − 1 = 0.585` bits at two states. A test asserting the opposite was
+written first and failed; the reasoning behind it, not the code, was wrong. The
+binary MTJ case gets the least out of the scheme.
+
+### Energy and latency, and what is counted
+
+Array read power is **1.577 µW**, computed exactly as
+`mean_over_samples( Σ_ij V_i² · G_ij )` over all 720 devices.
+
+**Array only** — it excludes the sense amplifiers, the ADC and every digital stage
+after them. The periphery frequently dominates an analog accelerator's energy, so a
+figure that quietly omits it is not comparable to one that does not, and the boundary
+is stated rather than implied.
+
+**Energy per inference needs a read time and no read time has been sourced.** Energy
+= power × t_read; the arithmetic is published so a reader can substitute. Latency is
+the RC settling of the lines and needs a line capacitance and resistance, neither
+sourced. Both stay `UNSOURCED` rather than being filled with a plausible number.
+
+The window and read voltage are `UNSOURCED` placeholders too, so the power figure
+scales with them and is a worked example rather than a measurement. The accuracy and
+bit-depth results do not depend on them — they cancel in the decode, and a test
+asserts it.
+
+### What the comparable core does not include
+
+Error sources 4–7 (sneak paths, read noise, ADC quantisation, retention drift), the
+array-size sweep, the site pages beyond the placeholder, and the spin-torque
+oscillator. None of them blocks the row.

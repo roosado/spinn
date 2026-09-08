@@ -354,6 +354,24 @@ def test_accuracy_falls_as_the_conductance_spread_grows(crossed):
 
 
 @pytestmark_matlab
+def test_a_sources_draw_does_not_depend_on_what_else_is_active(crossed):
+    """The property the per-source seed offsets exist for.
+
+    Plan 05 proposed checking this through "a joint run is the sum of the
+    independent ones". That turns out to be the wrong instrument: accuracy
+    saturates, so drops are sub-additive even when the seeding is perfect, and a
+    sum-check would fail for reasons that have nothing to do with seeding.
+
+    Tested directly instead. The same seed must produce the same perturbation
+    whatever base conductances it is applied to -- otherwise a joint configuration
+    is compared against draws the independent runs never saw.
+    """
+    sw = crossed["sweep"]
+    assert sw["drawComparedCount"] > 100, "too few unclamped devices to conclude"
+    assert sw["drawIndependentOfBase"]
+
+
+@pytestmark_matlab
 def test_a_deterministic_only_configuration_has_no_spread(crossed):
     """Correct, not broken: only source 1 is stochastic today.
 
