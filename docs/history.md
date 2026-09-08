@@ -187,3 +187,92 @@ mentions of "photonn", not dependence on it. **Treat the tier counts as a lower 
 Nothing inherited was modified. `sweep.m`, `pack.m`, `validate_config.m`, `detector_noise.m`,
 `mount_queue.js`, `plot.js` and both JS runners are untouched, so a `diff` against photonn
 stays clean and any future drift remains auditable.
+
+---
+
+## 2026-09-08 — the web layer was cut to a spine, and the repo described itself
+
+`apps/build_site.py` came across whole: **1192 lines, 59 KB**, written for five
+pages, a figure pipeline, a MathML compiler and nine widgets. This repo has one page
+and no figures. It is now **711 lines**, most of that CSS, and it builds.
+
+### It was not a trim, because it could not be run
+
+The plan assumed a trim-and-check loop. There was none available: the file could not
+be **imported**, for three independent reasons. `from PIL import Image` — Pillow is
+not a declared dependency. `from apps.compare_demo import ...`, `apps.d2nn_demo` and
+`apps.diffraction_explorer` — 383 lines that were never copied. And
+`BODY = page_body("index")` executing at import time against `apps/pages/`, which
+existed and was **empty**.
+
+So the spine was **extracted into a new file** rather than deleted down to, importing
+after each move. The CSS was lifted by script rather than retyped, so nothing was lost
+in transcription.
+
+Two things the structural map had not shown, and only reading end to end did:
+
+- **`_chrome()` depends on three helpers that live outside the file** —
+  `read_web_asset`, `mount_queue_bundle` and `mount_script`, all generic, all in
+  photonn's `apps/diffraction_explorer.py`, a module built around an optical widget
+  and never copied. They are re-homed in `build_site.py` rather than dragged in with
+  the explorer they happened to sit beside.
+- **`mount_script` emits `window.PhotonnMount`**, and `PAGE_SCRIPT` persists the theme
+  under `localStorage['photonn-theme']`. Two more sites the Tier 2 rename had to reach,
+  one of them in a file nobody had copied. A `PhotonnMount` call against a `SpinnMount`
+  global is undefined at mount time and silent in a browser.
+
+### What was thrown away, and where to get it back
+
+Everything below is recoverable from `D:\Python\Photonn\apps\build_site.py`, which is
+**byte-identical** to the copy that arrived here — so these are exact coordinates, and
+recovery is a copy rather than a rediscovery.
+
+| block | photonn lines | why it went |
+|---|---|---|
+| `FIGURES` | 143–180 | seventeen optical figures; this repo has none |
+| figure size and quality constants | 182–202 | measured against those figures |
+| `_encodings`, `encode_figure` | 205–265 | the five-way encode-and-keep-smallest pipeline. Needs Pillow, an undeclared dependency, to encode nothing |
+| `_FIGN`, `_FIG_KEY`, `figure_index` | 717–747 | caption numbering, with no captions |
+| `_figures` | 1051–1064 | the token substitution for the above |
+| the MathML compiler and table | 750–873 | 124 lines: `_MATH_OPS`, `_mtok`, `mrow`, `mfrac`, `msqrt`, `mathml`, `MATH`, `_math`. Thirty-odd optical expressions and the machinery to render them, serving zero equations here |
+| `error_mask_bundle` | 876–903 | slices a trained phase mask out of the weights bundle |
+| `error_mount`, `interference_mount` | 922–939 | mount photonn's widgets |
+| four `PAGES` entries | 94–137 | physics, chip, tolerance, optics |
+| four page-body constants | 1012–1035 | and the `render()` body that filled them, 1097–1175 |
+| the explorer CSS host | 497–504 | `.explorer-band`, `.pe-host .pe-root` |
+| **`apps/web_bundle.py`** | whole file, 202 lines | recorded as "16 photonn-specific lines"; it mentions photonn twice and carries 41 lines of phase-mask encoding — `wrap_phase` to `[-π, π)`, `quantise_phase`, `encode_masks`. Only the tail from `b64` at line 124 is the generic bundle mechanism, and nothing here writes a bundle |
+
+**Correction to the plan that scheduled this.** It offered "the hub's *trimmed* copy of
+`build_site.py`" as an alternative base. There is no such thing: `physical-ai` has no
+`apps/` directory at all. From-scratch was the only fallback, and extraction landed
+between the two.
+
+### The palette was renamed, and a test now holds it
+
+`--beam`, `--beam-soft`, `--fringe` and `--spectral` became `--accent`,
+`--accent-soft`, `--accent-2` and `--rule-gradient`; `.spectral-rule` became
+`.topline`. A spintronics repo has no beam and no fringe, and a name kept only because
+photonn had it is the residue this pass exists to remove. **The colours themselves are
+unchanged** — the hub's nav contract wants the spokes to share chrome.
+
+An undefined CSS custom property is not an error; the declaration is silently dropped.
+So `test_site_build.py` asserts every `var(--x)` used is also defined, which is the
+only thing that would catch a half-finished rename.
+
+### Numbers that moved
+
+| | before | after |
+|---|---|---|
+| `apps/build_site.py` | 1192 lines | 711 |
+| `apps/` Python | 3 files, 1483 lines | 2 files, 800 |
+| tests | 35 | 53 |
+| `site/index.html` | did not exist | 31 KB, self-contained |
+
+### Left undone, deliberately
+
+`tests/built_site.py` is now working against this repo's `render()`, which closes the
+Tier 1 item the previous entry retiered. The `Page.widgets` field and the `plot.js`
+inlining it gates are kept with no widget to gate — the mechanism is three lines and
+the alternative is rediscovering it. `next_link` is kept but returns nothing: photonn
+wraps the last page back to the first, which on a one-page site invites the reader to
+go where they already are.

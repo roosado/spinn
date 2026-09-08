@@ -1,0 +1,162 @@
+<!--
+  The one page this repo builds today.
+
+  Deliberately thin. It exists so the builder has something to build and so the
+  chrome, the contents card and the page script are exercised by a real document
+  rather than a fixture. It is not the site: the pages that carry the argument
+  come after there is a measurement to argue from, and writing them earlier would
+  mean writing prose about results that do not exist.
+
+  Every claim here is structural -- what the machine is and what this repo will
+  produce. No device number appears on this page, because none has been sourced.
+-->
+@@TOPBAR@@
+<div class="topline"></div>
+
+<main class="wrap">
+
+  <section class="hero">
+    <p class="eyebrow">Physical AI &middot; platform two</p>
+    <h1>A neural network made of <em>magnets</em></h1>
+    <div class="underbar"></div>
+    <p class="standfirst">
+      A weight is the magnetic state of a device, and the sum is performed by
+      <b>Kirchhoff's law on a wire</b>. Not by interference, and not by a processor.
+      This repository works out how precisely such a thing would have to be built.
+    </p>
+  </section>
+
+  @@TOC@@
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="ph-num">01</span>
+      <div>
+        <p class="eyebrow">The weight</p>
+        <h2>A magnetic state, read as a conductance</h2>
+      </div>
+    </div>
+    <div class="prose col">
+      <p>
+        In a magnetic tunnel junction two magnetic layers sandwich a thin barrier. When
+        their magnetisations point the same way the device conducts comparatively well;
+        when they oppose, it conducts less. The stored value is an orientation, and the
+        circuit reads it as a conductance.
+      </p>
+      <p>
+        Domain-wall devices are the same idea with a position instead of an orientation,
+        which lets them hold more than two distinguishable states. <strong>They are one
+        model with a knob</strong> &mdash; states per weight &mdash; rather than two
+        separate machines, which is why this repository builds one crossbar and
+        parameterises it.
+      </p>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="ph-num">02</span>
+      <div>
+        <p class="eyebrow">The sum</p>
+        <h2>Kirchhoff's law does the arithmetic</h2>
+      </div>
+    </div>
+    <div class="prose col">
+      <p>
+        Arrange the devices in a grid. Drive the rows with voltages, and each device
+        passes a current set by its own conductance. Every device on a column dumps its
+        current into the same wire, and the wire adds them &mdash; because that is what
+        a wire does.
+      </p>
+      <p>
+        A matrix-vector multiply therefore costs one settling time and no instructions.
+        <strong>The multiply-accumulate is linear</strong>; whatever nonlinearity the
+        network needs sits in the periphery, in the converter and whatever follows it.
+        That is a real difference from an optical network, where the detector supplies
+        the nonlinearity for free, and this project intends to characterise the
+        difference rather than argue from it.
+      </p>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="ph-num">03</span>
+      <div>
+        <p class="eyebrow">The deliverable</p>
+        <h2>One row, in a table that compares media</h2>
+      </div>
+    </div>
+    <div class="prose col">
+      <p>
+        This is the second platform in a series. The first computes with light. One
+        example of computation-by-physics is an anecdote; a second, in an unrelated
+        medium, is what makes it a class &mdash; but only if the two can be put in the
+        same table.
+      </p>
+      <p>
+        They can, because any analog tolerance normalises against the device's own
+        operating range, and the log of that ratio is a bit depth. So this repository
+        owes exactly one row: what a weight physically is, what performs the sum, the
+        accuracy on the shared task, which error source binds first, and the precision
+        that source demands in <strong>effective bits</strong> &mdash; alongside energy
+        and latency per inference.
+      </p>
+      <p>
+        Every as-built magnitude is either cited or marked <span class="q">UNSOURCED</span>
+        and shown as such. Where a value cannot be sourced, no margin is claimed against
+        it and the column is left out rather than estimated.
+      </p>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="ph-num next">04</span>
+      <div>
+        <p class="eyebrow">Status</p>
+        <h2>What exists today, stated plainly</h2>
+      </div>
+    </div>
+    <div class="prose col">
+      <p>
+        The Monte Carlo harness and the web layer, inherited from the optical platform
+        and <strong>proven by running them</strong> rather than by inspection. No
+        crossbar model, no handoff, no measurement.
+      </p>
+      <p>
+        This page will be replaced once there is a result to report. Until then it says
+        what the machine is and nothing about how well it works, because nothing about
+        how well it works has been measured here.
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <h3>What this is</h3>
+        <p>
+          A spintronic crossbar simulator and its device-error model: the ideal design in
+          Python, handed one way to an as-built error model in MATLAB.
+        </p>
+      </div>
+      <div>
+        <h3>How numbers are treated</h3>
+        <p>
+          Cited, or marked <span class="q">UNSOURCED</span> and surfaced. A confident
+          wrong number costs more than an admitted hole.
+        </p>
+      </div>
+    </div>
+    <p class="colophon">
+      spinn &mdash; second platform in the physical-AI series. Built offline; this page
+      makes no external requests.
+    </p>
+  </div>
+</footer>
+
+@@PAGE_SCRIPT@@
