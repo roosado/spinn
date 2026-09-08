@@ -653,3 +653,52 @@ asserts it.
 Error sources 4–7 (sneak paths, read noise, ADC quantisation, retention drift), the
 array-size sweep, the site pages beyond the placeholder, and the spin-torque
 oscillator. None of them blocks the row.
+
+---
+
+## 2026-09-08 — the five plans are closed, and archived
+
+All five plans have been delivered and committed. They were moved to
+`plans/finished_plans/` in the same pass, each stamped with the commit that closed it.
+`plans/` stays gitignored, so this entry is the published record of that; the archive
+itself is working material and is never pushed.
+
+| plan | commit | what closed it |
+|---|---|---|
+| 01 prove the harness | `d80c2f2` | `pytest` green with the Node and MATLAB checks running rather than skipped; Tiers 1 and 2 proven by execution |
+| 02 trim the inheritance | `abfd79c` | the web layer cut to a spine, `apps/web_bundle.py` gone, `CLAUDE.md` written |
+| 03 the ideal crossbar | `9c4d9b5` | **0.7345** ideal at seed `20260908`, differential pairs, the frozen task committed |
+| 04 the seam | `8b9543c` | schema 0.1.0 closed on both sides, `+model/crossbar.m`, `+err` 1–3, the driver |
+| 05 the budget and the row | `3c97a6b`, `5646471` | the pass mark declared before the sweeps, then the row: conductance variation binds at **4.84 effective bits** |
+
+Verified before archiving: `142 passed`, no skips, on `.venv/Scripts/python.exe -m pytest`
+— so the MATLAB and Node checks ran rather than being absent.
+
+**The comparable core is complete.** The repo now owes the series exactly what it was
+scoped to owe — one row, in `docs/comparison_row.md` — and nothing in `plans/` is open.
+
+### Why the plans are kept rather than deleted
+
+They record what was believed *before* each piece was built, which is the only way to
+tell a prediction that held from one written afterwards. Three of the five were wrong
+about something that mattered, and in each case the plan text is the evidence:
+
+- **01** classified the inheritance by inspection; execution corrected it. The recorded
+  "photonn-specific line counts" counted mentions of the word, not dependence.
+- **03** recorded "quantisation applies to devices, not to weights" and argued for the
+  differential pair on grounds that rule would have voided. Plan 04's round-trip test
+  caught it.
+- **05** proposed a joint-equals-sum check as evidence the seeding was sound. Accuracy
+  saturates, so that check would have failed for reasons unrelated to seeding.
+
+The archived files are therefore **unedited below their status banner**, including the
+`plans/*.md` cross-references that no longer resolve and the future tense they are
+written in. Editing them to match what happened would destroy what they are kept for.
+
+### What is not planned
+
+No sixth plan exists, and one should not be written from the archive. The next work is
+named in `CLAUDE.md` instead — the two open sourcing questions (a conductance window, a
+wire resistance) under "Open decisions", and the deferred items under "Scope boundaries".
+The array-size sweep is the strongest candidate among them, because IR drop's cliff at
+this size is sharp enough that the row's number is visibly one point on a curve.

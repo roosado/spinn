@@ -30,19 +30,41 @@ budget is not a measurement of anything.
 
 ```sh
 py -3 -m venv .venv
-.venv/Scripts/python.exe -m pip install pytest numpy
+.venv/Scripts/python.exe -m pip install pytest numpy h5py
 .venv/Scripts/python.exe -m pytest        # Node and MATLAB checks skip if absent
 .venv/Scripts/python.exe -m apps.build_site
 ```
 
-Only `pytest` and `numpy` are installed today. The remaining dependencies in
-`pyproject.toml` go in when something imports them.
+`pytest`, `numpy` and `h5py` are installed. `matplotlib` is declared in `pyproject.toml`
+and not installed, because nothing draws a figure yet; the remaining dependencies go in
+when something imports them.
+
+Regenerating the result end to end also needs MATLAB (base, no toolboxes):
+
+```sh
+.venv/Scripts/python.exe -m apps.train_crossbar     # writes exports/crossbar_handoff.h5
+matlab -batch "addpath('spinn-hw'); run_error_budget('exports/crossbar_handoff.h5')"
+.venv/Scripts/python.exe -m apps.report_row         # writes docs/comparison_row.md
+```
+
+Run from the repo root; `run_error_budget` writes `exports/error_budget.json`, which
+`apps.report_row` reads. `exports/` is gitignored — the numbers that matter are copied
+into `docs/`, the raw run output is not versioned.
 
 ## State
 
-Early, and stated plainly. The Monte Carlo harness and web layer are inherited from
-photonn and **proven by execution**; there is no crossbar model, no handoff and no
-measurement yet. The page the build produces says so.
+**The comparable core is done, and the row is in `docs/comparison_row.md`.** The ideal
+array scores **0.7345** on the shared task; under device error, **conductance variation
+binds, at 4.84 effective bits**, ahead of resolvable states and IR drop. Delivered
+precision, energy per inference and latency are `UNSOURCED`, so no margin is claimed and
+that column is omitted rather than estimated.
+
+The array is 36×10 logical, 720 devices in differential pairs, and that size is fixed and
+stated because IR drop grows with it. `docs/history.md` is the full record, newest last.
+
+Not built, deliberately: error sources beyond the first three, an array-size sweep, the
+site pages past the placeholder, and the spin-torque oscillator — which is complementary
+and stays out of the comparison table on purpose. `CLAUDE.md` says why for each.
 
 ## How numbers are treated
 

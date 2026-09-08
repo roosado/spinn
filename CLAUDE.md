@@ -47,10 +47,12 @@ spinn-hw/
 ├── +mc/              # sweep, pack, validate_config, error_sources + the crossbar driver
 ├── +model/           # program, encode, crossbar — the as-built forward pass
 ├── +err/             # conductance_variation, quantize, ir_drop (+ inherited detector_noise)
-└── +io/read_handoff.m  # the one MATLAB reader
+├── +io/read_handoff.m  # the one MATLAB reader
+└── run_error_budget.m  # the sweep entry point; writes exports/error_budget.json
 
 apps/
 ├── train_crossbar.py # trains the ideal array; NumPy, no autograd
+├── report_row.py     # turns the error budget into docs/comparison_row.md
 ├── build_site.py     # the site generator, trimmed to a spine
 ├── preview.py        # standalone shell for previewing one widget
 ├── pages/index.html  # page prose lives here, never in the generator
@@ -118,16 +120,25 @@ of which raise.
 
 ## Plan of work
 
-Five plans in `plans/` (gitignored), in order. Each has a deliverable that can be checked
-by running something.
+**All five plans are closed. Nothing in `plans/` is open**, and no sixth plan exists.
+The comparable core is complete and the row is reported.
 
-| | | state |
-|---|---|---|
-| 01 | prove the harness | **done** — Tier 1 and 2 executed |
-| 02 | trim the inheritance | **done** — the web layer cut to a spine, this file |
-| 03 | the ideal crossbar | **done** — 0.7345 ideal, differential pairs |
-| 04 | the seam | **done** — closed handoff, `+model/crossbar`, `+err` 1–3, 120 tests |
-| 05 | the budget and the row | **done** — conductance variation binds at 4.84 bits |
+| | | closed by | |
+|---|---|---|---|
+| 01 | prove the harness | `d80c2f2` | Tier 1 and 2 executed |
+| 02 | trim the inheritance | `abfd79c` | the web layer cut to a spine, this file |
+| 03 | the ideal crossbar | `9c4d9b5` | 0.7345 ideal, differential pairs |
+| 04 | the seam | `8b9543c` | closed handoff, `+model/crossbar`, `+err` 1–3, 120 tests |
+| 05 | the budget and the row | `3c97a6b`, `5646471` | conductance variation binds at 4.84 bits |
+
+The plan files are archived in `plans/finished_plans/` (gitignored, like all of
+`plans/`), each stamped with the commit that closed it and otherwise unedited — they
+record what was believed before each piece was built, and three of the five were wrong
+about something that mattered. `docs/history.md` carries the published version.
+
+**Do not write a sixth plan from that archive.** The next work is named below instead:
+the two sourcing questions under *Open decisions*, and the items under *Deliberately
+deferred*.
 
 ---
 
@@ -157,7 +168,8 @@ by running something.
 
 ### Deliberately deferred
 
-- The site pages beyond `index.html`. There is no result to write about yet.
+- The site pages beyond `index.html`, which now reports the row itself. A page per
+  error source, or a tolerance page like photonn's, is optional and unplanned.
 - An array-size sweep. IR drop grows with array size, so the row's number is one point on
   a curve — but the size is fixed and stated first.
 - A self-consistent IR-drop solve. Source 3 is first-order and one pass overstates the

@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26",
-    "h5py>=3.10",       # the handoff; not yet written
+    "h5py>=3.10",       # the handoff, schema 0.1.0
     "matplotlib>=3.8",  # budget figures; not yet drawn
 ]
 # torch was removed rather than installed. The model is one 36x10 linear map and
