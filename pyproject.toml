@@ -10,11 +10,13 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26",
-    "scipy>=1.11",
-    "h5py>=3.10",
-    "torch>=2.2",
-    "matplotlib>=3.8",
+    "h5py>=3.10",       # the handoff; not yet written
+    "matplotlib>=3.8",  # budget figures; not yet drawn
 ]
+# torch was removed rather than installed. The model is one 36x10 linear map and
+# the gradient of softmax cross-entropy through it is `X.T @ (p - Y)`; autograd for
+# one line of calculus is not worth the largest dependency in the project. scipy
+# went the same way -- nothing imported it. See docs/history.md.
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]

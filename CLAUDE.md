@@ -37,7 +37,8 @@ belongs in the device physics and the error model.
 
 ```
 spinn/
-├── __init__.py       # version only; nothing is exported yet
+├── crossbar.py       # the ideal forward pass: program, read, decode
+├── task.py           # the frozen shared task, MNIST at 6x6
 ├── export.py         # handoff writer          — INHERITED, optical, not yet adapted
 └── handoff.py        # the single Python reader — INHERITED, does not import
 
@@ -47,13 +48,27 @@ spinn-hw/
 └── +io/read_handoff.m  # the single MATLAB reader — INHERITED, optical
 
 apps/
+├── train_crossbar.py # trains the ideal array; NumPy, no autograd
 ├── build_site.py     # the site generator, trimmed to a spine
 ├── preview.py        # standalone shell for previewing one widget
 ├── pages/index.html  # page prose lives here, never in the generator
 └── web/              # mount_queue.js, plot.js
 
+tools/
+└── import_shared_task.py  # one-off, runs in PHOTONN's venv, never imported here
+
 tests/                # pytest drives everything, including Node and MATLAB
+└── fixtures/shared_task_6x6.npz   # the frozen task, committed
 ```
+
+### The model, as it stands
+
+36 inputs × 10 columns, **differential pairs**, so 720 devices. Ideal accuracy on the
+shared task is **0.7345** (seed `20260908`), with `readout_gain = 5.4271`.
+
+`g_min`, `g_max` and `read_voltage` are `UNSOURCED` placeholders and **cancel exactly**
+in the decode — a test asserts the ideal accuracy is unchanged across unrelated windows.
+They are carried because the error model needs them.
 
 ### Inherited from photonn
 
@@ -93,9 +108,9 @@ by running something.
 
 | | | state |
 |---|---|---|
-| 01 | prove the harness | **done** — 53 tests, Tier 1 and 2 executed |
+| 01 | prove the harness | **done** — Tier 1 and 2 executed |
 | 02 | trim the inheritance | **done** — the web layer cut to a spine, this file |
-| 03 | the ideal crossbar | Python forward pass, signed-weight decision, ideal accuracy |
+| 03 | the ideal crossbar | **done** — 0.7345 ideal, differential pairs, 92 tests |
 | 04 | the seam | closed handoff, `+model/crossbar`, `+err` sources 1–3, the config API |
 | 05 | the budget and the row | binding source, its edge in effective bits, energy, latency |
 
@@ -164,15 +179,32 @@ by running something.
 
 Do not assume an answer; ask.
 
-1. **Signed weights: differential pair or offset.** A pair doubles the device count and
-   gives each weight two independent error draws; an offset needs the column pedestal
-   subtracted downstream. Plan 03 decides it and writes the reason down.
-2. **The array size for the comparable core.** Must be fixed and stated in the row.
-3. **`torch` or plain NumPy** for training. Plan 03, on evidence.
+1. **A source for the conductance window.** `g_max/g_min` is the platform's
+   characteristic constraint and the current value is a placeholder. This is the largest
+   open sourcing gap.
+2. **The failure threshold for the tolerance sweeps.** What counts as "fails" must be
+   declared before the sweeps run, not chosen after seeing the curves. Plan 05, step 1.
 
 ### Resolved
 
 Kept so a later session does not reopen a question already answered.
+
+- **Signed weights: the differential pair.** Two devices per weight. The window is the
+  binding constraint, so doubling the signed range it yields is worth the devices: two
+  independent error draws raise σ by √2 against a range that doubles, a net √2 in SNR,
+  before counting the pedestal an offset scheme must subtract downstream. Both schemes
+  are implemented because the choice crosses the handoff; ideally they are identical.
+- **Quantisation applies to devices, not weights.** A device holds the state. Under a
+  pair the effective weight is a difference of two quantised conductances and resolves
+  finer than either — two-state devices give three weights.
+- **NumPy, not PyTorch.** One 36×10 linear map; the gradient is `X.T @ (p − Y)`. `torch`
+  and `scipy` were removed from `pyproject.toml` rather than installed.
+- **The window bounds the weight pattern's shape, not its scale.** Train unconstrained,
+  then divide by `max|w|` and carry the factor as a readout gain. Projecting onto
+  `[-1, 1]` inside the descent cost 5.7 points of accuracy and looked like evidence the
+  window was binding. It was the optimiser. photonn does the same thing with `sigma`.
+- **The array size is 36×10**, 720 devices. Fixed for the comparable core and stated in
+  the row, because IR drop grows with array size.
 
 - **MATLAB for the as-built half, and why.** Reversed from an initial "Python for both" on
   inspecting `photonn-hw`: `mc.sweep` takes a driver handle and requires only

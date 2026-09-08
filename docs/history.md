@@ -276,3 +276,130 @@ inlining it gates are kept with no widget to gate — the mechanism is three lin
 the alternative is rediscovering it. `next_link` is kept but returns nothing: photonn
 wraps the last page back to the first, which on a one-page site invites the reader to
 go where they already are.
+
+---
+
+## 2026-09-08 — the ideal crossbar, trained, and one wrong constraint found
+
+The first physics in this repo. `spinn/crossbar.py` is the ideal forward pass,
+`spinn/task.py` loads the frozen shared task, `apps/train_crossbar.py` trains it.
+
+**Ideal accuracy on the shared task: `0.7345`**, seed `20260908`, on a 36×10
+differential array — **720 devices**, since a differential pair costs two per weight.
+Test count 53 → 92.
+
+### The shared task is frozen, not regenerated
+
+`tools/import_shared_task.py` runs **once, in photonn's interpreter**, and is not
+imported by anything here:
+
+    D:/Python/Photonn/.venv/Scripts/python.exe tools/import_shared_task.py
+
+The test split (2000 × 6×6) is lifted **verbatim** from `photonn/exports/mesh_phase3.h5`
+— the artefact photonn's own mesh was scored on, so it cannot drift from what they
+used. The train split (20000) is recomputed, because the handoff carries no training
+data, but computed *there*, through photonn's own `encode_modes`, so the preprocessing
+is theirs rather than a reimplementation of theirs. Output is committed at
+`tests/fixtures/shared_task_6x6.npz`, 895 KB.
+
+**Correction to the plan.** It called for freezing the 6×6 grid *before* photonn's L2
+normalisation, on the grounds that unit-L2 is an optical convention — power at the
+entrance — and a crossbar is bounded by a read voltage instead. The pre-normalisation
+grid is not in the handoff, and it is also **not needed**. The samples are non-negative
+and the normalisation is a *scale*, so dividing by the per-sample maximum recovers
+exactly the L-infinity normalisation of the raw grid: `s/max(s) == d/max(d)`. A scale is
+recoverable; an offset would not have been. The plan's concern was real for the wrong
+transform.
+
+### Decisions taken, with their reasons
+
+**Signed weights: the differential pair.** Two devices per weight, wired so their
+currents subtract.
+
+| | differential | offset |
+|---|---|---|
+| devices per weight | two | one |
+| signed range from the window | ±(g_max−g_min) | ±(g_max−g_min)/2 |
+| conductance-variation draws | two, independent | one |
+| the column pedestal | cancels in hardware | subtracted downstream |
+
+The conductance window is this platform's binding physical constraint, so doubling the
+signed range it yields is worth real devices. Two independent draws raise the effective
+weight's σ by √2 against a range that doubles — net √2 in signal-to-noise — before
+counting the pedestal, which under an offset scheme is a real input-dependent current
+whose *mean* can be subtracted downstream and whose *noise* cannot.
+
+Both schemes are implemented, because the scheme has to cross the handoff rather than be
+assumed independently on each side. Ideally they are **identical** — an analytic test
+asserts both reduce exactly to `normalised_input @ W` — so the choice is invisible in the
+ideal accuracy and shows up only under error, in plan 05.
+
+**Quantisation applies to devices, not to weights.** A device is the object with a finite
+number of states. Under a differential pair the effective weight is a *difference* of two
+quantised conductances and so resolves more finely than either device: two-state devices
+give three distinguishable weights. Quantising the weight instead would understate the
+scheme and make error source 2 look worse than it is.
+
+**NumPy, not PyTorch.** The model is one 36×10 linear map and the gradient of softmax
+cross-entropy through it is `X.T @ (p − Y)`. Autograd for one line of calculus is not
+worth the largest dependency in the project. `torch` was **removed** from
+`pyproject.toml` rather than installed, and `scipy` with it — nothing imported either.
+
+### The wrong constraint, and what it cost
+
+The first trainer used **projected** gradient descent, clipping weights onto `[-1, 1]`
+after every step. It sounds more physical than training freely and rescaling at the end.
+It is not, and it was wrong twice over:
+
+- It clips *inside* the descent, so it distorts the search direction rather than the
+  reachable set.
+- The window does not bound what it appeared to bound. A positive global factor on every
+  column current cannot change an argmax, so the window constrains the weight pattern's
+  **shape**, not its **scale**.
+
+| | test accuracy | weights at the window edge |
+|---|---|---|
+| projected each step | 0.6775 | 27.2% |
+| unconstrained, then rescaled | **0.7345** | 0.3% |
+
+**5.7 points**, and the projected run's saturation read exactly like evidence that the
+window was binding. It was the optimiser. The trainer now fits unconstrained and divides
+by `max|w|`, carrying `readout_gain = 5.4271` so the logits stay reconstructible — a gain
+that must cross the handoff, or MATLAB rebuilds correctly-classified but wrongly-scaled
+logits, which is invisible in an accuracy and wrong in anything derived from a margin.
+
+photonn does the same thing on its side of the series: its handoff records `sigma`
+passivized to ≤ 1 with an external gain of 3.9068, logit-preserving. The pattern was
+already there to be copied.
+
+Note the gain amplifies noise along with signal. It buys no signal-to-noise; it only
+removes a constraint that was never physical.
+
+### On the two platforms scoring alike
+
+photonn's mesh scored `0.7355` on this identical frozen set; the crossbar scores `0.7345`
+— one sample in 2000. **No conclusion is drawn from that, and none should be.** Both are
+essentially linear maps over the same 36 channels, so comparable accuracy is what you
+would expect rather than a finding. What it does buy is a cleaner comparison: neither row
+in the table will be confounded by one platform simply having the better classifier.
+Whether the platforms differ is a question for the error budget.
+
+### UNSOURCED, and provably harmless here
+
+`g_min = 1e-6 S`, `g_max = 3e-6 S`, `read_voltage = 0.1 V` are all `UNSOURCED`
+placeholders. They **cancel exactly** in the decode, and a test asserts the ideal
+accuracy is unchanged across two unrelated windows and drives — so the ideal number does
+not rest on them. They are carried because the error model needs them, and because a
+conductance window with no numbers in it invites someone to invent some.
+
+The ratio `g_max/g_min` is the one that matters and is the platform's characteristic
+constraint. The value here is a placeholder standing in the right region; sourcing it is
+still open.
+
+### Left undone, deliberately
+
+No bias row. A crossbar column sums the currents on its wire; a bias would be an extra
+row of devices at a fixed voltage, and that is device count spent outside the thing being
+measured. No quantisation-aware training — the states knob exists and defaults off, and
+it is error source 2, which belongs behind the handoff. The trained weights land in
+`exports/`, which is gitignored: they are regenerable from the recorded seed.
