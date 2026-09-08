@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A weight is the magnetic state of a device and the sum is performed by Kirchhoff's law on a wire. How precisely would such a thing have to be built?">
+<title>spinn &middot; a neural network made of magnets</title>
+<style>
+
+:root{
+  color-scheme: light dark;
+  --bg:#f4f7fb; --surface:#ffffff; --surface-2:#eef2f8;
+  --border:#d8e0ec; --ink:#141b26; --ink-dim:#3f4c60; --muted:#6b7789;
+  --accent:#0f9e8f; --accent-2:#c9701f; --good:#2f8f52; --bad:#c14a34;
+  --accent-soft:rgba(15,158,143,.10);
+  --rule-gradient:linear-gradient(90deg,#39d1a0,#4fc6e6,#f2c14e,#ef7d5a,#c05aa8);
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
+  --sans:ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,"Liberation Mono",Menlo,monospace;
+  --measure:68ch;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0a0d12; --surface:#111826; --surface-2:#0e131d;
+    --border:#243149; --ink:#e8edf4; --ink-dim:#b7c2d2; --muted:#7787a0;
+    --accent:#2ec9b8; --accent-2:#f2994a; --good:#57c07a; --bad:#e0705f;
+    --accent-soft:rgba(46,201,184,.14);
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f4f7fb; --surface:#ffffff; --surface-2:#eef2f8;
+  --border:#d8e0ec; --ink:#141b26; --ink-dim:#3f4c60; --muted:#6b7789;
+  --accent:#0f9e8f; --accent-2:#c9701f; --good:#2f8f52; --bad:#c14a34; --accent-soft:rgba(15,158,143,.10);
+}
+:root[data-theme="dark"]{
+  --bg:#0a0d12; --surface:#111826; --surface-2:#0e131d;
+  --border:#243149; --ink:#e8edf4; --ink-dim:#b7c2d2; --muted:#7787a0;
+  --accent:#2ec9b8; --accent-2:#f2994a; --good:#57c07a; --bad:#e0705f; --accent-soft:rgba(46,201,184,.14);
+}
+
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:var(--sans);font-size:17px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+.topline{height:3px;background:var(--rule-gradient);}
+
+.topbar{position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);
+  background:color-mix(in srgb,var(--bg) 82%,transparent);
+  border-bottom:1px solid var(--border);}
+.topbar-in{max-width:1120px;margin:0 auto;padding:9px 24px;
+  display:flex;align-items:center;justify-content:space-between;gap:6px 16px;flex-wrap:wrap;}
+.brand{font-family:var(--mono);font-size:.82rem;letter-spacing:.02em;color:var(--ink-dim);}
+.brand b{color:var(--accent);font-weight:600;}
+.theme-toggle{font-family:var(--mono);font-size:.74rem;letter-spacing:.04em;
+  background:transparent;border:1px solid var(--border);color:var(--muted);
+  border-radius:999px;padding:5px 13px;cursor:pointer;transition:color .15s,border-color .15s;}
+.theme-toggle:hover{color:var(--ink);border-color:var(--accent);}
+.theme-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.topbar-right{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;}
+/* The nav is quieter than a row of pills: only the page you are on is drawn as
+   one. Sized for several pages sharing a row, which is where this is going. */
+.topbar-nav{display:flex;align-items:center;gap:2px;flex-wrap:wrap;}
+.topbar-nav a{font-family:var(--mono);font-size:.74rem;letter-spacing:.03em;text-decoration:none;
+  color:var(--muted);border:1px solid transparent;border-radius:999px;padding:5px 11px;
+  white-space:nowrap;transition:color .15s,background .15s,border-color .15s;}
+.topbar-nav a:hover{color:var(--ink);background:var(--accent-soft);}
+.topbar-nav a[aria-current="page"]{color:var(--accent);background:var(--accent-soft);
+  border-color:color-mix(in srgb,var(--accent) 45%,transparent);}
+.topbar-nav a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+@media (max-width:900px){.brand span.brand-tail{display:none;}}
+@media (max-width:640px){.topbar-nav a{padding:5px 8px;font-size:.7rem;}}
+
+/* sequential hand-off at the foot of every page */
+.pagenext{display:block;text-decoration:none;background:var(--surface);
+  border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;
+  padding:19px 22px;margin:46px 0 6px;transition:background .15s,border-color .15s;}
+.pagenext:hover{background:var(--surface-2);border-color:var(--accent);}
+.pagenext:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
+.pagenext .k{display:block;font-family:var(--mono);font-size:.7rem;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--muted);}
+.pagenext .t{display:block;font-family:var(--serif);font-weight:600;color:var(--ink);
+  font-size:clamp(1.12rem,2vw,1.38rem);line-height:1.2;margin:.32rem 0 .28rem;}
+.pagenext .b{display:block;color:var(--ink-dim);font-size:.94rem;max-width:64ch;}
+
+/* In-page contents. One element, two presentations: a card in the flow of the page,
+   and at >=1500px the same list pinned in the right margin. 1500 is where a 176 px
+   rail plus its gap clears the 1120 px wrap on both sides -- narrower than that and
+   the content would have to come off centre to make room, which costs more than the
+   rail is worth. Below it the card is the whole feature and nothing is missing. */
+.toc{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:15px 18px 17px;margin:30px 0 4px;max-width:var(--measure);}
+.toc-k{font-family:var(--mono);font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 .55rem;}
+.toc-list{list-style:none;margin:0;padding:0;}
+.toc-list li{margin:1px 0;}
+.toc-list a{display:flex;gap:9px;text-decoration:none;color:var(--ink-dim);
+  font-size:.88rem;line-height:1.35;border-radius:6px;padding:3px 7px;
+  border-left:2px solid transparent;transition:color .15s,background .15s,border-color .15s;}
+.toc-list a:hover{color:var(--ink);background:var(--accent-soft);}
+.toc-list a:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+.toc-list a[aria-current="location"]{color:var(--accent);background:var(--accent-soft);
+  border-left-color:var(--accent);}
+.toc-n{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--accent);
+  min-width:1.1em;flex:none;}
+.toc-g{margin-top:.5rem;}
+.toc-s a{padding-left:18px;}
+.toc-g a{font-family:var(--mono);font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);}
+.toc-g a:hover{color:var(--ink);}
+@media (min-width:1500px){
+  .toc{position:fixed;top:78px;left:calc(50% + 580px);width:176px;margin:0;padding:0 0 0 13px;
+    max-height:calc(100vh - 120px);overflow:auto;background:transparent;border:0;
+    border-left:1px solid var(--border);border-radius:0;}
+  .toc-list a{font-size:.82rem;}
+}
+/* Anchor jumps have to clear the sticky topbar, which is 42-46 px and taller once
+   the nav wraps. */
+.phase-head h2[id],.phase-head h3[id],.band-h[id]{scroll-margin-top:78px;}
+
+/* A family of error sources, and what the family is. Used by a page that groups
+   its sections; everywhere else a section is a section. */
+.band{padding:44px 0 0;}
+.band-k{font-family:var(--mono);font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 .3rem;}
+.band-h{font-family:var(--mono);font-size:1.02rem;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--accent);margin:0;}
+.band-b{color:var(--ink-dim);font-size:.95rem;margin:.4rem 0 0;max-width:58ch;}
+
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px;}
+.col{max-width:var(--measure);}
+.eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--accent);margin:0 0 .5rem;}
+
+/* hero */
+.hero{padding:76px 0 30px;}
+.hero h1{font-family:var(--serif);font-weight:600;text-wrap:balance;
+  font-size:clamp(2.1rem,4.6vw,3.35rem);line-height:1.08;letter-spacing:-.01em;
+  margin:.2rem 0 .1rem;}
+.hero h1 em{font-style:italic;color:var(--accent-2);}
+.hero .underbar{width:132px;height:3px;background:var(--rule-gradient);margin:20px 0 22px;border-radius:2px;}
+.standfirst{font-size:1.16rem;color:var(--ink-dim);max-width:60ch;}
+.standfirst b{color:var(--ink);font-weight:600;}
+
+.stat-strip{display:flex;flex-wrap:wrap;gap:14px;margin:34px 0 8px;}
+.stat{flex:1 1 150px;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:15px 17px;}
+.stat .v{font-family:var(--mono);font-size:1.5rem;font-weight:600;color:var(--ink);
+  font-variant-numeric:tabular-nums;display:block;letter-spacing:-.01em;}
+.stat .v small{font-size:.9rem;color:var(--muted);font-weight:500;}
+.stat .l{font-size:.8rem;color:var(--muted);display:block;margin-top:3px;line-height:1.35;}
+
+/* phase sections */
+.phase{padding:52px 0;border-top:1px solid var(--border);}
+.phase-head{display:flex;gap:20px;align-items:flex-start;margin-bottom:10px;}
+.ph-num{font-family:var(--mono);font-size:.95rem;font-weight:600;color:var(--accent);
+  border:1px solid var(--border);border-radius:9px;padding:7px 11px;line-height:1;
+  background:var(--accent-soft);white-space:nowrap;margin-top:4px;}
+.ph-num.next{color:var(--muted);background:transparent;border-style:dashed;}
+.phase-head h2,.phase-head h3{font-family:var(--serif);font-weight:600;text-wrap:balance;
+  font-size:clamp(1.55rem,2.8vw,2.05rem);line-height:1.14;margin:.1rem 0 0;}
+.prose{color:var(--ink-dim);}
+.prose p{margin:.85rem 0;max-width:var(--measure);}
+.prose strong{color:var(--ink);font-weight:600;}
+.sub-h{font-family:var(--serif);font-weight:600;color:var(--ink);
+  font-size:clamp(1.15rem,2vw,1.42rem);line-height:1.2;margin:2.1rem 0 .2rem;}
+.q{font-family:var(--mono);font-size:.92em;background:var(--surface-2);
+  border:1px solid var(--border);border-radius:5px;padding:.05em .38em;color:var(--ink);
+  white-space:nowrap;}
+/* Mathematics is MathML, rendered by the browser itself. Inline expressions sit in
+   the run of the sentence; display ones get their own centred line and a rule-free
+   band so a long operator product is not competing with the prose around it.
+
+   Identifier styling is left to the browser on purpose: MathML already italicises a
+   single-letter <mi> and leaves a multi-letter one upright, which is exactly the
+   convention wanted here (M is a matrix, exp is a function name).
+
+   NEVER set `display` on a <math> element. MathML lays out as `display: math` (or
+   `block math`), and overriding it with plain `block` drops the element back into CSS
+   block layout, which puts every child on its own line -- a nine-term operator product
+   becomes nine stacked rows. The scroll container therefore lives on a wrapper. */
+math{font-size:1.06em;color:var(--ink);}
+.eq{margin:1.15rem 0;text-align:center;overflow-x:auto;overflow-y:hidden;max-width:100%;
+  padding:.1rem 0;}
+.eq math{font-size:1.2em;}
+a.link{color:var(--accent);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent);}
+a.link:hover{border-bottom-color:var(--accent);}
+a.link:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px;}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:24px 0;}
+.stats .s{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 15px;}
+.stats .s .v{font-family:var(--mono);font-size:1.15rem;font-weight:600;color:var(--ink);
+  font-variant-numeric:tabular-nums;}
+.stats .s .l{font-size:.76rem;color:var(--muted);margin-top:2px;line-height:1.35;}
+
+/* figure plates -- always light, since the figures are light-background */
+.plate{background:#fff;border:1px solid var(--border);border-radius:12px;
+  padding:12px;margin:26px 0;overflow-x:auto;}
+.plate img{display:block;width:100%;height:auto;border-radius:6px;}
+.plate figcaption{font-family:var(--sans);font-size:.83rem;color:#5b6675;
+  margin-top:10px;padding:0 4px;line-height:1.5;}
+.plate figcaption .fign{font-family:var(--mono);color:var(--accent);font-weight:600;
+  letter-spacing:.02em;margin-right:.5em;}
+.plate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));
+  gap:16px;margin:26px 0;}
+.plate-grid .plate{margin:0;}
+
+/* tables -- wide content scrolls inside its own box, never the page */
+.tbl-wrap{overflow-x:auto;margin:24px 0;-webkit-overflow-scrolling:touch;}
+.tbl{border-collapse:collapse;font-size:.92rem;min-width:min(100%,540px);}
+.tbl th,.tbl td{border-bottom:1px solid var(--border);padding:9px 14px 9px 0;
+  text-align:left;vertical-align:top;color:var(--ink-dim);}
+.tbl th{font-family:var(--mono);font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;white-space:nowrap;}
+.tbl td strong{color:var(--ink);font-weight:600;}
+.tbl tr:last-child td{border-bottom:0;}
+
+/* inline reference list, for the sections sourced from outside this project */
+.refs{list-style:none;padding:0;margin:1.6rem 0 0;max-width:var(--measure);
+  border-top:1px solid var(--border);padding-top:.9rem;}
+.refs li{font-size:.84rem;color:var(--muted);margin:.42rem 0;line-height:1.5;}
+.refs li b{font-family:var(--mono);color:var(--accent);font-weight:600;margin-right:.45em;}
+.refs a{color:inherit;text-decoration:none;
+  border-bottom:1px solid color-mix(in srgb,var(--muted) 40%,transparent);}
+.refs a:hover{color:var(--ink);border-bottom-color:var(--accent);}
+.refs a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px;}
+sup.r{font-family:var(--mono);font-size:.66em;color:var(--accent);font-weight:600;
+  padding-left:.12em;}
+
+/* finding callout */
+.finding{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--bad);
+  border-radius:10px;padding:18px 20px;margin:26px 0;}
+.finding .tag{font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--bad);margin:0 0 .4rem;font-weight:600;}
+.finding p.body{margin:0;color:var(--ink);}
+.finding p.body strong{color:var(--ink);}
+
+/* planned cards */
+.planned{opacity:.96;}
+.planned .phase-head h2{color:var(--ink-dim);}
+.badge-next{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);border:1px dashed var(--border);border-radius:999px;padding:3px 10px;
+  display:inline-block;margin-bottom:6px;}
+
+/* footer */
+footer{border-top:1px solid var(--border);margin-top:20px;padding:44px 0 70px;}
+.foot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:26px;}
+footer h3{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);margin:0 0 .6rem;font-weight:600;}
+footer p{margin:.3rem 0;color:var(--ink-dim);font-size:.92rem;max-width:42ch;}
+footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.76rem;color:var(--muted);
+  border-top:1px solid var(--border);padding-top:18px;}
+
+/* motion */
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease;}
+.reveal.in{opacity:1;transform:none;}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none;}}
+
+@media (max-width:640px){
+  .phase-head{gap:13px;}
+  .hero{padding:52px 0 22px;}
+}
+
+</style>
+</head>
+<body>
+<!--
+  The one page this repo builds today.
+
+  Deliberately thin. It exists so the builder has something to build and so the
+  chrome, the contents card and the page script are exercised by a real document
+  rather than a fixture. It is not the site: the pages that carry the argument
+  come after there is a measurement to argue from, and writing them earlier would
+  mean writing prose about results that do not exist.
+
+  Every claim here is structural -- what the machine is and what this repo will
+  produce. No device number appears on this page, because none has been sourced.
+-->
+<header class="topbar">
+  <div class="topbar-in">
+    <span class="brand"><b>spinn</b><span class="brand-tail"> &middot; a device-tolerance study of spintronic neural networks</span></span>
+    <div class="topbar-right">
+      <nav class="topbar-nav" aria-label="Sections"><a href="./" aria-current="page">The machine</a></nav>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle colour theme">◐ theme</button>
+    </div>
+  </div>
+</header>
+<div class="topline"></div>
+
+<main class="wrap">
+
+  <section class="hero">
+    <p class="eyebrow">Physical AI &middot; platform two</p>
+    <h1>A neural network made of <em>magnets</em></h1>
+    <div class="underbar"></div>
+    <p class="standfirst">
+      A weight is the magnetic state of a device, and the sum is performed by
+      <b>Kirchhoff's law on a wire</b>. Not by interference, and not by a processor.
+      This repository works out how precisely such a thing would have to be built.
+    </p>
+  </section>
+
+  <nav class="toc" aria-label="On this page">
+  <p class="toc-k">On this page</p>
+  <ol class="toc-list"><li><a href="#a-magnetic-state-read-as-a-conductance">A magnetic state, read as a conductance</a></li><li><a href="#kirchhoff-s-law-does-the-arithmetic">Kirchhoff's law does the arithmetic</a></li><li><a href="#one-row-in-a-table-that-compares-media">One row, in a table that compares media</a></li><li><a href="#what-exists-today-stated-plainly">What exists today, stated plainly</a></li></ol>
+</nav>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="ph-num">01</span>
+      <div>
+        <p class="eyebrow">The weight</p>
+      <h2 id="a-magnetic-state-read-as-a-conductance">A magnetic state, read as a conductance</h2>
+      </div>
+    </div>
+    <div class="prose col">
+      <p>
+        In a magnetic tunnel junction two magnetic layers sandwich a thin barrier. When
+        their magnetisations point the same way the device conducts comparatively well;
+        when they oppose, it conducts less. The stored value is an orientation, and the
+        circuit reads it as a conductance.
+      </p>
+      <p>
+        Domain-wall devices are the same idea with a position instead of an orientation,
+        which lets them hold more than two distinguishable states. <strong>They are one
+        model with a knob</strong> &mdash; states per weight &mdash; rather than two
+        separate machines, which is why this repository builds one crossbar and
+        parameterises it.
+      </p>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="ph-num">02</span>
+      <div>
+        <p class="eyebrow">The sum</p>
+      <h2 id="kirchhoff-s-law-does-the-arithmetic">Kirchhoff's law does the arithmetic</h2>
+      </div>
+    </div>
+    <div class="prose col">
+      <p>
+        Arrange the devices in a grid. Drive the rows with voltages, and each device
+        passes a current set by its own conductance. Every device on a column dumps its
+        current into the same wire, and the wire adds them &mdash; because that is what
+        a wire does.
+      </p>
+      <p>
+        A matrix-vector multiply therefore costs one settling time and no instructions.
+        <strong>The multiply-accumulate is linear</strong>; whatever nonlinearity the
+        network needs sits in the periphery, in the converter and whatever follows it.
+        That is a real difference from an optical network, where the detector supplies
+        the nonlinearity for free, and this project intends to characterise the
+        difference rather than argue from it.
+      </p>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="ph-num">03</span>
+      <div>
+        <p class="eyebrow">The deliverable</p>
+      <h2 id="one-row-in-a-table-that-compares-media">One row, in a table that compares media</h2>
+      </div>
+    </div>
+    <div class="prose col">
+      <p>
+        This is the second platform in a series. The first computes with light. One
+        example of computation-by-physics is an anecdote; a second, in an unrelated
+        medium, is what makes it a class &mdash; but only if the two can be put in the
+        same table.
+      </p>
+      <p>
+        They can, because any analog tolerance normalises against the device's own
+        operating range, and the log of that ratio is a bit depth. So this repository
+        owes exactly one row: what a weight physically is, what performs the sum, the
+        accuracy on the shared task, which error source binds first, and the precision
+        that source demands in <strong>effective bits</strong> &mdash; alongside energy
+        and latency per inference.
+      </p>
+      <p>
+        Every as-built magnitude is either cited or marked <span class="q">UNSOURCED</span>
+        and shown as such. Where a value cannot be sourced, no margin is claimed against
+        it and the column is left out rather than estimated.
+      </p>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="ph-num next">04</span>
+      <div>
+        <p class="eyebrow">Status</p>
+      <h2 id="what-exists-today-stated-plainly">What exists today, stated plainly</h2>
+      </div>
+    </div>
+    <div class="prose col">
+      <p>
+        The Monte Carlo harness and the web layer, inherited from the optical platform
+        and <strong>proven by running them</strong> rather than by inspection. No
+        crossbar model, no handoff, no measurement.
+      </p>
+      <p>
+        This page will be replaced once there is a result to report. Until then it says
+        what the machine is and nothing about how well it works, because nothing about
+        how well it works has been measured here.
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <h3>What this is</h3>
+        <p>
+          A spintronic crossbar simulator and its device-error model: the ideal design in
+          Python, handed one way to an as-built error model in MATLAB.
+        </p>
+      </div>
+      <div>
+        <h3>How numbers are treated</h3>
+        <p>
+          Cited, or marked <span class="q">UNSOURCED</span> and surfaced. A confident
+          wrong number costs more than an admitted hole.
+        </p>
+      </div>
+    </div>
+    <p class="colophon">
+      spinn &mdash; second platform in the physical-AI series. Built offline; this page
+      makes no external requests.
+    </p>
+  </div>
+</footer>
+
+<script>
+/*
+ * mount_queue.js -- when the widgets on a page are allowed to start.
+ *
+ * Every widget on this site mounts itself, and used to do so from one shared
+ * DOMContentLoaded handler. On the optics page that meant the browser parsed two
+ * megabytes of inline script and then, in a single uninterrupted task, decoded a
+ * 56-mask model, ran it, ran it again for the 3D stage, and built ~60 offscreen
+ * canvases -- before the first pixel of prose was on screen. On a laptop that is
+ * an unpleasant half second. On a phone it is long enough that the tab is judged
+ * unresponsive and reloaded, which is why the page could appear to never load.
+ *
+ * Nothing here makes a widget cheaper or less interactive. It changes *when* the
+ * cost is paid:
+ *
+ *   1. Nothing runs until the first paint has happened, so the page is readable
+ *      immediately and the reader has something to look at while the machines
+ *      warm up.
+ *   2. Widgets start one at a time, in document order -- read off the DOM, not
+ *      taken from the order the mount calls happen to run in -- with a yield
+ *      between them. The main thread is never held for more than one widget's
+ *      mount, so the page keeps responding to scrolls and taps throughout.
+ *   3. A widget far below the fold waits until the reader is approaching it. It
+ *      still starts by itself -- no tap, no button, nothing to discover -- just
+ *      not while it is a screen and a half away.
+ *
+ * There is deliberately no small-screen fallback and no "tap to activate": a
+ * phone gets the same working machines a laptop does, only sequenced so the
+ * device can survive delivering them.
+ *
+ * Usage:  window.SpinnMount('containerId', function (el) { ... }, opts);
+ * opts (all optional):
+ *   defer  -- wait until the element is near the viewport before mounting.
+ *
+ * Standalone demo pages do not include this file, so every generated mount falls
+ * back to a plain DOMContentLoaded when window.SpinnMount is absent.
+ */
+(function () {
+  "use strict";
+
+  const STYLE_ID = "spinn-mount-style";
+  const CSS = `
+.pm-pending{min-height:120px;display:flex;align-items:center;justify-content:center;}
+.pm-pending::after{content:"Warming up\\2026";font:0.9rem/1.5 ui-sans-serif,system-ui,sans-serif;
+  color:#7a8698;opacity:0;animation:pm-fade .4s ease-out .25s forwards;}
+@keyframes pm-fade{to{opacity:1;}}
+@media (prefers-reduced-motion:reduce){.pm-pending::after{animation:none;opacity:1;}}
+`;
+
+  function injectStyle() {
+    if (typeof document === "undefined" || document.getElementById(STYLE_ID)) return;
+    const s = document.createElement("style");
+    s.id = STYLE_ID;
+    s.textContent = CSS;
+    document.head.appendChild(s);
+  }
+
+  //: How far ahead of the viewport a deferred widget starts warming up. Generous
+  //: on purpose -- a widget that is still blank when it scrolls into view has
+  //: saved load time by spending the reader's attention, which is a bad trade.
+  const NEAR_MARGIN = "600px";
+
+  const queue = [];
+  let draining = false;
+  let armed = false;      // afterFirstPaint has been scheduled
+  let painted = false;    // ...and has fired; until then nothing may run
+
+  function idle(fn) {
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(fn, { timeout: 400 });
+    } else {
+      setTimeout(fn, 0);
+    }
+  }
+
+  //: Longest we will wait for a paint that should already have happened. Only a
+  //: pathologically busy main thread reaches this; it exists so that no failure
+  //: mode of the paint signal can leave a page stuck showing "warming up".
+  const PAINT_TIMEOUT_MS = 2000;
+
+  /**
+   * Run `fn` once the page has painted -- or once it is clear no paint is coming.
+   *
+   * A hidden tab never paints and never fires requestAnimationFrame. That is not
+   * an edge case: opening a link in a background tab, or restoring a session,
+   * lands here. Waiting for a paint that will not arrive would leave every widget
+   * queued forever, so a hidden document skips the wait entirely and starts its
+   * widgets straight away -- by the time the reader switches to the tab, the page
+   * is ready rather than warming up.
+   */
+  function afterFirstPaint(fn) {
+    let done = false;
+    function go() {
+      if (done) return;
+      done = true;
+      fn();
+    }
+    if (typeof window.requestAnimationFrame !== "function"
+        || (typeof document !== "undefined" && document.visibilityState === "hidden")) {
+      return setTimeout(go, 0);
+    }
+    // rAF runs *before* the paint it belongs to; the timeout inside it lands
+    // after that paint has been committed.
+    window.requestAnimationFrame(function () { setTimeout(go, 0); });
+    setTimeout(go, PAINT_TIMEOUT_MS);
+  }
+
+  function run(job) {
+    try {
+      job.fn(job.el);
+    } catch (e) {
+      // One broken widget must not strand the rest of the queue.
+      if (window.console) window.console.error("spinn: mounting #" + job.id + " failed", e);
+    }
+    job.el.classList.remove("pm-pending");
+  }
+
+  /**
+   * The queued job whose element comes first in the document.
+   *
+   * Not simply the oldest. A page's inline mount scripts all sit together at
+   * the foot of the document, so the order they run in is the order the build
+   * pasted their tokens -- which is not necessarily the order the reader meets
+   * the widgets, and on /index the two already disagree. Deferred jobs join
+   * later still, whenever the reader approaches them. Taking the earliest
+   * element that is currently queued makes point 2 above a property of the
+   * page rather than of where somebody pasted a token.
+   */
+  function takeNext() {
+    let pick = 0;
+    for (let i = 1; i < queue.length; i++) {
+      // DOCUMENT_POSITION_PRECEDING (2): the candidate comes before the pick.
+      if (queue[pick].el.compareDocumentPosition(queue[i].el) & 2) pick = i;
+    }
+    return queue.splice(pick, 1)[0];
+  }
+
+  function drain() {
+    if (draining || !painted) return;
+    const job = takeNext();
+    if (!job) return;
+    draining = true;
+    idle(function () {
+      run(job);
+      draining = false;
+      drain();
+    });
+  }
+
+  function enqueue(job) {
+    queue.push(job);
+    drain();
+  }
+
+  /** Hold a job until its element is within NEAR_MARGIN of the viewport. */
+  function whenNear(job) {
+    if (typeof window.IntersectionObserver !== "function") return enqueue(job);
+    const io = new window.IntersectionObserver(function (entries) {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        io.disconnect();
+        enqueue(job);
+      }
+    }, { rootMargin: NEAR_MARGIN });
+    io.observe(job.el);
+  }
+
+  function schedule(id, fn, opts) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    injectStyle();
+    el.classList.add("pm-pending");
+    const job = { id: id, el: el, fn: fn };
+    if (opts && opts.defer) whenNear(job);
+    else enqueue(job);
+  }
+
+  function mount(id, fn, opts) {
+    if (document.readyState === "loading") {
+      window.addEventListener("DOMContentLoaded", function () { schedule(id, fn, opts); });
+    } else {
+      schedule(id, fn, opts);
+    }
+    if (!armed) {
+      armed = true;
+      afterFirstPaint(function () { painted = true; drain(); });
+    }
+  }
+
+  if (typeof window !== "undefined") window.SpinnMount = mount;
+  if (typeof module !== "undefined") module.exports = { mount: mount, NEAR_MARGIN: NEAR_MARGIN };
+})();
+
+</script>
+<script>
+(function(){
+  var root=document.documentElement, btn=document.getElementById('themeToggle');
+  try{var saved=localStorage.getItem('spinn-theme'); if(saved){root.setAttribute('data-theme',saved);}}catch(e){}
+  function cur(){var a=root.getAttribute('data-theme'); if(a) return a;
+    return window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';}
+  btn.addEventListener('click',function(){var n=cur()==='dark'?'light':'dark';
+    root.setAttribute('data-theme',n); try{localStorage.setItem('spinn-theme',n);}catch(e){}});
+})();
+(function(){
+  var els=document.querySelectorAll('.reveal');
+  if(!('IntersectionObserver' in window)||window.matchMedia('(prefers-reduced-motion:reduce)').matches){
+    els.forEach(function(el){el.classList.add('in');}); return;}
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){
+    if(e.isIntersecting){e.target.classList.add('in'); io.unobserve(e.target);}});},{rootMargin:'0px 0px -8% 0px'});
+  els.forEach(function(el){io.observe(el);});
+})();
+(function(){
+  var links=document.querySelectorAll('.toc-list a[href^="#"]');
+  if(!links.length) return;
+  var map={},order=[];
+  links.forEach(function(a){var id=a.getAttribute('href').slice(1),el=document.getElementById(id);
+    if(el){map[id]=a; order.push(el);}});
+  if(!order.length) return;
+  function mark(){
+    var cur=order[0].id;
+    order.forEach(function(el){if(el.getBoundingClientRect().top<=90) cur=el.id;});
+    for(var k in map){if(k===cur){map[k].setAttribute('aria-current','location');}
+      else{map[k].removeAttribute('aria-current');}}
+  }
+  // A throttled scroll listener, not an IntersectionObserver. "Which section am I
+  // reading" is a question about every heading at once, and an observer answers only
+  // about the one that crossed -- and answers nothing at all when a click on this
+  // card jumps the page straight over the crossing, which is the commonest way this
+  // card is used. The reveal observer above cannot be reused either: it unobserves
+  // on first sight.
+  var queued=false;
+  function ping(){if(queued) return; queued=true;
+    setTimeout(function(){queued=false; mark();},100);}
+  addEventListener('scroll',ping,{passive:true});
+  addEventListener('resize',ping,{passive:true});
+  addEventListener('hashchange',mark);
+  mark();
+})();
+</script>
+
+</body>
+</html>
