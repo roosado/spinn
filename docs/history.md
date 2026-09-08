@@ -106,3 +106,84 @@ Its magnitude, however, is `UNSOURCED`: device-to-device variation is establishe
 real problem — Borders et al.'s 36-device network failed to recall its patterns from
 "insufficient linearity and uniformity" — but no distribution is given. Finding one is the
 largest open sourcing gap.
+
+---
+
+## 2026-09-08 — the harness was executed for the first time
+
+The inheritance was sorted into three tiers by `grep` and `diff` on the day it arrived,
+which establishes what *should* work. This is the entry that closes that: **35 tests, zero
+skips**, with the Node and MATLAB checks actually running rather than being skipped past.
+
+Ran against **Python 3.12.0** in a repo-local `.venv`, with **pytest 9.1.1** and **numpy
+2.5.3** — the only two dependencies installed. `torch`, `h5py`, `scipy` and `matplotlib`
+stay out until something imports them; whether a single crossbar layer needs `torch` at all
+is a question for the plan that writes one.
+
+### What is now proven by execution
+
+- **Tier 1** — `+mc/validate_config` (rejects a misspelled field *and* names the nearest
+  key), `+mc/sweep`, `+mc/pack`, `+err/detector_noise`, and `dom_stub.js` through the two
+  runners that import it.
+- **Tier 2** — `mount_queue.js`, `plot.js` and both runners, with the renamed globals
+  asserted by name.
+
+The seed partitioning is the one worth naming. `mc.sweep` handed its stub driver seeds
+`[107, 207, 307, 407]` for `baseSeed = 7` — `baseSeed + 100*i`, exactly as its own comment
+documents. That comment says the function was lifted out of the D²NN driver to stop two
+drivers drifting apart on seeding, *"which is the thing that would quietly make their
+tolerance tables incomparable."* Cross-platform comparability is the reason this repo
+exists, and nothing in either repo had ever checked it.
+
+### Five things execution found that inspection had not
+
+1. **`tests/built_site.py` was misfiled as Tier 1.** It is byte-identical to photonn's, but
+   its `pages()` helper calls `from apps.build_site import render` — photonn's five-page
+   build. The coupling is to a *file*, not to optics, so a `grep` for photonic terms found
+   nothing. It cannot pass until `build_site.py` is trimmed, and moved to that plan.
+
+2. **`spinn/handoff.py` is not the lightest of Tier 3.** It was recorded at 9
+   photonn-specific lines; line 27 is `from photonn.export import (...)`, a hard cross-repo
+   import that cannot be satisfied here at all. Both it and `export.py` also fail earlier on
+   `h5py`.
+
+3. **`pyproject.toml` promises a README that does not exist.** `readme = "README.md"` at
+   line 9, no such file — so `pip install -e .`, which is how photonn puts its package on
+   the path, fails outright. The suite uses pytest's own `pythonpath = ["."]` instead, which
+   also reaches `apps/` (not a declared package). Writing the README belongs with `CLAUDE.md`.
+
+4. **`plot_runner.js` cannot see the rename it was inherited to protect.** It pulls the
+   module in with `require` and never touches `window.SpinnPlot`, so that assignment could
+   say anything and every assertion in `test_plot.py` would still pass — while a browser
+   showed a page whose widgets never start, silently. `tests/test_web_globals.py` was added
+   to check the export surface statically.
+
+5. **`mc.sweep`'s default driver does not exist here.** `sweep.m:16` falls back to
+   `@mc.run_montecarlo`; the drivers stayed in photonn. Every call site must pass `mcFn`
+   explicitly, which is what the stub test does, and `sweep.m` stays byte-identical as a
+   result. The crossbar driver is later work.
+
+That is three files out of three where the tier metric understated the coupling — it counted
+mentions of "photonn", not dependence on it. **Treat the tier counts as a lower bound.**
+
+### Corrections to what was recorded before
+
+- **MATLAB `-batch` startup is ~27 s cold and ~6.6 s warm**, not 27 s flat. The whole suite
+  runs in about 7 s. One batch invocation per session is still the right shape — four would
+  be four startups — but the margin is smaller than the cold figure implied.
+
+### What changed in the tree
+
+| | |
+|---|---|
+| `tests/conftest.py` | stripped to a seeded `rng` fixture and a shared `json_runner`. photonn's `d2nn_payload`, `mesh_payload`, `_OPERATING_POINT`, `_geometry` and `_test_set` were **deleted, not adapted** — they describe a schema this repo does not have. Their shape is a note for the handoff plan, not a fixture to keep. |
+| `tests/test_harness.py` | new. The first test that ever ran here. |
+| `tests/test_plot.py`, `tests/test_mount_queue.py` | ported from photonn. The runners were inherited; **their drivers were not**, so `mount_queue_runner.js`'s header referred to a file that did not exist. |
+| `tests/test_web_globals.py` | new, for finding 4. |
+| `tests/matlab_runner.m`, `tests/test_matlab_harness.py` | new. One `matlab -batch` per session printing a delimited JSON payload — `mc.sweep` prints a progress line per magnitude and there is no suppressing it without editing an inherited file. |
+| `pyproject.toml` | `pythonpath = ["."]` under the pytest options, for finding 3. |
+| `spinn/__init__.py` | re-pointed at the current plan filename and corrected: `handoff.py` is not merely awaiting a schema, it is unimportable. |
+
+Nothing inherited was modified. `sweep.m`, `pack.m`, `validate_config.m`, `detector_noise.m`,
+`mount_queue.js`, `plot.js` and both JS runners are untouched, so a `diff` against photonn
+stays clean and any future drift remains auditable.

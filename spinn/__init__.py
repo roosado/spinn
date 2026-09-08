@@ -10,7 +10,9 @@ the MATLAB as-built device-error model (see ``spinn-hw/``).
 
 Nothing is exported yet: :mod:`spinn.export` and :mod:`spinn.handoff` are
 photonn copies awaiting a crossbar operating point, so importing them here would
-re-export photonn's optical schema. See ``plans/01-crossbar-comparable-core.md``.
+re-export photonn's optical schema. Neither is importable as it stands --
+``handoff.py`` reaches across to ``photonn.export`` outright. See
+``plans/04-the-seam.md``.
 """
 from __future__ import annotations
 

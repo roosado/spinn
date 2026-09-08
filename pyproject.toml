@@ -26,3 +26,8 @@ packages = ["spinn"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+# The suite runs against the working tree rather than an installed copy: it imports
+# both `spinn` and `apps`, and only the former is a declared package. An editable
+# install would also need the README.md that `readme` above promises and the repo
+# does not yet have.
+pythonpath = ["."]

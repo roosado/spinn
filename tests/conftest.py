@@ -1,108 +1,60 @@
-"""Shared pytest fixtures.
+"""Shared pytest fixtures and the runner boilerplate.
 
-Provides ready-made, schema-valid handoff payloads so tests can exercise the
-serializer without restating the contract each time.
+photonn's version of this file supplied ready-made, schema-valid handoff payloads
+-- ``d2nn_payload`` and ``mesh_payload``, a complete operating point per optical
+model kind. Those were deleted here rather than adapted: they describe a schema
+this repo does not have, and a fixture written before the contract it stands in
+for is a fixture that has to be rewritten twice.
+
+Their *shape* is worth carrying to plan 04, where the crossbar handoff is
+written. photonn's note on them records why they grew: the fixtures once carried
+``wavelength_m`` alone, which was all ``validate_handoff`` checked, so
+"schema-valid payload" meant valid against a check covering one field of eleven.
+A payload fixture has to be as complete as the thing it stands in for.
 """
 from __future__ import annotations
+
+import json
+import subprocess
 
 import numpy as np
 import pytest
 
-from photonn.detect import default_regions
+#: Fixed seeds are a project convention, and this one is inherited from photonn
+#: unchanged -- there is no reason for the two repos' fixtures to diverge on it.
+RNG_SEED = 20260723
 
 
 @pytest.fixture
 def rng():
     """A seeded NumPy Generator (seeds fixed and recorded per project convention)."""
-    return np.random.default_rng(20260723)
+    return np.random.default_rng(RNG_SEED)
 
 
-def _geometry(grid_size, n_layers, *, regions=True):
-    geo = {
-        "grid_size": grid_size,
-        "physical_extent_m": 1.0e-3,
-        "n_layers": n_layers,
-        "layer_separations_m": np.full(n_layers, 3.0e-2, dtype="f8"),
-    }
-    if regions:
-        # Schema 0.3.0: the layout crosses the seam as data instead of being
-        # re-derived from fractions typed into the MATLAB port.
-        geo["detector_regions"] = default_regions(grid_size, 10)
-    return geo
+def json_runner(*cmd: str, marker: str | None = None) -> dict:
+    """Run a subprocess that prints one JSON object on stdout; return it parsed.
 
+    Every out-of-process check in this suite has the same shape -- the runner
+    exercises the code and reports facts, the assertions live in Python where a
+    failure names something. photonn keeps a private copy of this boilerplate in
+    each of its runner wrappers; this repo has three call sites already, which is
+    one more than is worth duplicating.
 
-def _test_set(rng, grid_size, n_samples=5):
-    images = rng.random((n_samples, grid_size, grid_size)).astype("f4")
-    labels = (np.arange(n_samples) % 10).astype("i4")
-    return images, labels
-
-
-#: A complete operating point per model kind, matching what the training scripts
-#: actually write. These fixtures used to carry ``wavelength_m`` alone, which was
-#: all ``validate_handoff`` checked -- so "schema-valid payload" meant valid
-#: against a check that covered one field of eleven. Now that the manifest in
-#: ``photonn.export.OPERATING_POINT`` is enforced at write time, a fixture has to
-#: be as complete as the thing it stands in for, which is the point of a fixture.
-_OPERATING_POINT = {
-    "d2nn": {
-        "wavelength_m": 1.55e-6,
-        "pixel_pitch_m": 8.0e-6,
-        "readout_gain": 10.0,
-        "phase_scale_rad": float(np.pi),
-        "input_frac": 0.5,
-        "encoding_code": 2,          # "both"
-        "input_power_w": 1.0e-3,
-        "integration_time_s": 1.0e-3,
-    },
-    "mesh": {
-        "wavelength_m": 1.55e-6,
-        "readout_gain": 1.0,
-        "n_modes": 4,
-        "n_classes": 10,
-        "sigma_gain": 1.0,
-        "input_power_w": 1.0e-3,
-        "integration_time_s": 1.0e-3,
-    },
-}
-
-
-@pytest.fixture
-def d2nn_payload(rng):
-    """A valid ``d2nn`` handoff payload as keyword args for ``write_handoff``."""
-    grid_size, n_layers = 8, 3
-    images, labels = _test_set(rng, grid_size)
-    return dict(
-        model_type="d2nn",
-        parameters={"phase_masks": rng.random((n_layers, grid_size, grid_size))},
-        geometry=_geometry(grid_size, n_layers),
-        operating_point=dict(_OPERATING_POINT["d2nn"]),
-        test_images=images,
-        test_labels=labels,
-        description="d2nn round-trip fixture",
-    )
-
-
-@pytest.fixture
-def mesh_payload(rng):
-    """A valid ``mesh`` handoff payload as keyword args for ``write_handoff``.
-
-    Two meshes (V and U) of ``n_modes``, matching the SVD layer the Phase-3 model
-    uses, so the shape cross-checks in ``export._mesh_arrays`` are exercised.
+    ``marker`` takes the JSON to be whatever follows that string, for a runner
+    that does not own its stdout. The MATLAB harness needs it: ``mc.sweep``
+    prints a progress line per magnitude and there is no suppressing it without
+    editing an inherited file.
     """
-    grid_size, n_modes, n_meshes = 8, 4, 2
-    n_mzi = n_meshes * (n_modes * (n_modes - 1) // 2)
-    images, labels = _test_set(rng, grid_size)
-    return dict(
-        model_type="mesh",
-        parameters={
-            "phase_theta": rng.random(n_mzi),
-            "phase_phi": rng.random(n_mzi),
-            "sigma": rng.random(n_modes),
-            "out_phase": rng.random((n_meshes, n_modes)),
-        },
-        geometry=_geometry(grid_size, n_meshes, regions=False),
-        operating_point=dict(_OPERATING_POINT["mesh"], n_modes=n_modes),
-        test_images=images,
-        test_labels=labels,
-        description="mesh round-trip fixture",
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    assert proc.returncode == 0, (
+        f"runner exited {proc.returncode}: {' '.join(cmd)}\n"
+        f"--- stdout ---\n{proc.stdout}\n--- stderr ---\n{proc.stderr}"
     )
+    payload = proc.stdout
+    if marker is not None:
+        _, seen, payload = payload.partition(marker)
+        assert seen, (
+            f"runner printed no {marker!r} marker, so it failed before reporting:\n"
+            f"--- stdout ---\n{proc.stdout}\n--- stderr ---\n{proc.stderr}"
+        )
+    return json.loads(payload)
