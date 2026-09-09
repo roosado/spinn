@@ -23,6 +23,11 @@ exports/
 # Generated build artifact for Artifact publishing (index.html is the Pages copy)
 site/_artifact_body.html
 
+# Design-tool working material. The surface brief and PRODUCT.md/DESIGN.md are records worth versioning;
+# review screenshots are regenerable and the local config is per-machine.
+.impeccable/review/
+.impeccable/config.local.json
+
 # Local planning notes -- kept in the working tree, never published
 plans/
 

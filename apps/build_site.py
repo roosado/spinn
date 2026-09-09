@@ -68,6 +68,8 @@ PAGES = (
         "A weight is the magnetic state of a device and the sum is performed by "
         "Kirchhoff's law on a wire. How precisely would such a thing have to be built?",
         "A weight is a magnetic state; the sum is performed by a wire.",
+        widgets=("heroMachine", "deviceExplorer", "wireColumn",
+                 "errorBench", "budgetLadder", "drawPad"),
     ),
 )
 
@@ -78,9 +80,20 @@ CSS = r"""
 :root{
   color-scheme: light dark;
   --bg:#f4f7fb; --surface:#ffffff; --surface-2:#eef2f8;
-  --border:#d8e0ec; --ink:#141b26; --ink-dim:#3f4c60; --muted:#6b7789;
+  --border:#d8e0ec; --ink:#141b26; --ink-dim:#3f4c60; --muted:#64707f;
   --accent:#0f9e8f; --accent-2:#c9701f; --good:#2f8f52; --bad:#c14a34;
   --accent-soft:rgba(15,158,143,.10);
+  /* Text variants. The fill values above are the identity and stay; these carry
+     type, because the same teal cannot be both a 1px rule and legible 12px copy on
+     a near-white ground.
+
+     Measured on the ground each one actually sits on, not on --bg alone: several of
+     these labels sit on an 8-10% wash of their own hue (--accent-soft behind a
+     current-state label, the .hole chip behind UNSOURCED), which lifts the
+     background and costs about half a point of contrast. On the tint: 4.99 and
+     4.85. On plain --bg: 5.56, 5.29 and 4.97. */
+  --accent-ink:#0a7064; --accent-2-ink:#9c5411; --good-ink:#237a41;
+  --bad-ink:#ba4530;
   --rule-gradient:linear-gradient(90deg,#39d1a0,#4fc6e6,#f2c14e,#ef7d5a,#c05aa8);
   --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
   --sans:ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
@@ -93,17 +106,24 @@ CSS = r"""
     --border:#243149; --ink:#e8edf4; --ink-dim:#b7c2d2; --muted:#7787a0;
     --accent:#2ec9b8; --accent-2:#f2994a; --good:#57c07a; --bad:#e0705f;
     --accent-soft:rgba(46,201,184,.14);
+    /* Dark clears the floor on the fill values themselves (5.34 / 9.42 / 8.74),
+       so the text variants are the same colour rather than a second palette. */
+    --accent-ink:#2ec9b8; --accent-2-ink:#f2994a; --good-ink:#57c07a;
+    --bad-ink:#e0705f;
   }
 }
 :root[data-theme="light"]{
   --bg:#f4f7fb; --surface:#ffffff; --surface-2:#eef2f8;
-  --border:#d8e0ec; --ink:#141b26; --ink-dim:#3f4c60; --muted:#6b7789;
+  --border:#d8e0ec; --ink:#141b26; --ink-dim:#3f4c60; --muted:#64707f;
   --accent:#0f9e8f; --accent-2:#c9701f; --good:#2f8f52; --bad:#c14a34; --accent-soft:rgba(15,158,143,.10);
+  --accent-ink:#0a7064; --accent-2-ink:#9c5411; --good-ink:#237a41;
+  --bad-ink:#ba4530;
 }
 :root[data-theme="dark"]{
   --bg:#0a0d12; --surface:#111826; --surface-2:#0e131d;
   --border:#243149; --ink:#e8edf4; --ink-dim:#b7c2d2; --muted:#7787a0;
   --accent:#2ec9b8; --accent-2:#f2994a; --good:#57c07a; --bad:#e0705f; --accent-soft:rgba(46,201,184,.14);
+  --accent-ink:#2ec9b8; --accent-2-ink:#f2994a; --good-ink:#57c07a; --bad-ink:#e0705f;
 }
 
 *{box-sizing:border-box;}
@@ -118,33 +138,35 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .topbar-in{max-width:1120px;margin:0 auto;padding:9px 24px;
   display:flex;align-items:center;justify-content:space-between;gap:6px 16px;flex-wrap:wrap;}
 .brand{font-family:var(--mono);font-size:.82rem;letter-spacing:.02em;color:var(--ink-dim);}
-.brand b{color:var(--accent);font-weight:600;}
-.theme-toggle{font-family:var(--mono);font-size:.74rem;letter-spacing:.04em;
+.brand b{color:var(--accent-ink);font-weight:600;}
+.theme-toggle{font-family:var(--mono);font-size:.75rem;letter-spacing:.04em;
   background:transparent;border:1px solid var(--border);color:var(--muted);
-  border-radius:999px;padding:5px 13px;cursor:pointer;transition:color .15s,border-color .15s;}
+  border-radius:999px;padding:5px 13px;cursor:pointer;transition:color .15s,border-color .15s;
+  display:inline-flex;align-items:center;gap:6px;line-height:1;}
+.theme-toggle .tm{flex:none;}
 .theme-toggle:hover{color:var(--ink);border-color:var(--accent);}
 .theme-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .topbar-right{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;}
 /* The nav is quieter than a row of pills: only the page you are on is drawn as
    one. Sized for several pages sharing a row, which is where this is going. */
 .topbar-nav{display:flex;align-items:center;gap:2px;flex-wrap:wrap;}
-.topbar-nav a{font-family:var(--mono);font-size:.74rem;letter-spacing:.03em;text-decoration:none;
+.topbar-nav a{font-family:var(--mono);font-size:.75rem;letter-spacing:.03em;text-decoration:none;
   color:var(--muted);border:1px solid transparent;border-radius:999px;padding:5px 11px;
   white-space:nowrap;transition:color .15s,background .15s,border-color .15s;}
 .topbar-nav a:hover{color:var(--ink);background:var(--accent-soft);}
-.topbar-nav a[aria-current="page"]{color:var(--accent);background:var(--accent-soft);
+.topbar-nav a[aria-current="page"]{color:var(--accent-ink);background:var(--accent-soft);
   border-color:color-mix(in srgb,var(--accent) 45%,transparent);}
 .topbar-nav a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 @media (max-width:900px){.brand span.brand-tail{display:none;}}
-@media (max-width:640px){.topbar-nav a{padding:5px 8px;font-size:.7rem;}}
+@media (max-width:640px){.topbar-nav a{padding:5px 8px;font-size:.75rem;}}
 
 /* sequential hand-off at the foot of every page */
 .pagenext{display:block;text-decoration:none;background:var(--surface);
-  border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;
+  border:1px solid var(--border);border-radius:12px;
   padding:19px 22px;margin:46px 0 6px;transition:background .15s,border-color .15s;}
 .pagenext:hover{background:var(--surface-2);border-color:var(--accent);}
 .pagenext:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
-.pagenext .k{display:block;font-family:var(--mono);font-size:.7rem;letter-spacing:.18em;
+.pagenext .k{display:block;font-family:var(--mono);font-size:.75rem;letter-spacing:.18em;
   text-transform:uppercase;color:var(--muted);}
 .pagenext .t{display:block;font-family:var(--serif);font-weight:600;color:var(--ink);
   font-size:clamp(1.12rem,2vw,1.38rem);line-height:1.2;margin:.32rem 0 .28rem;}
@@ -157,22 +179,22 @@ body{margin:0;background:var(--bg);color:var(--ink);
    rail is worth. Below it the card is the whole feature and nothing is missing. */
 .toc{background:var(--surface);border:1px solid var(--border);border-radius:12px;
   padding:15px 18px 17px;margin:30px 0 4px;max-width:var(--measure);}
-.toc-k{font-family:var(--mono);font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;
+.toc-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;
   color:var(--muted);margin:0 0 .55rem;}
 .toc-list{list-style:none;margin:0;padding:0;}
 .toc-list li{margin:1px 0;}
 .toc-list a{display:flex;gap:9px;text-decoration:none;color:var(--ink-dim);
   font-size:.88rem;line-height:1.35;border-radius:6px;padding:3px 7px;
-  border-left:2px solid transparent;transition:color .15s,background .15s,border-color .15s;}
+  border-left:1px solid transparent;transition:color .15s,background .15s,border-color .15s;}
 .toc-list a:hover{color:var(--ink);background:var(--accent-soft);}
 .toc-list a:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
-.toc-list a[aria-current="location"]{color:var(--accent);background:var(--accent-soft);
+.toc-list a[aria-current="location"]{color:var(--accent-ink);background:var(--accent-soft);
   border-left-color:var(--accent);}
-.toc-n{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--accent);
+.toc-n{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--accent-ink);
   min-width:1.1em;flex:none;}
 .toc-g{margin-top:.5rem;}
 .toc-s a{padding-left:18px;}
-.toc-g a{font-family:var(--mono);font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;
+.toc-g a{font-family:var(--mono);font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;
   color:var(--muted);}
 .toc-g a:hover{color:var(--ink);}
 @media (min-width:1500px){
@@ -188,23 +210,21 @@ body{margin:0;background:var(--bg);color:var(--ink);
 /* A family of error sources, and what the family is. Used by a page that groups
    its sections; everywhere else a section is a section. */
 .band{padding:44px 0 0;}
-.band-k{font-family:var(--mono);font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;
+.band-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;
   color:var(--muted);margin:0 0 .3rem;}
 .band-h{font-family:var(--mono);font-size:1.02rem;font-weight:600;letter-spacing:.06em;
-  text-transform:uppercase;color:var(--accent);margin:0;}
+  text-transform:uppercase;color:var(--accent-ink);margin:0;}
 .band-b{color:var(--ink-dim);font-size:.95rem;margin:.4rem 0 0;max-width:58ch;}
 
 .wrap{max-width:1120px;margin:0 auto;padding:0 24px;}
 .col{max-width:var(--measure);}
-.eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.2em;
-  text-transform:uppercase;color:var(--accent);margin:0 0 .5rem;}
 
 /* hero */
 .hero{padding:76px 0 30px;}
 .hero h1{font-family:var(--serif);font-weight:600;text-wrap:balance;
   font-size:clamp(2.1rem,4.6vw,3.35rem);line-height:1.08;letter-spacing:-.01em;
   margin:.2rem 0 .1rem;}
-.hero h1 em{font-style:italic;color:var(--accent-2);}
+.hero h1 em{font-style:italic;color:var(--accent-2-ink);}
 .hero .underbar{width:132px;height:3px;background:var(--rule-gradient);margin:20px 0 22px;border-radius:2px;}
 .standfirst{font-size:1.16rem;color:var(--ink-dim);max-width:60ch;}
 .standfirst b{color:var(--ink);font-weight:600;}
@@ -220,7 +240,7 @@ body{margin:0;background:var(--bg);color:var(--ink);
 /* phase sections */
 .phase{padding:52px 0;border-top:1px solid var(--border);}
 .phase-head{display:flex;gap:20px;align-items:flex-start;margin-bottom:10px;}
-.ph-num{font-family:var(--mono);font-size:.95rem;font-weight:600;color:var(--accent);
+.ph-num{font-family:var(--mono);font-size:.95rem;font-weight:600;color:var(--accent-ink);
   border:1px solid var(--border);border-radius:9px;padding:7px 11px;line-height:1;
   background:var(--accent-soft);white-space:nowrap;margin-top:4px;}
 .ph-num.next{color:var(--muted);background:transparent;border-style:dashed;}
@@ -250,7 +270,7 @@ math{font-size:1.06em;color:var(--ink);}
 .eq{margin:1.15rem 0;text-align:center;overflow-x:auto;overflow-y:hidden;max-width:100%;
   padding:.1rem 0;}
 .eq math{font-size:1.2em;}
-a.link{color:var(--accent);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent);}
+a.link{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent);}
 a.link:hover{border-bottom-color:var(--accent);}
 a.link:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px;}
 
@@ -266,7 +286,7 @@ a.link:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-r
 .plate img{display:block;width:100%;height:auto;border-radius:6px;}
 .plate figcaption{font-family:var(--sans);font-size:.83rem;color:#5b6675;
   margin-top:10px;padding:0 4px;line-height:1.5;}
-.plate figcaption .fign{font-family:var(--mono);color:var(--accent);font-weight:600;
+.plate figcaption .fign{font-family:var(--mono);color:var(--accent-ink);font-weight:600;
   letter-spacing:.02em;margin-right:.5em;}
 .plate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));
   gap:16px;margin:26px 0;}
@@ -277,7 +297,7 @@ a.link:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-r
 .tbl{border-collapse:collapse;font-size:.92rem;min-width:min(100%,540px);}
 .tbl th,.tbl td{border-bottom:1px solid var(--border);padding:9px 14px 9px 0;
   text-align:left;vertical-align:top;color:var(--ink-dim);}
-.tbl th{font-family:var(--mono);font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;
+.tbl th{font-family:var(--mono);font-size:.75rem;letter-spacing:.09em;text-transform:uppercase;
   color:var(--muted);font-weight:600;white-space:nowrap;}
 .tbl td strong{color:var(--ink);font-weight:600;}
 .tbl tr:last-child td{border-bottom:0;}
@@ -286,37 +306,147 @@ a.link:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-r
 .refs{list-style:none;padding:0;margin:1.6rem 0 0;max-width:var(--measure);
   border-top:1px solid var(--border);padding-top:.9rem;}
 .refs li{font-size:.84rem;color:var(--muted);margin:.42rem 0;line-height:1.5;}
-.refs li b{font-family:var(--mono);color:var(--accent);font-weight:600;margin-right:.45em;}
+.refs li b{font-family:var(--mono);color:var(--accent-ink);font-weight:600;margin-right:.45em;}
 .refs a{color:inherit;text-decoration:none;
   border-bottom:1px solid color-mix(in srgb,var(--muted) 40%,transparent);}
 .refs a:hover{color:var(--ink);border-bottom-color:var(--accent);}
 .refs a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px;}
-sup.r{font-family:var(--mono);font-size:.66em;color:var(--accent);font-weight:600;
+sup.r{font-family:var(--mono);font-size:.66em;color:var(--accent-ink);font-weight:600;
   padding-left:.12em;}
 
 /* finding callout */
-.finding{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--bad);
+.finding{background:var(--surface-2);border:1px solid var(--border);
   border-radius:10px;padding:18px 20px;margin:26px 0;}
-.finding .tag{font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;
-  color:var(--bad);margin:0 0 .4rem;font-weight:600;}
+.finding .tag{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--bad-ink);margin:0 0 .4rem;font-weight:600;}
 .finding p.body{margin:0;color:var(--ink);}
 .finding p.body strong{color:var(--ink);}
 
 /* planned cards */
 .planned{opacity:.96;}
 .planned .phase-head h2{color:var(--ink-dim);}
-.badge-next{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
+.badge-next{font-family:var(--mono);font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;
   color:var(--muted);border:1px dashed var(--border);border-radius:999px;padding:3px 10px;
   display:inline-block;margin-bottom:6px;}
 
 /* footer */
 footer{border-top:1px solid var(--border);margin-top:20px;padding:44px 0 70px;}
 .foot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:26px;}
-footer h3{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;
-  color:var(--accent);margin:0 0 .6rem;font-weight:600;}
+footer h3{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent-ink);margin:0 0 .6rem;font-weight:600;}
 footer p{margin:.3rem 0;color:var(--ink-dim);font-size:.92rem;max-width:42ch;}
 footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.76rem;color:var(--muted);
   border-top:1px solid var(--border);padding-top:18px;}
+
+/* ------------------------------------------------------------------ instruments
+   The vocabulary the widgets are drawn in. Two rules hold it together.
+
+   Panels are *ruled*, not carded: a hairline above, a monospace title, and the
+   instrument itself. A card inside a card is what a dashboard becomes when nobody
+   decides, and on a page whose whole subject is one continuous machine, boxing
+   each view of it into its own tile argues the opposite of the content.
+
+   Controls are rules and handles. A range input is a hairline track with a small
+   square running along it -- the shape of a scale with a marker on it, which is
+   what these controls are, rather than a pill with a bead in it. */
+
+.inst{margin:30px 0 0;border-top:1px solid var(--border);padding-top:20px;}
+.inst-h{display:flex;justify-content:space-between;align-items:baseline;
+  gap:8px 18px;flex-wrap:wrap;margin:0 0 3px;}
+.inst-t{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--accent-ink);font-weight:600;margin:0;}
+.inst-n{font-family:var(--mono);font-size:.75rem;color:var(--muted);}
+.inst-d{color:var(--ink-dim);font-size:.93rem;margin:.4rem 0 20px;max-width:64ch;}
+
+.sp-field label{display:block;font-family:var(--mono);font-size:.75rem;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
+.sp-field output{display:block;font-family:var(--mono);font-size:.95rem;color:var(--ink);
+  font-variant-numeric:tabular-nums;margin-top:9px;letter-spacing:.01em;}
+.sp-field input[type="range"]{-webkit-appearance:none;appearance:none;width:100%;
+  background:transparent;height:16px;margin:0;cursor:pointer;display:block;}
+.sp-field input[type="range"]::-webkit-slider-runnable-track{height:1px;
+  background:var(--border);}
+.sp-field input[type="range"]::-moz-range-track{height:1px;background:var(--border);}
+.sp-field input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;
+  appearance:none;width:11px;height:16px;margin-top:-8px;border-radius:2px;
+  background:var(--accent);border:0;transition:transform .12s ease;}
+.sp-field input[type="range"]::-moz-range-thumb{width:11px;height:16px;border-radius:2px;
+  background:var(--accent);border:0;}
+.sp-field input[type="range"]:hover::-webkit-slider-thumb{transform:scaleY(1.18);}
+.sp-field input[type="range"]:focus-visible{outline:2px solid var(--accent);
+  outline-offset:4px;border-radius:2px;}
+
+/* --------------------------------------------------------------------- the hero
+   Not a header with a picture beside it. The left column carries the claim and the
+   right column carries the machine making it, and on a phone the machine goes
+   first below the headline rather than after the whole argument. */
+.machine{display:grid;grid-template-columns:minmax(290px,.85fr) minmax(320px,1.15fr);
+  grid-template-areas:"say do" "read do";grid-template-rows:auto 1fr;
+  gap:20px 48px;align-items:start;padding:64px 0 18px;}
+.machine-say{grid-area:say;min-width:0;}
+.machine-do{grid-area:do;min-width:0;}
+.machine-read{grid-area:read;min-width:0;}
+/* On a phone the machine follows the headline immediately, ahead of the readout
+   that describes it: the claim is "watch this thing work", and a reader who has to
+   scroll past a paragraph and a number to reach the thing has been told instead. */
+@media (max-width:980px){
+  .machine{grid-template-columns:1fr;grid-template-rows:none;
+    grid-template-areas:"say" "do" "read";gap:24px;padding:44px 0 14px;}
+}
+
+/* Four facts, separated by rules rather than boxed into tiles. */
+.spec{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border);
+  margin:34px 0 6px;}
+.spec>div{padding:15px 22px 15px 0;border-right:1px solid var(--border);min-width:0;}
+.spec>div+div{padding-left:22px;}
+.spec>div:last-child{border-right:0;}
+.spec .v{display:block;font-family:var(--mono);font-size:clamp(1.05rem,2vw,1.42rem);
+  font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.01em;}
+.spec .l{display:block;font-size:.78rem;color:var(--muted);margin-top:4px;line-height:1.4;}
+@media (max-width:720px){
+  .spec{grid-template-columns:1fr 1fr;}
+  .spec>div{border-bottom:1px solid var(--border);}
+  .spec>div:nth-child(2n){border-right:0;}
+  .spec>div:nth-last-child(-n+2){border-bottom:0;}
+}
+
+/* An unsourced value is drawn as a hole, not as a value. */
+.q.hole{color:var(--accent-2-ink);border-color:color-mix(in srgb,var(--accent-2) 40%,transparent);
+  background:color-mix(in srgb,var(--accent-2) 8%,transparent);}
+
+/* The comparison row, which is the deliverable. Given its own presentation rather
+   than sharing .tbl: it is a two-column record, read down, not a data table. */
+.row-rec{border-top:1px solid var(--border);margin:24px 0 0;max-width:var(--measure);}
+.row-rec>div{display:grid;grid-template-columns:minmax(130px,.5fr) 1fr;gap:6px 22px;
+  padding:11px 0;border-bottom:1px solid var(--border);}
+.row-rec dt,.row-rec .k{font-family:var(--mono);font-size:.75rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);margin:0;padding-top:.18em;}
+.row-rec dd,.row-rec .v{margin:0;color:var(--ink-dim);font-size:.95rem;line-height:1.5;}
+.row-rec .v b{color:var(--ink);font-weight:600;font-family:var(--mono);
+  font-variant-numeric:tabular-nums;}
+@media (max-width:560px){.row-rec>div{grid-template-columns:1fr;gap:2px;}}
+
+/* What is next: a list of open work, ruled like everything else. */
+.next-list{list-style:none;padding:0;margin:20px 0 0;max-width:var(--measure);
+  border-top:1px solid var(--border);}
+.next-list li{padding:14px 0;border-bottom:1px solid var(--border);
+  display:grid;grid-template-columns:minmax(150px,.44fr) 1fr;gap:4px 22px;}
+.next-list b{font-family:var(--mono);font-size:.78rem;color:var(--ink);font-weight:600;}
+.next-list span{color:var(--ink-dim);font-size:.92rem;line-height:1.5;}
+@media (max-width:560px){.next-list li{grid-template-columns:1fr;}}
+
+/* ------------------------------------------------------- surfaces we did not draw
+   Selection, caret, focus and scrollbars ship with defaults that belong to no
+   design system. They are part of the page. */
+::selection{background:color-mix(in srgb,var(--accent) 24%,transparent);color:var(--ink);}
+:root{scrollbar-color:var(--border) transparent;scrollbar-width:thin;}
+::-webkit-scrollbar{width:11px;height:11px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px;
+  border:3px solid transparent;background-clip:padding-box;}
+::-webkit-scrollbar-thumb:hover{background:var(--muted);background-clip:padding-box;
+  border:3px solid transparent;}
+::-webkit-scrollbar-track{background:transparent;}
+input,button,select,textarea{caret-color:var(--accent);font:inherit;}
 
 /* motion */
 .reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease;}
@@ -351,6 +481,18 @@ def resolve_links(html: str, absolute: bool = False) -> str:
     return html
 
 
+#: The theme control's mark. Drawn rather than borrowed from Unicode: a glyph
+#: standing in for an icon renders at whatever weight the reader's fallback font
+#: happens to have, beside a monospace label at 0.74rem, and half the time it is
+#: not the same weight twice.
+THEME_MARK = (
+    '<svg class="tm" viewBox="0 0 16 16" width="11" height="11" aria-hidden="true" '
+    'focusable="false"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" '
+    'stroke-width="1.4"/><path d="M8 1.7a6.3 6.3 0 0 0 0 12.6z" fill="currentColor"/>'
+    "</svg>"
+)
+
+
 def topbar(current: str) -> str:
     """Return the shared page chrome, with ``current`` marked as the live page."""
     parts = []
@@ -366,7 +508,7 @@ def topbar(current: str) -> str:
         '    <div class="topbar-right">\n'
         f'      <nav class="topbar-nav" aria-label="Sections">{links}</nav>\n'
         '      <button class="theme-toggle" id="themeToggle" aria-label="Toggle colour theme">'
-        "◐ theme</button>\n"
+        f"{THEME_MARK} theme</button>\n"
         "    </div>\n"
         "  </div>\n"
         "</header>"
@@ -406,23 +548,37 @@ def next_link(hand_off) -> str:
 
 # ---------------------------------------------------------------- IN-PAGE INDEX
 # Section navigation is generated from the markup, never authored twice. Every
-# section heading sits inside a `.phase-head` and is preceded by its own
-# `<p class="eyebrow">`, so one scan finds them all, gives each an id derived from
-# its text, and returns the list the contents card is rendered from. Adding a
+# section heading sits inside a `.phase-head`, so one scan finds them all, gives
+# each an id derived from its text, and returns the list the contents card is
+# rendered from. Adding a
 # section therefore adds it to the index, with nothing to remember -- the same
 # bargain PAGES makes for the topbar.
 
-#: A heading and the eyebrow above it, as every page writes them.
+#: A section heading, anchored on the ``.phase-head`` block it sits in.
+#:
+#: This used to match on a ``<p class="eyebrow">`` above the heading, which quietly
+#: made a decorative element load bearing: a section that dropped its eyebrow
+#: dropped out of the contents card as well. The eyebrow is gone from this site --
+#: on the page it was on, six of eight restated the first words of the heading
+#: beneath them -- and the anchor is now the markup that actually means "this is a
+#: section heading". Anchoring on nothing was tried in between, and put the
+#: footer's three ``<h3>`` headings into the card;
+#: ``test_the_contents_card_indexes_sections_and_nothing_else`` is that lesson.
+#:
+#: What the card shows comes from the heading itself through :func:`toc_label`,
+#: overridable with ``data-toc``; the number beside it, where a page groups its
+#: sections by error source, comes from ``data-num``.
 _HEADING = re.compile(
-    r'<p class="eyebrow">(?P<eyebrow>.*?)</p>\s*\n\s*'
+    r'(?P<lead><div class="phase-head">.*?)'
     r'<(?P<tag>h2|h3)(?P<attrs>[^>]*)>(?P<text>.*?)</(?P=tag)>',
     re.S,
 )
 #: A band heading: the family a run of sections belongs to.
 _BAND = re.compile(r'<h2 class="band-h"(?P<attrs>[^>]*)>(?P<text>.*?)</h2>', re.S)
-#: "Source 4 of 6" -> 4. An eyebrow that already numbers a series is reused rather
-#: than counted, so a renumbering in the prose cannot disagree with the card.
-_SOURCE_NUM = re.compile(r'\bSource\s+(\d+)\b')
+#: An explicit number for the contents card, for a page that groups its sections
+#: by error source. An attribute rather than an element: it is a fact about the
+#: heading, and the element that used to carry it was a kicker.
+_NUM_ATTR = re.compile(r'\s*data-num="([^"]*)"')
 _TOC_ATTR = re.compile(r'\s*data-toc="([^"]*)"')
 
 
@@ -468,7 +624,10 @@ def section_index(body: str):
         """Record one entry and return the attribute string its heading should carry."""
         override = _TOC_ATTR.search(attrs)
         label = strip_tags(override.group(1)) if override else toc_label(text)
-        attrs = _TOC_ATTR.sub("", attrs)
+        numbered = _NUM_ATTR.search(attrs)
+        if numbered:
+            num = numbered.group(1)
+        attrs = _NUM_ATTR.sub("", _TOC_ATTR.sub("", attrs))
         ident = unique(slugify(label))
         entries.append({"level": level, "id": ident, "label": label, "num": num})
         return f' id="{ident}"{attrs}'
@@ -481,16 +640,14 @@ def section_index(body: str):
         # `level` is the heading tag, so the card's nesting is the page's own
         # outline: a section written as <h3> belongs to the band above it and is
         # indented under it, and one written as <h2> is not.
-        eyebrow, tag = m.group("eyebrow"), m.group("tag")
-        num = _SOURCE_NUM.search(strip_tags(eyebrow))
-        attrs = take(m.group("text"), m.group("attrs"), tag,
-                     num.group(1) if num else None)
-        return (f'<p class="eyebrow">{eyebrow}</p>\n      '
-                f'<{tag}{attrs}>{m.group("text")}</{tag}>')
+        tag = m.group("tag")
+        attrs = take(m.group("text"), m.group("attrs"), tag)
+        return m.group("lead") + f'<{tag}{attrs}>{m.group("text")}</{tag}>'
 
-    # Bands first: their heading is an <h2> with no eyebrow, so the two patterns
-    # cannot both match the same element, and running bands first keeps the entries
-    # in document order for a page that has them.
+
+    # Bands first: a band heading is an <h2> outside any `.phase-head`, so the two
+    # patterns cannot both match the same element, and running bands first keeps the
+    # entries in document order for a page that has them.
     body = _BAND.sub(band, body)
     body = _HEADING.sub(heading, body)
     entries.sort(key=lambda e: body.index(f'id="{e["id"]}"'))
@@ -579,6 +736,61 @@ def script_tags(*assets: str) -> str:
     silently falls back to a stand-in rather than one that fails.
     """
     return "\n".join(f"<script>\n{read_web_asset(a)}\n</script>" for a in assets)
+
+
+# ------------------------------------------------------------------------ WIDGETS
+# Every widget on this site runs the real forward pass, against the real trained
+# weights and the real frozen test set, both frozen into apps/web/data.js by
+# apps/export_web_data.py. That is the expensive choice and it is the only honest
+# one: this repository's result is trustworthy because the design half cannot
+# quietly flatter the measurement half, and a demonstration that was a cartoon of
+# the measurement would spend that credibility on the one page most people read.
+#
+# Load order is the argument order of `script_tags` and it matters twice: data.js
+# and crossbar.js are read at module scope by every widget, and xbar_view.js reads
+# plot.js the same way. Getting it wrong gives an undefined global at mount time,
+# which in a browser is silent.
+
+#: Shared by every widget, in load order. ``plot.js`` is emitted separately by
+#: :func:`_chrome`, ahead of these, as it always was.
+WIDGET_CORE = ("data.js", "crossbar.js", "xbar_view.js")
+
+
+class Widget(NamedTuple):
+    """One widget: where it mounts, what it needs, and how it starts."""
+
+    host: str            # container id in the page body
+    asset: str           # its module under apps/web
+    boot: str            # JavaScript that mounts it into the local ``el``
+    defer: bool = True   # hold until the reader is approaching it
+
+
+#: Declared in document order, which is also the order they are emitted.
+WIDGETS = (
+    # The hero is the one widget that must not defer: it is the first viewport, and
+    # a widget waiting for the reader to approach it has already been walked past.
+    Widget("heroMachine", "hero.js",
+           "window.SpinnHero.mount(el, document.getElementById('heroReadout'));",
+           defer=False),
+    Widget("deviceExplorer", "device.js", "window.SpinnDevice.mount(el);"),
+    Widget("wireColumn", "wire.js", "window.SpinnWire.mount(el);"),
+    Widget("errorBench", "bench.js", "window.SpinnBench.mount(el);"),
+    Widget("budgetLadder", "ladder.js", "window.SpinnLadder.mount(el);"),
+    Widget("drawPad", "draw.js", "window.SpinnDraw.mount(el);"),
+)
+
+WIDGET_BY_HOST = {w.host: w for w in WIDGETS}
+
+
+def widget_bundle(page: Page) -> str:
+    """Every script one page's widgets need, in load order, inlined."""
+    if not page.widgets:
+        return ""
+    used = [WIDGET_BY_HOST[h] for h in page.widgets]
+    parts = [script_tags(*(list(WIDGET_CORE) + [w.asset for w in used]))]
+    for w in used:
+        parts.append(mount_script(w.host, w.boot, defer=w.defer))
+    return "\n".join(parts) + "\n"
 
 
 # --------------------------------------------------------------------------- BODY
@@ -671,12 +883,18 @@ def _chrome(body: str, key: str) -> str:
     html = html.replace("@@TOC@@", toc(entries))
     html = html.replace("@@TOPBAR@@", topbar(key))
     html = html.replace("@@NEXT@@", next_link(_hand_off(key)))
+    page = PAGE_BY_KEY[key]
     # plot.js goes in the page-script slot, above every widget bundle, so there is
     # exactly one copy per page before any widget reads window.SpinnPlot at module
     # scope. A page with no widgets does not get it at all -- shipping the shared
     # canvas module to a page that draws nothing is paying for nothing.
-    plot = script_tags("plot.js") + "\n" if PAGE_BY_KEY[key].widgets else ""
-    html = html.replace("@@PAGE_SCRIPT@@", plot + mount_queue_bundle() + PAGE_SCRIPT)
+    plot = script_tags("plot.js") + "\n" if page.widgets else ""
+    # The scheduler is inlined before the widgets that call it. A mount script that
+    # runs first finds no window.SpinnMount, falls back to DOMContentLoaded, works --
+    # and silently gives up the sequencing the scheduler exists to provide.
+    html = html.replace(
+        "@@PAGE_SCRIPT@@",
+        plot + mount_queue_bundle() + widget_bundle(page) + PAGE_SCRIPT)
     return html
 
 

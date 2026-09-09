@@ -105,6 +105,58 @@ def test_the_contents_card_is_generated_from_the_markup():
     assert positions == sorted(positions), "the card must follow document order"
 
 
+def test_the_contents_card_indexes_sections_and_nothing_else():
+    """The regression that arrived the moment the eyebrow stopped being required.
+
+    ``_HEADING`` used to be anchored on ``<p class="eyebrow">``, so making the
+    eyebrow optional left it matching every ``h2`` and ``h3`` in the document --
+    and the footer has three. They walked straight into the contents card, which
+    is not visibly wrong until you read it. The anchor is ``.phase-head`` now, and
+    this is what says so.
+    """
+    html = page_html("index.html")
+    labels = re.findall(r'<li[^>]*><a href="#([^"]+)">', html)
+    body = html[html.index("<main"):html.index("</main>")]
+    for ident in labels:
+        assert f'id="{ident}"' in body, f"the card indexes #{ident}, which is not in <main>"
+    footer = html[html.index("<footer"):]
+    assert "<h3" in footer, "this test is only meaningful while the footer has headings"
+    assert not re.search(r'<h3[^>]*\sid="', footer), "a footer heading was given an id"
+
+
+def test_a_heading_can_carry_its_own_contents_label_and_number():
+    """What replaced the eyebrow, asserted rather than assumed.
+
+    The card's number used to be parsed out of the text of a ``<p class="eyebrow">``
+    above the heading ("Source 4 of 6" -> 4), which is why a decorative element was
+    load bearing. Both overrides are attributes on the heading now, and both are
+    stripped before it is emitted -- a heading that shipped a stray ``data-num`` to
+    the browser would be the same bug one layer down.
+    """
+    body = (
+        '<div class="phase-head">\n'
+        '      <div>\n'
+        '        <h2 data-num="3" data-toc="Short">A long heading: with a colon</h2>\n'
+        "      </div>\n"
+        "    </div>"
+    )
+    html, entries = build_site.section_index(body)
+    assert entries == [{"level": "h2", "id": "short", "label": "Short", "num": "3"}]
+    assert "data-num" not in html and "data-toc" not in html
+    assert 'id="short"' in html
+
+
+def test_a_heading_without_either_override_is_labelled_from_its_own_text():
+    """``Topic: what it does`` is the page's heading convention; the card takes the
+    topic, which is why no separate label has to be authored for the common case."""
+    body = ('<div class="phase-head">\n      <div>\n'
+            "        <h2>The sum: Kirchhoff's law does the arithmetic</h2>\n"
+            "      </div>\n    </div>")
+    _, entries = build_site.section_index(body)
+    assert entries[0]["label"] == "The sum"
+    assert entries[0]["num"] is None
+
+
 def test_a_single_page_site_has_no_hand_off_card():
     """photonn wraps the last page back to the first; with one page that is a loop.
 
@@ -144,3 +196,95 @@ def test_the_theme_is_persisted_under_this_repos_key():
     html = page_html("index.html")
     assert "'spinn-theme'" in html
     assert "photonn-theme" not in html
+
+
+# ------------------------------------------------------------------ the widgets
+# Six widgets is the first time this generator has emitted any, and the failure
+# they can have is silent in every direction: mount_queue.js skips a container it
+# cannot find, script_tags emits whatever it is handed in whatever order, and a
+# widget whose global is misspelled throws inside a try/catch that exists to stop
+# one broken widget stranding the queue. None of that reaches a browser as an
+# error. It reaches it as a gap where a machine should be.
+
+
+def test_every_declared_widget_has_a_host_in_the_page():
+    """The check ``Page.widgets`` exists to make possible.
+
+    The tuple is declared rather than inferred precisely so it can be compared
+    against the markup. A mistyped id gives a page that silently lacks a widget and
+    passes every other test in this file.
+    """
+    html = page_html("index.html")
+    for host in build_site.PAGE_BY_KEY["index"].widgets:
+        assert html.count(f'id="{host}"') == 1, f"no unique host for widget {host}"
+
+
+def test_no_widget_host_in_the_page_is_undeclared():
+    """The other direction: a container nobody mounts into is a blank space."""
+    body = build_site.page_body("index")
+    hosts = set(re.findall(r'<div id="([a-zA-Z][a-zA-Z0-9]*)"></div>', body))
+    declared = set(build_site.PAGE_BY_KEY["index"].widgets) | {"heroReadout"}
+    assert not hosts - declared, f"empty containers nothing mounts into: {hosts - declared}"
+
+
+def test_every_widget_module_is_inlined_and_mounted():
+    html = page_html("index.html")
+    for widget in build_site.WIDGETS:
+        assert f'window.SpinnMount("{widget.host}"' in html
+        # A marker from each module's own source, so this fails if the module is
+        # declared and not emitted rather than only if the mount call is missing.
+        assert build_site.read_web_asset(widget.asset)[:60] in html
+
+
+def test_the_shared_widget_core_loads_before_any_widget_that_reads_it():
+    """Order is the whole contract of :func:`script_tags`, and it is silent.
+
+    Every widget reads ``window.SpinnCrossbar`` and ``window.SpinnData`` at module
+    scope, and ``xbar_view.js`` reads ``window.SpinnPlot`` the same way. Loaded the
+    other way round they get ``undefined`` and throw at mount, inside the queue's
+    catch -- which logs to a console nobody has open and leaves a blank page.
+    """
+    html = page_html("index.html")
+    order = [html.index(build_site.read_web_asset(name)[:60])
+             for name in ("plot.js",) + build_site.WIDGET_CORE]
+    assert order == sorted(order), "the shared modules are emitted out of order"
+    first_widget = min(html.index(build_site.read_web_asset(w.asset)[:60])
+                       for w in build_site.WIDGETS)
+    assert max(order) < first_widget
+
+
+def test_the_hero_does_not_wait_for_the_reader_to_approach_it():
+    """Deferring the first viewport's widget means it starts once it is scrolled past."""
+    hero = build_site.WIDGET_BY_HOST["heroMachine"]
+    assert hero.defer is False
+    html = page_html("index.html")
+    assert 'window.SpinnMount("heroMachine", boot);' in html
+    assert 'window.SpinnMount("errorBench", boot, {defer: true});' in html
+
+
+def test_the_page_carries_the_real_data_not_a_placeholder():
+    """The page's whole claim is that these are the recorded numbers."""
+    html = page_html("index.html")
+    assert '"idealAccuracy":0.7345' in html
+    assert '"schema":"web-data 1"' in html
+    # 2000 samples of 36 pixels, sparse: the block is large, and a page that
+    # shipped an empty or truncated one would still render and still classify --
+    # just worse, and with no way to tell from the markup.
+    assert len(html) > 200_000
+
+
+def test_no_unsourced_number_is_presented_as_a_measurement():
+    """A hole is drawn as a hole. The project's own convention, on the page.
+
+    ``.q.hole`` is the marker; what must not happen is the word UNSOURCED appearing
+    in prose without it, which would read as an ordinary emphasis.
+    """
+    html = page_html("index.html")
+    # Prose only. The inlined widget modules discuss UNSOURCED placeholders at
+    # length in their own comments, and a source comment is not a claim to a reader.
+    body = html[html.index("<main"):html.index("</footer>")]
+    plain = re.findall(r"UNSOURCED", body)
+    marked = re.findall(r'<span class="q hole">UNSOURCED</span>', body)
+    assert plain and len(plain) == len(marked), (
+        "every UNSOURCED on the page must be marked as a hole"
+    )

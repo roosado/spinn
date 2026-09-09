@@ -1,0 +1,703 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-09T00:00:00Z",
+  "title": "Design System: spinn",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "Cool Paper",
+        "canonical": "#f4f7fb",
+        "tonalRamp": [
+          "#142438",
+          "#233e61",
+          "#32588a",
+          "#4172b4",
+          "#668fc7",
+          "#8fadd6",
+          "#bccee7",
+          "#e9eff7"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Card White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#262626",
+          "#424242",
+          "#5e5e5e",
+          "#7a7a7a",
+          "#969696",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f0f0f0"
+        ]
+      },
+      "surface-2": {
+        "role": "neutral",
+        "displayName": "Recessed Paper",
+        "canonical": "#eef2f8",
+        "note": "Also the zero point of the two-pole weight ramp; changing it repaints every array on the page.",
+        "tonalRamp": [
+          "#162336",
+          "#273d5e",
+          "#375686",
+          "#4770ad",
+          "#6b8ec2",
+          "#93acd2",
+          "#becde4",
+          "#e9eef6"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#d8e0ec",
+        "tonalRamp": [
+          "#192433",
+          "#2b3e59",
+          "#3e587f",
+          "#5072a5",
+          "#728fbb",
+          "#98adcd",
+          "#c1cee1",
+          "#eaeff5"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Full Ink",
+        "canonical": "#141b26",
+        "tonalRamp": [
+          "#1a2432",
+          "#2e3e57",
+          "#41587c",
+          "#5472a0",
+          "#768fb7",
+          "#9badca",
+          "#c3cedf",
+          "#ebeff4"
+        ]
+      },
+      "ink-dim": {
+        "role": "neutral",
+        "displayName": "Reading Ink",
+        "canonical": "#3f4c60",
+        "tonalRamp": [
+          "#1e252e",
+          "#353f50",
+          "#4b5a72",
+          "#617594",
+          "#8192ac",
+          "#a3afc2",
+          "#c8cfdb",
+          "#edeff3"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Label Grey",
+        "canonical": "#64707f",
+        "tonalRamp": [
+          "#22262b",
+          "#3a414a",
+          "#535d6a",
+          "#6c7989",
+          "#8a95a3",
+          "#a9b1bc",
+          "#ccd0d7",
+          "#eeeff2"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Crossbar Teal",
+        "canonical": "#0f9e8f",
+        "note": "Fill only: positive rail, rules, bars, thumbs, focus outlines. 3.10:1 on the page ground, so never type.",
+        "tonalRamp": [
+          "#07463f",
+          "#0b796e",
+          "#10ac9c",
+          "#15e0ca",
+          "#40eddb",
+          "#73f2e4",
+          "#abf7ef",
+          "#e3fcfa"
+        ]
+      },
+      "accent-ink": {
+        "role": "primary",
+        "displayName": "Teal Ink",
+        "canonical": "#0a7064",
+        "note": "Type only. 5.56:1 on the page, 5.32:1 on the recessed surface.",
+        "tonalRamp": [
+          "#06463f",
+          "#0b7a6d",
+          "#0fad9b",
+          "#14e1c9",
+          "#3feed9",
+          "#73f2e3",
+          "#abf7ee",
+          "#e3fcf9"
+        ]
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Teal Wash",
+        "canonical": "rgba(15,158,143,.10)",
+        "note": "The only tinted background in the system; hover and current-state ground."
+      },
+      "accent-2": {
+        "role": "secondary",
+        "displayName": "Domain Amber",
+        "canonical": "#c9701f",
+        "note": "Fill only: negative rail. 3.36:1 on the page ground.",
+        "tonalRamp": [
+          "#42250a",
+          "#734012",
+          "#a35b19",
+          "#d47621",
+          "#e3934a",
+          "#ebb07a",
+          "#f3d0af",
+          "#fbefe4"
+        ]
+      },
+      "accent-2-ink": {
+        "role": "secondary",
+        "displayName": "Amber Ink",
+        "canonical": "#9c5411",
+        "note": "Type only. 5.30:1 on the page, 5.07:1 on the recessed surface.",
+        "tonalRamp": [
+          "#452508",
+          "#78400d",
+          "#aa5c13",
+          "#dd7718",
+          "#ea9342",
+          "#f0b075",
+          "#f6d0ac",
+          "#fcefe3"
+        ]
+      },
+      "good": {
+        "role": "tertiary",
+        "displayName": "Pass Green",
+        "canonical": "#2f8f52",
+        "tonalRamp": [
+          "#133a21",
+          "#216439",
+          "#2f8e51",
+          "#3db86a",
+          "#62cb88",
+          "#8cd9a8",
+          "#bae8cb",
+          "#e8f7ee"
+        ]
+      },
+      "good-ink": {
+        "role": "tertiary",
+        "displayName": "Pass Green Ink",
+        "canonical": "#237a41",
+        "note": "Type only. 4.97:1 on the page.",
+        "tonalRamp": [
+          "#113b20",
+          "#1e6737",
+          "#2a934e",
+          "#37be65",
+          "#5dd084",
+          "#88dda5",
+          "#b8ebc9",
+          "#e7f8ed"
+        ]
+      },
+      "bad": {
+        "role": "tertiary",
+        "displayName": "Fail Rust",
+        "canonical": "#c14a34",
+        "note": "Fill: the accuracy meter's failing bar on canvas, and the 2.9rem accuracy numeral, which is large text. Type below display size uses bad-ink.",
+        "tonalRamp": [
+          "#3c1710",
+          "#68281c",
+          "#953928",
+          "#c14a34",
+          "#d36d5a",
+          "#df9486",
+          "#ecbfb7",
+          "#f9eae7"
+        ]
+      },
+      "rule-gradient": {
+        "role": "primary",
+        "displayName": "The Spectral Rule",
+        "canonical": "linear-gradient(90deg,#39d1a0,#4fc6e6,#f2c14e,#ef7d5a,#c05aa8)",
+        "note": "Five stops, used exactly twice: the 3px topline and the 132px headline underbar.",
+        "tonalRamp": [
+          "#39d1a0",
+          "#4fc6e6",
+          "#f2c14e",
+          "#ef7d5a",
+          "#c05aa8"
+        ]
+      },
+      "bad-ink": {
+        "role": "tertiary",
+        "displayName": "Fail Rust Ink",
+        "canonical": "#ba4530",
+        "note": "Type only, added after the first record: 4.69:1 on the recessed surface the finding tag sits on, 4.91:1 on the page. Pairs with bad-dark, which is the fill value.",
+        "tonalRamp": [
+          "#3d1710",
+          "#69271b",
+          "#963827",
+          "#c34832",
+          "#d46c59",
+          "#e09385",
+          "#ecbeb6",
+          "#f9e9e7"
+        ]
+      },
+      "bg-dark": {
+        "role": "neutral",
+        "displayName": "Cool Paper (dark)",
+        "canonical": "#0a0d12",
+        "tonalRamp": [
+          "#1b2431",
+          "#2f3e55",
+          "#435879",
+          "#57729d",
+          "#798fb4",
+          "#9dadc8",
+          "#c4cede",
+          "#ebeff4"
+        ]
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Card White (dark)",
+        "canonical": "#111826",
+        "tonalRamp": [
+          "#182135",
+          "#293a5c",
+          "#3a5282",
+          "#4c6ba9",
+          "#6f89be",
+          "#95a9d0",
+          "#c0cbe3",
+          "#eaeef6"
+        ]
+      },
+      "surface-2-dark": {
+        "role": "neutral",
+        "displayName": "Recessed Paper (dark)",
+        "canonical": "#0e131d",
+        "tonalRamp": [
+          "#192234",
+          "#2b3b59",
+          "#3d537f",
+          "#506ca5",
+          "#728abb",
+          "#98aacd",
+          "#c1cce1",
+          "#eaeef5"
+        ]
+      },
+      "border-dark": {
+        "role": "neutral",
+        "displayName": "Hairline (dark)",
+        "canonical": "#243149",
+        "tonalRamp": [
+          "#192233",
+          "#2c3c59",
+          "#3e557e",
+          "#516ea4",
+          "#738cba",
+          "#99abcc",
+          "#c2cce1",
+          "#ebeef5"
+        ]
+      },
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Full Ink (dark)",
+        "canonical": "#e8edf4",
+        "tonalRamp": [
+          "#192434",
+          "#2b3e5a",
+          "#3d5980",
+          "#4f73a6",
+          "#7290bb",
+          "#97aece",
+          "#c1cee1",
+          "#eaeff5"
+        ]
+      },
+      "ink-dim-dark": {
+        "role": "neutral",
+        "displayName": "Reading Ink (dark)",
+        "canonical": "#b7c2d2",
+        "tonalRamp": [
+          "#1d252f",
+          "#333f52",
+          "#495a74",
+          "#5e7597",
+          "#7e92af",
+          "#a1afc4",
+          "#c7cfdc",
+          "#eceff3"
+        ]
+      },
+      "muted-dark": {
+        "role": "neutral",
+        "displayName": "Label Grey (dark)",
+        "canonical": "#7787a0",
+        "tonalRamp": [
+          "#1f252d",
+          "#37404e",
+          "#4e5b6f",
+          "#657690",
+          "#8492a9",
+          "#a5b0c0",
+          "#c9cfd9",
+          "#edeff2"
+        ]
+      },
+      "accent-dark": {
+        "role": "primary",
+        "displayName": "Crossbar Teal (dark)",
+        "canonical": "#2ec9b8",
+        "tonalRamp": [
+          "#0e3e39",
+          "#196c63",
+          "#239a8d",
+          "#2ec7b6",
+          "#55d8ca",
+          "#82e3d8",
+          "#b4eee8",
+          "#e6f9f7"
+        ],
+        "note": "In dark theme the ink and fill values are identical; this one value serves both."
+      },
+      "accent-2-dark": {
+        "role": "secondary",
+        "displayName": "Domain Amber (dark)",
+        "canonical": "#f2994a",
+        "tonalRamp": [
+          "#472405",
+          "#7c3f09",
+          "#b0590d",
+          "#e47410",
+          "#f1913c",
+          "#f5af70",
+          "#f9cfa9",
+          "#fdefe2"
+        ],
+        "note": "In dark theme the ink and fill values are identical; this one value serves both."
+      },
+      "good-dark": {
+        "role": "tertiary",
+        "displayName": "Pass Green (dark)",
+        "canonical": "#57c07a",
+        "tonalRamp": [
+          "#153820",
+          "#246038",
+          "#338950",
+          "#43b268",
+          "#67c687",
+          "#90d5a7",
+          "#bce6ca",
+          "#e9f7ed"
+        ],
+        "note": "In dark theme the ink and fill values are identical; this one value serves both."
+      },
+      "bad-dark": {
+        "role": "tertiary",
+        "displayName": "Fail Rust (dark)",
+        "canonical": "#e0705f",
+        "tonalRamp": [
+          "#40130c",
+          "#6f2116",
+          "#9e2f1f",
+          "#cd3e28",
+          "#dd6250",
+          "#e68c7f",
+          "#f0bab2",
+          "#fae8e5"
+        ],
+        "note": "In dark theme the ink and fill values are identical; this one value serves both."
+      },
+      "accent-soft-dark": {
+        "role": "primary",
+        "displayName": "Teal Wash (dark)",
+        "canonical": "rgba(46,201,184,.14)"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The single h1. Emphasised word italic in amber ink."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section headings inside .phase-head, beside a mono section number."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Sub-headings within a section."
+      },
+      "standfirst": {
+        "displayName": "Standfirst",
+        "purpose": "The one paragraph under the h1, capped at 60ch."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Running prose in dim ink, capped at 68ch."
+      },
+      "label": {
+        "displayName": "Micro Label",
+        "purpose": "Every caption, legend, axis title, control label and instrument title. One size only: .75rem."
+      },
+      "readout": {
+        "displayName": "Readout",
+        "purpose": "Measured numbers, mono and tabular, ranked by size not by layout."
+      },
+      "answer": {
+        "displayName": "Answer",
+        "purpose": "The serif numeral the array is currently claiming. Teal ink correct, amber ink wrong."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "state",
+        "value": "150ms (color, border-color, background)",
+        "purpose": "Every hover and focus transition on buttons, links and nav."
+      },
+      {
+        "name": "handle",
+        "value": "transform 120ms ease",
+        "purpose": "The range thumb's 1.18x vertical grow on hover."
+      },
+      {
+        "name": "reveal",
+        "value": "opacity .6s ease, transform .6s ease from translateY(14px)",
+        "purpose": "The only scroll-triggered motion; disabled under prefers-reduced-motion."
+      },
+      {
+        "name": "settle-drive",
+        "value": "170ms fill down the array rows",
+        "purpose": "Phase one of the page's single authored motion moment: drive."
+      },
+      {
+        "name": "settle-grow",
+        "value": "300ms cubic ease-out (1-(1-t)^3), delayed 150ms",
+        "purpose": "Phase two: the column bars grow from zero, then the winning bar brightens. Sum, decide."
+      },
+      {
+        "name": "settle-hold",
+        "value": "1750ms",
+        "purpose": "How long one classified digit is held before the next."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "every value snaps to its end state; autoplay off",
+        "purpose": "prefers-reduced-motion disables the settle and the reveal entirely."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "record",
+        "value": "560px"
+      },
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "720px"
+      },
+      {
+        "name": "bench",
+        "value": "800px"
+      },
+      {
+        "name": "panels",
+        "value": "860px"
+      },
+      {
+        "name": "brand",
+        "value": "900px"
+      },
+      {
+        "name": "hero",
+        "value": "980px"
+      },
+      {
+        "name": "wrap",
+        "value": "1120px"
+      },
+      {
+        "name": "rail",
+        "value": "1500px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Instrument Panel",
+      "kind": "custom",
+      "refersTo": "panel-instrument",
+      "description": "The page's structural unit: a hairline rule, a mono title, an optional right note, a caption, then the instrument. No box, no radius, no nesting.",
+      "html": "<section class=\"ds-inst\"><div class=\"ds-inst-h\"><p class=\"ds-inst-t\">The bench</p><span class=\"ds-inst-n\">2,000 frozen test digits</span></div><p class=\"ds-inst-d\">Three sliders, re-classified in the browser on every drag.</p><div class=\"ds-inst-body\">instrument</div></section>",
+      "css": ".ds-inst{margin:30px 0 0;border-top:1px solid var(--border,#d8e0ec);padding-top:20px;} .ds-inst-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px 18px;flex-wrap:wrap;margin:0 0 3px;} .ds-inst-t{font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-ink,#0a7064);font-weight:600;margin:0;} .ds-inst-n{font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.75rem;color:var(--muted,#64707f);} .ds-inst-d{color:var(--ink-dim,#3f4c60);font-size:.93rem;margin:.4rem 0 20px;max-width:64ch;} .ds-inst-body{color:var(--muted,#64707f);font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;}"
+    },
+    {
+      "name": "Tool Button",
+      "kind": "button",
+      "refersTo": "button-tool",
+      "description": "The one button in the system. Every widget control is this.",
+      "html": "<button class=\"ds-btn-tool\" type=\"button\">Re-roll the devices</button>",
+      "css": ".ds-btn-tool{font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;color:var(--ink-dim,#3f4c60);border:1px solid var(--border,#d8e0ec);border-radius:7px;padding:6px 12px;cursor:pointer;transition:color .15s,border-color .15s,background .15s;} .ds-btn-tool:hover{color:var(--ink,#141b26);border-color:var(--accent,#0f9e8f);background:var(--accent-soft,rgba(15,158,143,.10));} .ds-btn-tool:focus-visible{outline:2px solid var(--accent,#0f9e8f);outline-offset:2px;} .ds-btn-tool:active{background:var(--accent-soft,rgba(15,158,143,.10));}"
+    },
+    {
+      "name": "Column Button",
+      "kind": "button",
+      "refersTo": "button-column",
+      "description": "The tool button squared to 30x30, used as the ten column selectors. Selection is aria-pressed, not a second colour.",
+      "html": "<div style=\"display:flex;gap:4px\"><button class=\"ds-btn-col\" type=\"button\">7</button><button class=\"ds-btn-col\" type=\"button\" aria-pressed=\"true\">8</button><button class=\"ds-btn-col\" type=\"button\">9</button></div>",
+      "css": ".ds-btn-col{font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.8rem;width:30px;height:30px;border:1px solid var(--border,#d8e0ec);border-radius:7px;background:transparent;color:var(--muted,#64707f);cursor:pointer;font-variant-numeric:tabular-nums;transition:color .12s,border-color .12s,background .12s;} .ds-btn-col:hover{color:var(--ink,#141b26);border-color:var(--accent,#0f9e8f);} .ds-btn-col[aria-pressed=\"true\"]{color:var(--accent-ink,#0a7064);border-color:var(--accent,#0f9e8f);background:var(--accent-soft,rgba(15,158,143,.10));font-weight:600;} .ds-btn-col:focus-visible{outline:2px solid var(--accent,#0f9e8f);outline-offset:2px;}"
+    },
+    {
+      "name": "Range Field",
+      "kind": "input",
+      "refersTo": "field-range",
+      "description": "A control drawn as a rule and a handle: 1px track, 11x16 square thumb, mono label above and tabular output below.",
+      "html": "<div class=\"ds-field\"><label for=\"ds-r\">Conductance variation</label><input id=\"ds-r\" type=\"range\" min=\"0\" max=\"6\" step=\"1\" value=\"3\"><output for=\"ds-r\">sigma = 0.05</output></div>",
+      "css": ".ds-field label{display:block;font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted,#64707f);margin:0 0 10px;} .ds-field output{display:block;font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.95rem;color:var(--ink,#141b26);font-variant-numeric:tabular-nums;margin-top:9px;letter-spacing:.01em;} .ds-field input[type=\"range\"]{-webkit-appearance:none;appearance:none;width:100%;background:transparent;height:16px;margin:0;cursor:pointer;display:block;} .ds-field input[type=\"range\"]::-webkit-slider-runnable-track{height:1px;background:var(--border,#d8e0ec);} .ds-field input[type=\"range\"]::-moz-range-track{height:1px;background:var(--border,#d8e0ec);} .ds-field input[type=\"range\"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:11px;height:16px;margin-top:-8px;border-radius:2px;background:var(--accent,#0f9e8f);border:0;transition:transform .12s ease;} .ds-field input[type=\"range\"]::-moz-range-thumb{width:11px;height:16px;border-radius:2px;background:var(--accent,#0f9e8f);border:0;} .ds-field input[type=\"range\"]:hover::-webkit-slider-thumb{transform:scaleY(1.18);} .ds-field input[type=\"range\"]:focus-visible{outline:2px solid var(--accent,#0f9e8f);outline-offset:4px;border-radius:2px;}"
+    },
+    {
+      "name": "Topbar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "Sticky, blurred, hairline-bottomed. Only the current page is drawn as a pill; the rest are quiet.",
+      "html": "<header class=\"ds-topbar\"><div class=\"ds-topbar-in\"><span class=\"ds-brand\"><b>spinn</b> &middot; a device-tolerance study of spintronic neural networks</span><div class=\"ds-topbar-right\"><nav class=\"ds-nav\"><a href=\"#\" aria-current=\"page\">The machine</a><a href=\"#\">The budget</a></nav><button class=\"ds-theme\" type=\"button\" aria-label=\"Toggle colour theme\"><svg viewBox=\"0 0 16 16\" width=\"11\" height=\"11\" aria-hidden=\"true\" focusable=\"false\"><circle cx=\"8\" cy=\"8\" r=\"6.3\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\"></circle><path d=\"M8 1.7a6.3 6.3 0 0 0 0 12.6z\" fill=\"currentColor\"></path></svg> theme</button></div></div></header>",
+      "css": ".ds-topbar{backdrop-filter:blur(8px);background:color-mix(in srgb,var(--bg,#f4f7fb) 82%,transparent);border-bottom:1px solid var(--border,#d8e0ec);} .ds-topbar-in{max-width:1120px;margin:0 auto;padding:9px 24px;display:flex;align-items:center;justify-content:space-between;gap:6px 16px;flex-wrap:wrap;} .ds-brand{font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.82rem;letter-spacing:.02em;color:var(--ink-dim,#3f4c60);} .ds-brand b{color:var(--accent-ink,#0a7064);font-weight:600;} .ds-topbar-right{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;} .ds-nav{display:flex;align-items:center;gap:2px;flex-wrap:wrap;} .ds-nav a{font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.75rem;letter-spacing:.03em;text-decoration:none;color:var(--muted,#64707f);border:1px solid transparent;border-radius:999px;padding:5px 11px;white-space:nowrap;transition:color .15s,background .15s,border-color .15s;} .ds-nav a:hover{color:var(--ink,#141b26);background:var(--accent-soft,rgba(15,158,143,.10));} .ds-nav a[aria-current=\"page\"]{color:var(--accent-ink,#0a7064);background:var(--accent-soft,rgba(15,158,143,.10));border-color:color-mix(in srgb,var(--accent,#0f9e8f) 45%,transparent);} .ds-nav a:focus-visible{outline:2px solid var(--accent,#0f9e8f);outline-offset:2px;} .ds-theme{font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.75rem;letter-spacing:.04em;background:transparent;border:1px solid var(--border,#d8e0ec);color:var(--muted,#64707f);border-radius:999px;padding:5px 13px;cursor:pointer;transition:color .15s,border-color .15s;display:inline-flex;align-items:center;gap:6px;line-height:1;} .ds-theme:hover{color:var(--ink,#141b26);border-color:var(--accent,#0f9e8f);} .ds-theme:focus-visible{outline:2px solid var(--accent,#0f9e8f);outline-offset:2px;}"
+    },
+    {
+      "name": "Hole Chip",
+      "kind": "chip",
+      "refersTo": "chip-hole",
+      "description": "An unsourced value drawn as a hole, not as a value. Amber ink on an 8% amber wash.",
+      "html": "<p style=\"font-size:17px;color:#3f4c60;margin:0\">Wire resistance is <code class=\"ds-chip-hole\">UNSOURCED</code>, so no margin is claimed.</p>",
+      "css": ".ds-chip-hole{font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.92em;border-radius:5px;padding:.05em .38em;white-space:nowrap;color:var(--accent-2-ink,#9c5411);border:1px solid color-mix(in srgb,var(--accent-2,#c9701f) 40%,transparent);background:color-mix(in srgb,var(--accent-2,#c9701f) 8%,transparent);}"
+    },
+    {
+      "name": "Measurement Strip",
+      "kind": "card",
+      "refersTo": "spec-cell",
+      "description": "Four facts separated by vertical rules rather than boxed into tiles. Collapses to two columns below 720px.",
+      "html": "<div class=\"ds-spec\"><div><span class=\"v\">720</span><span class=\"l\">devices, two per weight</span></div><div><span class=\"v\">0.7345</span><span class=\"l\">ideal accuracy</span></div><div><span class=\"v\">4.84</span><span class=\"l\">effective bits at the edge</span></div><div><span class=\"v\">36&times;10</span><span class=\"l\">array size</span></div></div>",
+      "css": ".ds-spec{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border,#d8e0ec);margin:34px 0 6px;} .ds-spec>div{padding:15px 22px 15px 0;border-right:1px solid var(--border,#d8e0ec);min-width:0;} .ds-spec>div+div{padding-left:22px;} .ds-spec>div:last-child{border-right:0;} .ds-spec .v{display:block;font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:clamp(1.05rem,2vw,1.42rem);font-weight:600;color:var(--ink,#141b26);font-variant-numeric:tabular-nums;letter-spacing:-.01em;} .ds-spec .l{display:block;font-size:.78rem;color:var(--muted,#64707f);margin-top:4px;line-height:1.4;} @media (max-width:720px){.ds-spec{grid-template-columns:1fr 1fr;}.ds-spec>div{border-bottom:1px solid var(--border,#d8e0ec);}.ds-spec>div:nth-child(2n){border-right:0;}.ds-spec>div:nth-last-child(-n+2){border-bottom:0;}}"
+    },
+    {
+      "name": "Comparison Record",
+      "kind": "card",
+      "refersTo": "row-record-row",
+      "description": "The deliverable row, given its own presentation rather than a data table: a two-column record read down, ruled row by row.",
+      "html": "<dl class=\"ds-rec\"><div><dt>Platform</dt><dd><b>spinn</b> &mdash; MTJ / domain-wall crossbar</dd></div><div><dt>Binding source</dt><dd>Conductance variation, at <b>4.84</b> effective bits</dd></div><div><dt>Array</dt><dd><b>36&times;10</b>, 720 devices, differential pairs</dd></div></dl>",
+      "css": ".ds-rec{border-top:1px solid var(--border,#d8e0ec);margin:24px 0 0;max-width:68ch;} .ds-rec>div{display:grid;grid-template-columns:minmax(130px,.5fr) 1fr;gap:6px 22px;padding:11px 0;border-bottom:1px solid var(--border,#d8e0ec);} .ds-rec dt{font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted,#64707f);margin:0;padding-top:.18em;} .ds-rec dd{margin:0;color:var(--ink-dim,#3f4c60);font-size:.95rem;line-height:1.5;} .ds-rec dd b{color:var(--ink,#141b26);font-weight:600;font-family:var(--mono,ui-monospace,Consolas,monospace);font-variant-numeric:tabular-nums;} @media (max-width:560px){.ds-rec>div{grid-template-columns:1fr;gap:2px;}}"
+    },
+    {
+      "name": "Hero Readout",
+      "kind": "custom",
+      "refersTo": "typography.answer",
+      "description": "The array's current answer: one very large serif tabular numeral in teal ink, amber ink when wrong, beside the machine's state in small type.",
+      "html": "<div class=\"ds-readout\"><span class=\"ds-readout-d\" aria-hidden=\"true\">8</span><div><p class=\"ds-readout-k\">The array answers</p><p class=\"ds-readout-t\">This digit is a <b>8</b>, and the column that drew the most current is <b>8</b> &mdash; correct.</p></div></div>",
+      "css": ".ds-readout{display:flex;align-items:flex-start;gap:18px;margin:26px 0 0;border-top:1px solid var(--border,#d8e0ec);padding-top:18px;max-width:34rem;} .ds-readout-d{font-family:var(--serif,'Iowan Old Style',Palatino,Georgia,serif);font-size:4.2rem;line-height:.86;font-weight:600;color:var(--accent-ink,#0a7064);font-variant-numeric:tabular-nums;min-width:2ch;transition:color .25s ease;} .ds-readout.miss .ds-readout-d{color:var(--accent-2-ink,#9c5411);} .ds-readout-k{font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted,#64707f);margin:0;} .ds-readout-t{margin:.3rem 0 0;color:var(--ink-dim,#3f4c60);font-size:.94rem;line-height:1.45;} .ds-readout-t b{color:var(--ink,#141b26);font-weight:600;} @media (max-width:720px){.ds-readout-d{font-size:3.2rem;}}"
+    },
+    {
+      "name": "Finding Callout",
+      "kind": "card",
+      "refersTo": "colors.bad-ink",
+      "description": "The one recessed aside: a tagged result the reader should not scroll past. Its tag is the only type use of the rust hue, and it takes the ink variant.",
+      "html": "<aside class=\"ds-finding\"><p class=\"tag\">What binds</p><p class=\"body\"><strong>Conductance variation binds first</strong>, at 4.84 effective bits, ahead of resolvable states and IR drop.</p></aside>",
+      "css": ".ds-finding{background:var(--surface-2,#eef2f8);border:1px solid var(--border,#d8e0ec);border-radius:10px;padding:18px 20px;margin:26px 0;} .ds-finding .tag{font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;color:var(--bad-ink,#ba4530);margin:0 0 .4rem;font-weight:600;} .ds-finding .body{margin:0;color:var(--ink,#141b26);} .ds-finding .body strong{color:var(--ink,#141b26);font-weight:600;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Ruled Instrument Panel",
+    "overview": "This is a laboratory page, not a product page. Its subject is one continuous machine - a 36x10 lattice of magnetic devices - and the page is built as the bench that machine sits on: a hairline rule, a monospace label naming what is below it, and then the instrument itself at full width. Nothing is boxed. A card inside a card is what a dashboard becomes when nobody decides, and on a page whose whole argument is that one array does all of this, tiling each view of it into its own container argues the opposite of the content.\n\nThe palette is inherited whole from a sibling platform and is deliberately unchanged: a cool paper ground, a teal accent, an amber second, and a five-stop spectral hairline across the very top of the page. What this build added is a way to draw signed physical state. A weight in this machine is a difference between two devices, so the array is painted on a two-pole diverging ramp - amber at -1, the page's own second surface at 0, teal at +1 - and zero weights vanish into the page so the trained pattern is the only thing left visible. That single decision is why the hero reads as a picture of something rather than a heat map.\n\nDensity is high and quiet. Type does the ranking, not colour and not elevation: serif for every claim, monospace for every measured quantity, one micro-label size for every caption and legend on the page. Confirmed rejections: no card grid carries structure anywhere; no research-writeup pattern of prose with a static plot dropped in at the end; no shadows; no webfont and no external request of any kind.",
+    "keyCharacteristics": [
+      "Ruled, never carded - hairline separators do all the work containers would.",
+      "Serif claims over monospace measurement; nothing in between.",
+      "A two-pole diverging ramp that grounds zero in the page itself.",
+      "Flat: depth comes from tonal surfaces and 1px borders, never from shadow.",
+      "One authored motion moment on the whole page, and it means something.",
+      "Every colour is a custom property, read by CSS and by canvas from the same place."
+    ],
+    "rules": [
+      {
+        "name": "The Ink-and-Fill Rule",
+        "body": "Each of the four signal hues ships twice: a fill value (--accent, --accent-2, --good, --bad) and an ink value (--accent-ink, --accent-2-ink, --good-ink, --bad-ink). Fills are the identity and carry rules, bars, cells, thumbs and canvas geometry, where no contrast floor applies. Ink carries all type below display size, in the DOM and on canvas alike, and is darkened in light theme until it clears 4.5:1 on the ground it actually sits on - which for several labels is an 8-10% wash of their own hue, not the page. Measured in the shipped values: teal ink 5.56 on the page and 5.32 on the recessed surface, amber ink 5.30 / 5.07, green ink 4.97 / 4.75, rust ink 4.91 / 4.69, against fills of 3.10, 3.36 and 4.35 that would fail. The rust pair was split last, after the first record, for exactly the ground its one type use sits on. In dark theme the two are the same value in all four pairs, because the fills already clear the floor there (9.42, 8.74, 8.55, 6.16). Collapsing ink back into fill to simplify is the single easiest way to break this system.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two-Pole Rule",
+        "body": "A weight is signed, so it is drawn on a diverging ramp with the page under it: amber at -1, --surface-2 at 0, teal at +1. Zero is not a colour, it is the absence of one. Never introduce a third hue for zero and never draw weights on a sequential ramp.",
+        "section": "colors"
+      },
+      {
+        "name": "The Hole Rule",
+        "body": "An unsourced quantity is drawn as a hole, not as a value: amber ink on an 8% amber wash with an amber hairline, never as ordinary body text. A number the project cannot cite must be visibly different from one it can.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Micro-Size Rule",
+        "body": "There is one small-label size: .75rem. It replaced six near-identical sizes that were all doing the same job, four of them under 12px. A new caption, legend or control label uses .75rem and earns its rank from tracking, case and colour - never from a fractional size step.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Any number a reader might compare or watch change is monospace with font-variant-numeric: tabular-nums. A readout that reflows its own width as it counts is a readout that has been made harder to read.",
+        "section": "typography"
+      },
+      {
+        "name": "The Two-Voice Rule",
+        "body": "Serif claims, monospace measurements. There is no third voice; if a piece of text is neither a claim nor a measurement, it is body sans.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Shadow Rule",
+        "body": "Nothing on this page casts one. An element that needs to separate from its neighbour gets a hairline; an element that needs to sit apart gets one tonal step. If a surface seems to need a shadow, it is usually a card that should have been a rule.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Rule-Not-Card Rule",
+        "body": "An instrument panel is a hairline top rule, a monospace title, an optional right-aligned note, a caption, then the instrument. It has no background, no border box and no radius, and nothing inside it is boxed either. The same grammar drives the four-cell measurement strip, the comparison record and the next-work list. Boxes are reserved for genuinely detached objects: the contents card, the finding callout, the drawing pad.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do put every colour in a CSS custom property in the four theme blocks (:root, the prefers-color-scheme:dark media query, and the two data-theme overrides), and let both CSS and canvas read it from there.",
+      "Do read canvas colours through SpinnView.ink() and redraw on SpinnPlot.onThemeChange. Two widgets grew private copies of that read and were consolidated; a private copy is a second palette waiting to drift.",
+      "Do use ink variants (--accent-ink, --accent-2-ink, --good-ink) for every word, in the DOM and on canvas, and fill variants for every rule, bar, cell and thumb.",
+      "Do build a new panel as a hairline rule plus a monospace title (.inst), and a new fact list as ruled rows (.row-rec, .next-list) rather than as tiles.",
+      "Do size every small label at .75rem and rank it with tracking, case and colour.",
+      "Do give every interactive element a :focus-visible outline of 2px solid var(--accent).",
+      "Do honour prefers-reduced-motion by snapping every animated value to its end state and leaving autoplay off.",
+      "Do draw an uncited number as a hole (.q.hole) rather than as a value.",
+      "Do record both themes' values when a token is added. The palette is two full sets, and a token documented in one theme only is a token half the readers never had described."
+    ],
+    "donts": [
+      "Don't add a box-shadow anywhere. The system has none, and depth is a hairline plus one tonal step.",
+      "Don't build a card grid, or nest a bordered box inside another bordered box. Panels are ruled; boxes are for the contents card, the finding callout and the drawing pad only.",
+      "Don't use a fill value as type colour below display size, or simplify the ink/fill split away. In light theme the fills measure 3.10, 3.36 and 4.35 against the grounds they sit on and fail the contrast floor; the ink variants exist for exactly that.",
+      "Don't introduce a third hue for a zero weight, or draw signed weights on a sequential ramp; zero is --surface-2 and disappears.",
+      "Don't spend the spectral gradient on anything but the 3px topline and the 132px headline underbar. It is a signature, not a fill.",
+      "Don't add a Unicode glyph as an icon; draw an inline SVG with currentColor. A glyph renders at whatever weight the reader's fallback font happens to have.",
+      "Don't add a kicker or an eyebrow above a heading. The predecessor's eyebrow paragraph was removed from this system entirely - six of eight restated the first words of the heading beneath them - and section indexing now anchors on .phase-head with an optional data-num.",
+      "Don't animate anything beyond the scroll reveal and the settle. Motion here has to mean drive, sum, decide.",
+      "Don't introduce a webfont or any external subresource; the page must open from file://."
+    ]
+  }
+}

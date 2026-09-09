@@ -1,30 +1,46 @@
 <!--
-  The one page this repo builds today.
+  The page.
 
-  Deliberately thin. It exists so the builder has something to build and so the
-  chrome, the contents card and the page script are exercised by a real document
-  rather than a fixture. It is not the site: the pages that carry the argument
-  come after there is a measurement to argue from, and writing them earlier would
-  mean writing prose about results that do not exist.
+  It has one job the repository could not do for itself: make a reader see the
+  machine compute, and then see it stop computing when it is built badly. Every
+  widget on it runs the real forward pass -- the trained 36x10 weights, the frozen
+  2000-image test set, and the same arithmetic spinn/crossbar.py and spinn-hw/+err
+  run -- because a demonstration that was a cartoon of the measurement would spend
+  exactly the credibility the one-directional seam was built to earn.
 
-  Every claim here is structural -- what the machine is and what this repo will
-  produce. No device number appears on this page, because none has been sourced.
+  Numbers here are the recorded ones. Where a quantity is UNSOURCED it is drawn as
+  a hole rather than filled, and where the browser's arithmetic differs from the
+  recorded arithmetic -- a different random stream, a tie broken by summation
+  order -- the widget says so in its own footnote.
 -->
 @@TOPBAR@@
 <div class="topline"></div>
 
 <main class="wrap">
 
-  <section class="hero">
-    <p class="eyebrow">Physical AI &middot; platform two</p>
-    <h1>A neural network made of <em>magnets</em></h1>
-    <div class="underbar"></div>
-    <p class="standfirst">
-      A weight is the magnetic state of a device, and the sum is performed by
-      <b>Kirchhoff's law on a wire</b>. Not by interference, and not by a processor.
-      This repository works out how precisely such a thing would have to be built.
-    </p>
+  <section class="machine">
+    <div class="machine-say">
+      <h1>A neural network made of <em>magnets</em></h1>
+      <div class="underbar"></div>
+      <p class="standfirst">
+        A weight is the magnetic state of a device, and the sum is performed by
+        <b>Kirchhoff's law on a wire</b>. Not by interference, and not by a processor.
+        This is the real array: 720 devices holding weights trained on handwriting,
+        classifying digits in your browser as you read this.
+      </p>
+    </div>
+    <div class="machine-do">
+      <div id="heroMachine"></div>
+    </div>
+    <div class="machine-read" id="heroReadout"></div>
   </section>
+
+  <div class="spec">
+    <div><span class="v">720</span><span class="l">devices, in 360 differential pairs</span></div>
+    <div><span class="v">0.7345</span><span class="l">accuracy on the shared task, ideal array</span></div>
+    <div><span class="v">4.84</span><span class="l">effective bits the binding error source demands</span></div>
+    <div><span class="v">36&times;10</span><span class="l">array size, stated because IR drop grows with it</span></div>
+  </div>
 
   @@TOC@@
 
@@ -32,24 +48,49 @@
     <div class="phase-head">
       <span class="ph-num">01</span>
       <div>
-        <p class="eyebrow">The weight</p>
-        <h2>A magnetic state, read as a conductance</h2>
+        <h2>The weight: a magnetic state, read as a conductance</h2>
       </div>
     </div>
     <div class="prose col">
       <p>
-        In a magnetic tunnel junction two magnetic layers sandwich a thin barrier. When
-        their magnetisations point the same way the device conducts comparatively well;
-        when they oppose, it conducts less. The stored value is an orientation, and the
-        circuit reads it as a conductance.
+        In a magnetic tunnel junction, two magnetic layers sandwich a barrier thin enough
+        to tunnel through. When their magnetisations point the same way the device
+        conducts comparatively well; when they oppose, it conducts less. Nothing is
+        stored as charge. The stored value is an <em>orientation</em>, it survives the
+        power being cut, and the circuit reads it as a conductance.
       </p>
       <p>
-        Domain-wall devices are the same idea with a position instead of an orientation,
-        which lets them hold more than two distinguishable states. <strong>They are one
-        model with a knob</strong> &mdash; states per weight &mdash; rather than two
-        separate machines, which is why this repository builds one crossbar and
-        parameterises it.
+        A domain-wall device is the same idea with a position instead of an orientation.
+        A wall sits somewhere along a track, pinned at defects, and how much of the track
+        is magnetised one way sets the conductance &mdash; so it holds more than two
+        distinguishable states. <strong>They are one model with a knob</strong>, states
+        per device, rather than two separate machines. That is why this repository builds
+        one crossbar and parameterises it.
       </p>
+      <p>
+        Two devices make one weight here. A conductance cannot be negative, so a signed
+        weight needs a scheme, and this one wires a pair so their currents subtract. It
+        costs twice the devices and buys twice the signed range out of a conductance
+        window that is the platform's binding constraint &mdash; two independent error
+        draws raise the noise by <span class="q">&radic;2</span> against a range that
+        doubles, a net <span class="q">&radic;2</span> in signal-to-noise, before counting
+        the baseline current an offset scheme would have to subtract downstream.
+      </p>
+    </div>
+
+    <div class="inst">
+      <div class="inst-h">
+        <p class="inst-t">Instrument 01 &middot; one device</p>
+        <span class="inst-n">live &middot; 2,000 test digits per move</span>
+      </div>
+      <p class="inst-d">
+        Drag the number of states a device resolves. The top row of ticks is what one
+        device can hold; the bottom row is what a <em>pair</em> can represent, which has
+        <span class="q">2&middot;states &minus; 1</span> levels because the weight is a
+        difference. The accuracy underneath is recomputed over the whole frozen test set
+        on every move. Click the device to step it through its own states.
+      </p>
+      <div id="deviceExplorer"></div>
     </div>
   </section>
 
@@ -57,25 +98,46 @@
     <div class="phase-head">
       <span class="ph-num">02</span>
       <div>
-        <p class="eyebrow">The sum</p>
-        <h2>Kirchhoff's law does the arithmetic</h2>
+        <h2>The sum: Kirchhoff's law does the arithmetic</h2>
       </div>
     </div>
     <div class="prose col">
       <p>
-        Arrange the devices in a grid. Drive the rows with voltages, and each device
-        passes a current set by its own conductance. Every device on a column dumps its
-        current into the same wire, and the wire adds them &mdash; because that is what
-        a wire does.
+        Arrange the devices in a grid. Drive each row with a voltage, and each device
+        passes a current set by its own conductance &mdash; Ohm's law, once per device.
+        Every device on a column empties into the same wire, and the wire adds them,
+        because that is what a wire does.
       </p>
       <p>
-        A matrix-vector multiply therefore costs one settling time and no instructions.
-        <strong>The multiply-accumulate is linear</strong>; whatever nonlinearity the
-        network needs sits in the periphery, in the converter and whatever follows it.
-        That is a real difference from an optical network, where the detector supplies
-        the nonlinearity for free, and this project intends to characterise the
-        difference rather than argue from it.
+        That is the whole multiply&ndash;accumulate. A 36&times;10 matrix&ndash;vector
+        product costs <strong>one settling time and no instructions</strong>: there is no
+        loop, no accumulator register, and no clock inside the array. What the hardware
+        computes is not an approximation of the arithmetic; the arithmetic is a
+        description of what the hardware does.
       </p>
+      <p>
+        <strong>The multiply&ndash;accumulate is linear.</strong> Whatever nonlinearity a
+        network needs has to sit in the periphery &mdash; in the sense amplifier, the
+        converter, and whatever follows them. That is a real difference from an optical
+        network, where a detector measures intensity and supplies a square-law
+        nonlinearity for free. This project intends to characterise the difference rather
+        than argue from it.
+      </p>
+    </div>
+
+    <div class="inst">
+      <div class="inst-h">
+        <p class="inst-t">Instrument 02 &middot; one column</p>
+        <span class="inst-n">real weights &middot; real test digit</span>
+      </div>
+      <p class="inst-d">
+        Pick a column and watch it fill. On the left, what each of the 36 devices
+        contributes &mdash; signed, because a differential pair can subtract. On the
+        right, what the wire is actually carrying by the time it has passed that device.
+        There is no per-device current anywhere in the hardware; only the accumulation
+        exists, and the number at the bottom is the column's answer.
+      </p>
+      <div id="wireColumn"></div>
     </div>
   </section>
 
@@ -83,30 +145,53 @@
     <div class="phase-head">
       <span class="ph-num">03</span>
       <div>
-        <p class="eyebrow">The deliverable</p>
-        <h2>One row, in a table that compares media</h2>
+        <h2>The task: thirty-six pixels, and your handwriting</h2>
       </div>
     </div>
     <div class="prose col">
       <p>
-        This is the second platform in a series. The first computes with light. One
-        example of computation-by-physics is an anecdote; a second, in an unrelated
-        medium, is what makes it a class &mdash; but only if the two can be put in the
-        same table.
+        The machine learning here is <strong>deliberately minimal, and stays that way</strong>.
+        The task is MNIST at 6&times;6 &mdash; 36 inputs, ten columns, one linear map,
+        trained with sixty epochs of plain gradient descent in NumPy. No hidden layer, no
+        convolution, no autograd: the gradient of softmax cross-entropy through one matrix
+        is <span class="q">X&#7488; (p &minus; Y)</span>, and importing the largest
+        dependency in the ecosystem to avoid writing that line down would be a poor trade.
       </p>
       <p>
-        They can, because any analog tolerance normalises against the device's own
-        operating range, and the log of that ratio is a bit depth. So this repository
-        owes exactly one row: what a weight physically is, what performs the sum, the
-        accuracy on the shared task, which error source binds first, and the precision
-        that source demands in <strong>effective bits</strong> &mdash; alongside energy
-        and latency per inference.
+        Small is the point. All of this project's complexity belongs in the device physics
+        and the error model, and a task that is understood completely is the only kind
+        against which a <em>tolerance</em> means anything. An accuracy that fell because
+        the network was fragile would tell you nothing about the hardware.
       </p>
       <p>
-        Every as-built magnitude is either cited or marked <span class="q">UNSOURCED</span>
-        and shown as such. Where a value cannot be sourced, no margin is claimed against
-        it and the column is left out rather than estimated.
+        The test set is <strong>imported from the first platform as data</strong>, not
+        regenerated. That is the one deliberate exception to keeping these repositories
+        independent, and it exists because independently regenerating &ldquo;the same&rdquo;
+        MNIST subset is exactly how two platforms end up scored on different data without
+        anyone noticing. 36 channels is also what makes the comparison like for like: a
+        crossbar is an N&times;N matrix engine, so an interferometer mesh is its
+        counterpart, not a diffractive stack.
       </p>
+      <p>
+        An ideal array gets <strong>0.7345</strong> of the 2,000 held-out digits right.
+        Not 99% &mdash; there are thirty-six pixels and no hidden layer. That number is
+        the ceiling everything below this point is measured against.
+      </p>
+    </div>
+
+    <div class="inst">
+      <div class="inst-h">
+        <p class="inst-t">Instrument 03 &middot; your digit</p>
+        <span class="inst-n">the same weights that scored 0.7345</span>
+      </div>
+      <p class="inst-d">
+        Draw a digit. It is averaged down to the 6&times;6 the array is wired for, and
+        those 36 numbers become 36 row voltages. Expect it to be worse than 73%: your
+        handwriting is not MNIST, it is thicker and off-centre and drawn with a trackpad,
+        and the machine has 36 pixels to work with. Watching a 4 turn into nine grey
+        squares explains more about that than a paragraph can.
+      </p>
+      <div id="drawPad"></div>
     </div>
   </section>
 
@@ -114,33 +199,297 @@
     <div class="phase-head">
       <span class="ph-num">04</span>
       <div>
-        <p class="eyebrow">Status</p>
-        <h2>What exists today, stated plainly</h2>
+        <h2>The seam: Python designs, MATLAB measures, nothing crosses back</h2>
       </div>
     </div>
     <div class="prose col">
       <p>
-        The comparable core is complete and the row is reported. The ideal array scores
-        <strong>0.7345</strong> on the shared task. Under device error,
-        <strong>conductance variation binds first, at 4.84 effective bits</strong>, ahead
-        of resolvable states and IR drop. The array is 36&times;10 logical &mdash; 720
-        devices in differential pairs &mdash; and that size is stated because IR drop
-        grows with it.
+        Everything above describes an <em>ideal</em> array: exact conductances,
+        infinitely resolvable states, perfect wires. It is written in Python and it is
+        the design. The as-built model &mdash; the device error, the Monte Carlo, the
+        tolerance budget &mdash; is written in MATLAB, and the two are joined by a single
+        HDF5 file that travels <strong>one way only</strong>.
       </p>
       <p>
-        Delivered precision, energy per inference and latency are
-        <span class="q">UNSOURCED</span>, so no margin is claimed and that column is
-        omitted rather than estimated. Array read power is 1.577&nbsp;&micro;W,
-        <em>array only</em>: it excludes the sense amplifiers, the ADC and every digital
-        stage after them, and the periphery frequently dominates an analog accelerator's
-        energy. A figure that omits it quietly is not comparable to one that does not.
+        That direction is the point. A design that can be quietly adjusted to flatter its
+        own error budget is not a measurement of anything. So there is one writer and one
+        reader on each side, the operating point is a <strong>closed set of five keys</strong>
+        &mdash; <span class="q">g_min_s</span>, <span class="q">g_max_s</span>,
+        <span class="q">read_voltage_v</span>, <span class="q">readout_gain</span>,
+        <span class="q">signed_scheme_code</span> &mdash; and both sides refuse an unknown
+        key and a missing required one. Neither reader supplies a default, because a
+        default is indistinguishable from a correct value downstream: it turns a renamed
+        field into a plausible wrong answer instead of a stack trace.
       </p>
       <p>
-        Not built, deliberately: error sources beyond the first three, an array-size
-        sweep, and the spin-torque oscillator &mdash; which is complementary and stays
-        out of the comparison table on purpose. None of them blocks the row.
+        <span class="q">states_per_device</span> deliberately does not cross. How many
+        levels a device resolves is a property of what was built, not of what was
+        designed, so it belongs to the error config on the far side of the seam.
+      </p>
+      <p>
+        The seam is proven by <strong>round trip</strong>: MATLAB rebuilds the array from
+        the file alone and has to reproduce the accuracy Python recorded. That is the only
+        detector for a transposed weight matrix, a column-major image flatten, an assumed
+        signed scheme or a defaulted gain &mdash; none of which raise an error, and all of
+        which return a plausible number.
+      </p>
+
+      <div class="finding">
+        <p class="tag">What the round trip caught</p>
+        <p class="body">
+          Quantisation was first implemented on each device independently, which is the
+          obvious reading of &ldquo;devices are what have finite states&rdquo;. With
+          two-state devices and a target weight of 0.3, the positive rail rounds up and
+          the negative rounds down, and the pair lands on <strong>+1</strong> where the
+          nearest representable weight is <strong>0</strong>. <strong>The differential
+          pair collapses to a sign bit, at twice the device count of an offset scheme</strong>
+          &mdash; every argument for choosing it, voided, silently. The only symptom was a
+          lattice with two values in it where a probe expected three. Quantisation now
+          applies to the effective weight, over the set a legal combination of device
+          states can reach, on both sides.
+        </p>
+      </div>
+
+      <p>
+        A second trap surfaced while fixing the first: NumPy rounds half to <em>even</em>
+        and MATLAB rounds half <em>away from zero</em>. They differ only on exact halves
+        &mdash; which is precisely where a weight sits between two device states. Left
+        alone, the two sides would have quantised such a weight differently, agreed on
+        everything else, and disagreed on an accuracy by a sample or two with nothing to
+        point at. Both sides now round away from zero, and so does the JavaScript on this
+        page.
       </p>
     </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="ph-num">05</span>
+      <div>
+        <h2>Building it badly: what device error does to the answer</h2>
+      </div>
+    </div>
+    <div class="prose col">
+      <p>
+        Three error sources, chosen because they are what a crossbar actually suffers
+        from rather than because the other platform had a list of that length. Forcing a
+        common list onto both would measure the taxonomy instead of the hardware.
+      </p>
+      <p>
+        <strong>Conductance variation</strong> is the spread between the state a device
+        was programmed to and the state it holds. Every device gets its own draw, which
+        under a differential pair is two draws per weight, and the result is clamped at
+        the window edges &mdash; a device cannot be programmed outside the states it has.
+        It is quoted as a fraction of the conductance window, which is what lets it
+        convert straight into the comparison unit.
+      </p>
+      <p>
+        <strong>Resolvable states</strong> is the knob from section 01, applied as an
+        error rather than as a design choice. <strong>IR drop</strong> is the crossbar's
+        own characteristic failure and has no photonic counterpart: the wires are not
+        ideal conductors, so a cell far from both edges is starved of the voltage the
+        driver thinks it is delivering. It is a systematic, not a random draw, it depends
+        on <em>where in the array</em> a device sits, and it grows with array size.
+      </p>
+    </div>
+
+    <div class="inst">
+      <div class="inst-h">
+        <p class="inst-t">Instrument 04 &middot; the bench</p>
+        <span class="inst-n">all 2,000 digits, recomputed per move</span>
+      </div>
+      <p class="inst-d">
+        Take the ideal array apart. Each slider lands only on magnitudes the Monte Carlo
+        actually swept &mdash; this project publishes tolerance <em>edges</em> as brackets
+        and never interpolates, so a control that glided through unmeasured values would
+        be inviting you to read off a number the measurement does not contain. The pass
+        mark is 95% of ideal, declared before any of the sweeps were run.
+      </p>
+      <div id="errorBench"></div>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="ph-num">06</span>
+      <div>
+        <h2>The budget: three sources, three brackets, one binds</h2>
+      </div>
+    </div>
+    <div class="prose col">
+      <p>
+        The bench above is yours to play with. This is what the measurement said when the
+        knobs were turned properly: twenty Monte Carlo realisations per magnitude for the
+        source that has a random draw, seeded by a partitioning shared with the first
+        platform so that the two tolerance tables stay comparable.
+      </p>
+    </div>
+
+    <div class="inst">
+      <div class="inst-h">
+        <p class="inst-t">Instrument 05 &middot; the budget</p>
+        <span class="inst-n">recorded &middot; base seed 20260908</span>
+      </div>
+      <p class="inst-d">
+        Recorded results, not recomputed ones. Nothing is fitted: the marks are the
+        magnitudes that were swept, the shaded band is one standard deviation over the
+        twenty realisations, and there is no crossing point anywhere in the data because
+        none was measured. The honest statement is the bracket underneath each panel.
+      </p>
+      <div id="budgetLadder"></div>
+    </div>
+
+    <div class="prose col">
+      <p class="sub-h">Two things the panels cannot draw</p>
+      <p>
+        <strong>IR drop is deliberately not converted to bits.</strong> It is a
+        position-dependent systematic, not a spread on a stored value, so
+        <span class="q">log&#8322;(range / &sigma;)</span> has no &sigma; to take, and
+        forcing it into the unit would be a category error. Its bracket is also
+        conditional twice over: on the array size, because the drop grows with it, and
+        on the conductance window, because a wire drop is <span class="q">R&middot;I</span>
+        and the current depends on the absolute conductance of the devices. Sources 1 and
+        2 cancel that window exactly; source 3 cannot, and the window is
+        <span class="q hole">UNSOURCED</span>.
+      </p>
+      <p>
+        <strong>Budgeting each source to its own edge leaves nothing over.</strong> All
+        three at the last magnitude that individually held give
+        <strong>0.6819 &plusmn; 0.0119</strong>, which is under the pass mark. The joint
+        drop is sub-additive rather than additive &mdash; a property of accuracy as a
+        metric, since a digit already misclassified by one source cannot be
+        misclassified again by the next, and no conclusion is drawn from it. What it
+        means practically is that a design meeting all three at once needs each of them
+        comfortably inside its bracket.
+      </p>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="ph-num">07</span>
+      <div>
+        <h2>The row: one line in a table that compares media</h2>
+      </div>
+    </div>
+    <div class="prose col">
+      <p>
+        This is the second platform in a series. The first computes with light. One
+        example of computation-by-physics is an anecdote; a second, in an unrelated
+        medium, is what makes it a class &mdash; but only if the two can be put in the
+        same table. So this repository owes exactly one row, and this is it.
+      </p>
+    </div>
+
+    <div class="row-rec">
+      <div><p class="k">Platform</p><p class="v">spintronic crossbar (MTJ / domain-wall)</p></div>
+      <div><p class="k">A weight is</p><p class="v">a magnetic state, read as a conductance</p></div>
+      <div><p class="k">The sum is</p><p class="v">Kirchhoff current summing on a wire</p></div>
+      <div><p class="k">Ideal accuracy</p><p class="v"><b>0.7345</b> on the shared task &mdash; MNIST, 36 channels</p></div>
+      <div><p class="k">Which source binds</p><p class="v"><b>conductance variation</b>, device to device</p></div>
+      <div><p class="k">Required precision</p><p class="v"><b>4.84 effective bits</b> &mdash; holds at &sigma; = 0.035 of the window, fails at 0.05</p></div>
+      <div><p class="k">Delivered precision</p><p class="v"><span class="q hole">UNSOURCED</span></p></div>
+      <div><p class="k">Margin</p><p class="v"><em>omitted &mdash; there is no margin to state against an unsourced delivered precision</em></p></div>
+      <div><p class="k">Energy / inference</p><p class="v"><span class="q hole">UNSOURCED</span>; array read power <b>1.577&nbsp;&micro;W</b>, array only</p></div>
+      <div><p class="k">Latency / inference</p><p class="v"><span class="q hole">UNSOURCED</span></p></div>
+      <div><p class="k">Array</p><p class="v"><b>36&times;10</b>, 720 devices, differential pairs; pass mark <b>0.6978</b></p></div>
+    </div>
+
+    <div class="prose col">
+      <p class="sub-h">What the holes are, and why they stay holes</p>
+      <p>
+        Spintronic device parameters are spread across a literature that mixes
+        measurements with roadmap projections, and no distribution has been read into this
+        repository yet. So <span class="q">g_min</span>, <span class="q">g_max</span>,
+        the read voltage and the wire resistance are placeholders, marked as such
+        everywhere they appear. <strong>No margin is claimed against an uncited value</strong>,
+        and the margin column is omitted rather than estimated. A confident wrong number
+        costs more than an admitted hole.
+      </p>
+      <p>
+        The accuracy and the bit depths do not depend on those placeholders &mdash; the
+        window and the drive cancel exactly in the decode, and a test asserts the ideal
+        accuracy is unchanged across unrelated windows. The energy figure does, so the
+        arithmetic is given rather than the conclusion. <strong>Array read power is
+        1.577&nbsp;&micro;W</strong>, computed as
+        <span class="q">mean&#8345;(&Sigma;&#7522;&#11388; V&#7522;&sup2; G&#7522;&#11388;)</span>
+        over all 720 devices, and it is <em>array only</em>: it excludes the sense
+        amplifiers, the converter and every digital stage after them, and the periphery
+        frequently dominates an analog accelerator's energy. Energy per inference needs a
+        read time on top of that, and no read time has been sourced &mdash; so multiply by
+        whichever one a source supports.
+      </p>
+    </div>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head">
+      <span class="ph-num">08</span>
+      <div>
+        <h2>Next: what is not built, and what it would take</h2>
+      </div>
+    </div>
+    <div class="prose col">
+      <p>
+        The comparable core is complete and the row is reported. What follows is not
+        missing &mdash; it is the work this result makes worth doing, in roughly the order
+        that would pay.
+      </p>
+    </div>
+
+    <ul class="next-list">
+      <li>
+        <b>Source the window</b>
+        <span>
+          <span class="q">g_max/g_min</span> is the platform's characteristic constraint
+          and it is currently a placeholder. It is the largest open gap: a cited
+          distribution would turn the delivered-precision hole into a number and give the
+          row its margin column.
+        </span>
+      </li>
+      <li>
+        <b>Source a wire resistance</b>
+        <span>
+          IR drop's cliff is sharp &mdash; 100 &#937; holds and 1 k&#937; is chance
+          &mdash; so a sourced value decides between &ldquo;irrelevant&rdquo; and
+          &ldquo;fatal&rdquo; with very little in between at this array size.
+        </span>
+      </li>
+      <li>
+        <b>Sweep the array size</b>
+        <span>
+          IR drop grows with the array, so the number above is one point on a curve. The
+          size is fixed and stated first for exactly that reason; the curve is the obvious
+          next measurement.
+        </span>
+      </li>
+      <li>
+        <b>Solve IR drop self-consistently</b>
+        <span>
+          The present model is first order: the drops are computed from the currents the
+          ideal voltages would draw, so one pass overstates them. That is the safe
+          direction for a tolerance study and it is not the same as being right. Iterating
+          is the refinement, and it matters most if this source turns out to bind.
+        </span>
+      </li>
+      <li>
+        <b>Error sources 4 to 7</b>
+        <span>
+          Sneak paths, read noise, converter quantisation and retention drift, in that
+          order. The first three sources bound the design today; these decide whether that
+          bound is the real one.
+        </span>
+      </li>
+      <li>
+        <b>The spin-torque oscillator</b>
+        <span>
+          Complementary and explanatory, and it stays out of the comparison table on
+          purpose &mdash; &ldquo;how precisely must this be built to classify MNIST&rdquo;
+          is not a question you ask of a reservoir. Keeping it out is a decision, not an
+          oversight, and it would need its own question before it earns a page.
+        </span>
+      </li>
+    </ul>
   </section>
 
 </main>
@@ -158,8 +507,16 @@
       <div>
         <h3>How numbers are treated</h3>
         <p>
-          Cited, or marked <span class="q">UNSOURCED</span> and surfaced. A confident
+          Cited, or marked <span class="q hole">UNSOURCED</span> and surfaced. A confident
           wrong number costs more than an admitted hole.
+        </p>
+      </div>
+      <div>
+        <h3>What runs here</h3>
+        <p>
+          Every widget on this page evaluates the real trained weights over the real
+          frozen test set, in your browser. Nothing is fetched; nothing is precomputed
+          except the recorded Monte Carlo.
         </p>
       </div>
     </div>
