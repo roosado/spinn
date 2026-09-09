@@ -18,7 +18,7 @@ a class — so this repository owes exactly one row in a table that compares the
 |---|---|
 | `spinn/` | Python — ideal crossbar physics, training, the handoff writer |
 | `spinn-hw/` | MATLAB — device error modelling, Monte Carlo, tolerance budgets |
-| `apps/` | the site generator and its page prose |
+| `apps/` | the site generator, its page prose, and the browser-side widgets |
 | `tests/` | one `pytest` run, which drives the Node and MATLAB checks too |
 
 The Python and MATLAB halves are joined by a **one-directional** HDF5 handoff: Python
@@ -35,6 +35,15 @@ py -3 -m venv .venv
 .venv/Scripts/python.exe -m apps.build_site
 ```
 
+`site/index.html` is the page, and it is self-contained: no external request, no
+webfont, no analytics, and it opens from `file://`. The widgets on it run the **real**
+forward pass — the trained 36×10 weights and the whole frozen 2,000-image test set,
+frozen into `apps/web/data.js` and computed in the browser with the same arithmetic
+`spinn/crossbar.py` and `spinn-hw/+err/` run. `tests/test_web_crossbar.py` holds that
+third implementation to the recorded budget: every quantisation level and every wire
+resistance in `exports/error_budget.json` is recomputed under Node and compared against
+what MATLAB measured.
+
 `pytest`, `numpy` and `h5py` are installed. `matplotlib` is declared in `pyproject.toml`
 and not installed, because nothing draws a figure yet; the remaining dependencies go in
 when something imports them.
@@ -45,11 +54,16 @@ Regenerating the result end to end also needs MATLAB (base, no toolboxes):
 .venv/Scripts/python.exe -m apps.train_crossbar     # writes exports/crossbar_handoff.h5
 matlab -batch "addpath('spinn-hw'); run_error_budget('exports/crossbar_handoff.h5')"
 .venv/Scripts/python.exe -m apps.report_row         # writes docs/comparison_row.md
+.venv/Scripts/python.exe -m apps.export_web_data    # writes apps/web/data.js
+.venv/Scripts/python.exe -m apps.build_site         # writes site/index.html
 ```
 
 Run from the repo root; `run_error_budget` writes `exports/error_budget.json`, which
-`apps.report_row` reads. `exports/` is gitignored — the numbers that matter are copied
-into `docs/`, the raw run output is not versioned.
+`apps.report_row` and `apps.export_web_data` both read. `exports/` is gitignored — the
+numbers that matter are copied into `docs/` and into `apps/web/data.js`, and the raw run
+output is not versioned. Both of those copies are committed and both have a test that
+fails when they drift from what regenerates them, so a stale one says so rather than
+quietly publishing a previous run's numbers.
 
 ## State
 
@@ -62,9 +76,15 @@ that column is omitted rather than estimated.
 The array is 36×10 logical, 720 devices in differential pairs, and that size is fixed and
 stated because IR drop grows with it. `docs/history.md` is the full record, newest last.
 
-Not built, deliberately: error sources beyond the first three, an array-size sweep, the
-site pages past the placeholder, and the spin-torque oscillator — which is complementary
-and stays out of the comparison table on purpose. `CLAUDE.md` says why for each.
+The page at `site/index.html` carries all of it: what a weight physically is, the sum
+performed on a wire, the array classifying frozen digits and one you draw yourself, the
+three error sources taken apart on a live bench, the measured budget with its brackets,
+and the row.
+
+Not built, deliberately: error sources beyond the first three, an array-size sweep, a
+self-consistent IR-drop solve, and the spin-torque oscillator — which is complementary
+and stays out of the comparison table on purpose. `CLAUDE.md` says why for each, and the
+last section of the page states what each would take.
 
 ## How numbers are treated
 

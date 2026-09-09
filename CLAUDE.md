@@ -51,17 +51,24 @@ spinn-hw/
 └── run_error_budget.m  # the sweep entry point; writes exports/error_budget.json
 
 apps/
-├── train_crossbar.py # trains the ideal array; NumPy, no autograd
-├── report_row.py     # turns the error budget into docs/comparison_row.md
-├── build_site.py     # the site generator, trimmed to a spine
-├── preview.py        # standalone shell for previewing one widget
-├── pages/index.html  # page prose lives here, never in the generator
-└── web/              # mount_queue.js, plot.js
+├── train_crossbar.py  # trains the ideal array; NumPy, no autograd
+├── report_row.py      # the error budget -> docs/comparison_row.md
+├── export_web_data.py # weights, test set and budget -> apps/web/data.js
+├── build_site.py      # the site generator, its stylesheet, the widget registry
+├── preview.py         # standalone shell for previewing one widget
+├── pages/index.html   # page prose lives here, never in the generator
+└── web/
+    ├── data.js        # generated; the trained array and the frozen test set
+    ├── crossbar.js    # the forward pass and the three error sources, in JS
+    ├── xbar_view.js   # how a crossbar is drawn: ramps, array, drive, columns
+    ├── hero.js  device.js  wire.js  bench.js  ladder.js  draw.js
+    └── mount_queue.js  plot.js      # inherited
 
 tools/
 └── import_shared_task.py  # one-off, runs in PHOTONN's venv, never imported here
 
 tests/                # pytest drives everything, including Node and MATLAB
+├── crossbar_runner.js             # pins apps/web/crossbar.js to the recorded budget
 └── fixtures/shared_task_6x6.npz   # the frozen task, committed
 ```
 
@@ -168,8 +175,9 @@ deferred*.
 
 ### Deliberately deferred
 
-- The site pages beyond `index.html`, which now reports the row itself. A page per
-  error source, or a tolerance page like photonn's, is optional and unplanned.
+- The site pages beyond `index.html`, which now carries the whole argument and six
+  live instruments. A page per error source, or a tolerance page like photonn's, is
+  optional and unplanned.
 - An array-size sweep. IR drop grows with array size, so the row's number is one point on
   a curve — but the size is fixed and stated first.
 - A self-consistent IR-drop solve. Source 3 is first-order and one pass overstates the

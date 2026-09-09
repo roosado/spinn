@@ -702,3 +702,120 @@ named in `CLAUDE.md` instead — the two open sourcing questions (a conductance 
 wire resistance) under "Open decisions", and the deferred items under "Scope boundaries".
 The array-size sweep is the strongest candidate among them, because IR drop's cliff at
 this size is sharp enough that the row's number is visibly one point on a curve.
+---
+
+## 2026-09-09 — the page, and a third implementation of the physics
+
+The comparable core was complete and the row was reported, and none of it was visible.
+`site/index.html` was four sections of prose about a machine nobody could watch work.
+This entry is the page that shows it: **six live instruments, all running the real
+forward pass against the real trained weights and the whole frozen test set**, in the
+reader's browser.
+
+### The decision that cost the most, and why it was taken
+
+A demonstration can be a cartoon of a measurement, and nobody would know. The cheap
+version of this page draws a plausible crossbar, animates a plausible digit, and prints
+0.7345 underneath — and it would look identical to this one in a screenshot.
+
+It would also spend exactly the credibility the one-directional seam was built to earn.
+This repository's numbers are worth something because the design half cannot quietly
+adjust itself to flatter the measurement half; publishing an illustration of that
+measurement on the one page most people read is the same failure in the other direction.
+
+So the widgets compute. `apps/web/data.js` carries the trained 36×10 weights at full
+precision and all 2,000 frozen test images, and `apps/web/crossbar.js` is a **third
+implementation** of arithmetic that already exists in `spinn/crossbar.py` and in
+`spinn-hw/+model` plus `spinn-hw/+err`. A third copy is normally where you stop and
+extract a shared one. That was not available: the seam between the two existing copies is
+one-directional by design, and neither Python nor MATLAB runs in a browser.
+
+**A copy that cannot be shared is instead pinned.** `tests/test_web_crossbar.py` runs the
+JavaScript under Node and recomputes every magnitude in `exports/error_budget.json` that
+has no random draw — nine quantisation levels and nine wire resistances — against what
+MATLAB recorded. All nine wire resistances match, which is the strongest single check
+available: IR drop is the one source whose result depends on the absolute conductance
+window and the read voltage, so reproducing it says the operating point crossed intact as
+well as the arithmetic.
+
+Two differences are real and are stated on the page rather than smoothed:
+
+- **The conductance draw uses a different generator.** MATLAB draws from a Mersenne
+  Twister seeded by `mc.sweep`'s partitioning; the browser draws from a small PRNG. Same
+  distribution, different stream, so one realisation here is not one of the recorded
+  realisations. The bench says so, and prints the recorded mean and spread beside the
+  live number.
+- **Three magnitudes on the states ladder differ by exactly one sample.** At coarse
+  quantisation some digits produce two *exactly equal* column currents, and which column
+  wins is then decided by the order the additions happened in — a matrix multiply and a
+  loop sum associate differently. 0.6620 here against 0.6615 recorded at five states, and
+  the same at three and two. Not a difference in the physics, and one sample in two
+  thousand either way.
+
+### What the page found that the repository had got slightly wrong
+
+**The IR-drop bracket is conditional on the conductance window, and the row did not say
+so.** `docs/comparison_row.md` stated that the accuracy and bit-depth results do not
+depend on the `UNSOURCED` window because it cancels in the decode. That is true of
+sources 1 and 2 and false of source 3: a wire drop is `R·I`, and `I` is set by the
+absolute conductance of the devices. Holding the ratio at 3 and moving the window a
+decade either way moves the edge past both ends of the swept ladder — at a tenth of the
+placeholder even 1 kΩ holds, and at ten times it 100 Ω has already failed.
+
+The bracket is unchanged and still correct. What was wrong was the scope of one sentence,
+which claimed for all three sources what is true of two. Both the row and the page now
+carry the condition, next to the array-size condition that was already there.
+
+`apps/report_row.py` also gained the `render()` / `main()` split that
+`apps/build_site.py` and `apps/export_web_data.py` already had, and
+`tests/test_report_row.py` now asserts the committed row is what the module produces.
+That is not tidiness: the row is generated and does **not** look generated — it is prose
+with numbers in it — so the natural way to correct a sentence in it is to edit the file,
+and the next run would have discarded the edit without a word. Correcting this sentence
+is exactly the operation that would have been lost.
+
+### The design work
+
+An **extension** of the incumbent visual world, not a replacement: the serif display over
+monospace metadata, the teal-and-amber pair, the five-stop rule and the light/dark toggle
+all came from photonn and stay. What the build added is recorded in `DESIGN.md`, written
+from the shipped artifact rather than from intentions —
+
+- a **two-pole diverging ramp** for a signed weight: amber at −1, the page's own recessed
+  surface at 0, teal at +1, so the devices doing nothing disappear and the trained pattern
+  is what remains on screen;
+- the **ruled instrument panel** — a hairline, a monospace title, the instrument. No
+  cards, no nested boxes, and no card inside a card;
+- **the settle**, the page's one authored motion moment: drive lines fill down the array,
+  the column currents grow from zero, the winning column brightens once;
+- an **ink-and-fill split** of all four signal colours. The fill values are the identity
+  and carry rules, bars, cells and canvas geometry; darkened ink variants carry every
+  piece of type, in the DOM and on canvas alike, and clear 4.5:1 *on the ground each label
+  actually sits on* — which for several is an 8–10% wash of their own hue rather than the
+  page. The `UNSOURCED` chip was the worst of them at 4.33:1 and is now 4.86:1.
+
+The eyebrow above each section heading is **gone**. It had become load-bearing by
+accident — `section_index` matched on it, so a section that dropped its eyebrow dropped
+out of the contents card — and six of the eight restated the first words of the heading
+beneath them. The match is anchored on `.phase-head` now, and the card's optional number
+comes from a `data-num` attribute rather than from parsing a kicker's text. Anchoring on
+nothing was tried in between and put the footer's three `<h3>` headings into the contents
+card, which is why `test_the_contents_card_indexes_sections_and_nothing_else` exists.
+
+### Numbers
+
+Tests **142 → 171**, no skips. The page is **256 kB**, of which 86 kB is the frozen data;
+it makes no external request, opens from `file://`, and reaches DOMContentLoaded in 83 ms
+because `mount_queue.js` holds every widget until after the first paint. Nothing in the
+physics changed and no result moved: the ideal is still 0.7345, conductance variation
+still binds at 4.84 effective bits, and the row's brackets are the ones `5646471`
+measured.
+
+### Left undone
+
+No second page. Error sources 4–7, the array-size sweep and the self-consistent IR-drop
+solve are all still deferred, and the page's last section states what each would take
+rather than apologising for it. The 17 font sizes the design detector reports against
+`DESIGN.md` are pre-existing scatter between `.8rem` and `.95rem` plus three different
+"the answer" display sizes in three widgets; they were left uncanonised deliberately,
+because writing them into the schema would only make the inconsistency invisible.
