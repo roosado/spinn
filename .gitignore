@@ -23,10 +23,13 @@ exports/
 # Generated build artifact for Artifact publishing (index.html is the Pages copy)
 site/_artifact_body.html
 
-# Design-tool working material. The surface brief and PRODUCT.md/DESIGN.md are records worth versioning;
-# review screenshots are regenerable and the local config is per-machine.
-.impeccable/review/
-.impeccable/config.local.json
+# Tooling working material -- kept in the working tree, never published. Same rule
+# as plans/ and learning/: the records these produce are published, the scaffolding
+# that produced them is not. PRODUCT.md and DESIGN.md live at the repo root and are
+# versioned; the surface brief, the design sidecar, the review screenshots and the
+# machine-local config stay here.
+.claude/
+.impeccable/
 
 # Local planning notes -- kept in the working tree, never published
 plans/
