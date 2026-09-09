@@ -45,6 +45,15 @@ something is the one in the table: at this array size the design tolerates
 **That number is meaningless without the array size beside it**, which is why
 the size is fixed and reported.
 
+**It is equally conditional on the conductance window**, which is `UNSOURCED`.
+A wire drop is `R·I`, and `I` is set by the absolute conductance of the
+devices — so unlike sources 1 and 2, this bracket does not cancel the window.
+Holding the ratio at 3 and moving the window by a decade either way moves the
+edge past both ends of the swept ladder: at a tenth of the placeholder even
+1 kΩ holds, and at ten times it 100 Ω has already failed. The bracket above is
+therefore a statement about this array at this operating point, and sourcing
+the window is what would turn it into a statement about the platform.
+
 ## The joint run
 
 All three sources at the last magnitude each individually held: mean **0.6819** ± 0.0119, which is **below** the pass mark.
@@ -78,6 +87,11 @@ capacitance and resistance, neither of which is sourced either.
 
 The conductance window itself (`g_min_s`, `g_max_s`) and the read voltage are
 also `UNSOURCED` placeholders — so the power figure scales with them and should
-be read as an arithmetic worked example, not as a measurement. The *accuracy*
-and *bit-depth* results above do not depend on them: they cancel in the decode,
-and a test asserts as much.
+be read as an arithmetic worked example, not as a measurement.
+
+**Sources 1 and 2 do not depend on them.** The window and the drive cancel in
+the decode, exactly, and a test asserts the ideal accuracy is unchanged across
+unrelated windows — so the ideal accuracy and both bit depths stand whatever the
+window turns out to be. **Source 3 is the exception**, for the reason given
+under its bracket above: a wire drop is `R·I`, and there is no `I` without an
+absolute conductance.

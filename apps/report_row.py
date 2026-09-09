@@ -83,7 +83,16 @@ def array_read_power(handoff, weights, images) -> float:
     return float(np.mean(np.einsum("bi,dio->b", v ** 2, g)))
 
 
-def main() -> None:
+def render() -> str:
+    """The row, assembled from the recorded budget and the handoff.
+
+    Split out from :func:`main` so the committed ``docs/comparison_row.md`` can be
+    compared against what this module produces now -- the same bargain
+    ``apps/build_site.py`` and ``apps/export_web_data.py`` make for their own
+    generated files. This one needs it most: the row reads like prose somebody
+    wrote, so the natural way to fix a sentence in it is to edit the file, and the
+    next run of this module would discard that silently.
+    """
     with open(BUDGET, encoding="utf-8") as fh:
         b = json.load(fh)
     h = read_handoff(HANDOFF)
@@ -156,6 +165,15 @@ def main() -> None:
         "**That number is meaningless without the array size beside it**, which is why",
         "the size is fixed and reported.",
         "",
+        "**It is equally conditional on the conductance window**, which is `UNSOURCED`.",
+        "A wire drop is `R·I`, and `I` is set by the absolute conductance of the",
+        "devices — so unlike sources 1 and 2, this bracket does not cancel the window.",
+        "Holding the ratio at 3 and moving the window by a decade either way moves the",
+        "edge past both ends of the swept ladder: at a tenth of the placeholder even",
+        "1 kΩ holds, and at ten times it 100 Ω has already failed. The bracket above is",
+        "therefore a statement about this array at this operating point, and sourcing",
+        "the window is what would turn it into a statement about the platform.",
+        "",
         "## The joint run",
         "",
         f"All three sources at the last magnitude each individually held: mean "
@@ -191,16 +209,26 @@ def main() -> None:
         "",
         "The conductance window itself (`g_min_s`, `g_max_s`) and the read voltage are",
         "also `UNSOURCED` placeholders — so the power figure scales with them and should",
-        "be read as an arithmetic worked example, not as a measurement. The *accuracy*",
-        "and *bit-depth* results above do not depend on them: they cancel in the decode,",
-        "and a test asserts as much.",
+        "be read as an arithmetic worked example, not as a measurement.",
+        "",
+        "**Sources 1 and 2 do not depend on them.** The window and the drive cancel in",
+        "the decode, exactly, and a test asserts the ideal accuracy is unchanged across",
+        "unrelated windows — so the ideal accuracy and both bit depths stand whatever the",
+        "window turns out to be. **Source 3 is the exception**, for the reason given",
+        "under its bracket above: a wire drop is `R·I`, and there is no `I` without an",
+        "absolute conductance.",
     ]
 
+    return "\n".join(lines) + "\n"
+
+
+def main() -> None:
+    text = render()
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write("\n".join(lines) + "\n")
+        fh.write(text)
 
-    print("\n".join(lines[:22]))
+    print("\n".join(text.splitlines()[:22]))
     print(f"\nwrote {OUT}")
 
 

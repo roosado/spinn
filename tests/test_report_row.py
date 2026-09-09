@@ -20,12 +20,22 @@ import os
 import numpy as np
 import pytest
 
-from apps.report_row import BUDGET, bits_from_sigma, bits_from_states
+from apps import report_row
+from apps.report_row import BUDGET, HANDOFF, bits_from_sigma, bits_from_states
 from spinn.crossbar import Crossbar
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 budget = pytest.mark.skipif(
     not os.path.exists(BUDGET),
     reason="no error budget on disk; run spinn-hw/run_error_budget.m",
+)
+
+#: Regenerating the row needs the handoff as well as the budget -- it recomputes
+#: the array read power from the weights and the test set, not just from the sweep.
+row = pytest.mark.skipif(
+    not (os.path.exists(BUDGET) and os.path.exists(HANDOFF)),
+    reason="no budget or handoff on disk; exports/ is gitignored and regenerable",
 )
 
 
@@ -187,3 +197,30 @@ def test_budgeting_every_source_to_its_own_edge_leaves_nothing_over(result):
     """The practical consequence, and the reason the joint run is reported at all."""
     assert not result["joint"]["holds"]
     assert result["joint"]["mean"] < result["threshold"]
+
+
+# -- the committed row -------------------------------------------------------
+
+
+@row
+def test_the_committed_row_matches_what_report_row_produces_now():
+    """The one test that compares against disk, and the reason it exists.
+
+    ``docs/comparison_row.md`` is generated and does not look generated: it is
+    prose with numbers in it, so the natural way to correct a sentence is to edit
+    the file -- and the next ``python -m apps.report_row`` discards the edit without
+    a word. The row is also this repository's single deliverable, published for a
+    hub that refers to it rather than copying it, which makes a silently reverted
+    correction the most expensive drift available here.
+
+    The same bargain ``test_site_build.py`` and ``test_web_data.py`` make for the
+    other two generated files that are committed.
+    """
+    path = os.path.join(REPO, "docs", "comparison_row.md")
+    with open(path, encoding="utf-8", newline="") as fh:
+        on_disk = fh.read()
+    assert on_disk == report_row.render(), (
+        "docs/comparison_row.md is not what apps.report_row.render() produces. The "
+        "prose lives in apps/report_row.py; edit it there and re-run "
+        "`python -m apps.report_row`."
+    )
