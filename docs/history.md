@@ -819,3 +819,43 @@ rather than apologising for it. The 17 font sizes the design detector reports ag
 `DESIGN.md` are pre-existing scatter between `.8rem` and `.95rem` plus three different
 "the answer" display sizes in three widgets; they were left uncanonised deliberately,
 because writing them into the schema would only make the inconsistency invisible.
+---
+
+## 2026-09-10 — the page is published, from a branch that is not `main`
+
+The page went live at <https://roosado.github.io/spinn/>. The mechanism is recorded here
+because it cost a diagnosis to find and would cost the same again.
+
+**Pages was serving the root of `main`, which has no `index.html`.** So Jekyll rendered
+`README.md` instead, and had been doing so all along — the URL had never shown a built
+page, including the four-section one that preceded this work. Pushing the new page to
+`main` changed nothing a visitor saw: 9,607 bytes of rendered README where 261,860 bytes
+of crossbar were expected. Every local signal was green while it happened. The build
+succeeded, `test_the_committed_bytes_match_what_render_produces_now` passed, the commit
+landed, and the live page was still the old one.
+
+The tell was that the real page *was* live, one path down: `/spinn/site/index.html`
+served the full 261,860 bytes with all six widgets, because Pages was publishing the repo
+verbatim and `site/` is a directory in it.
+
+**Pages now serves the `gh-pages` branch**, whose root is the *contents* of `site/` —
+one file, since `_artifact_body.html` is gitignored. `main` keeps the source and the
+built page; `gh-pages` carries only what is served. Publishing is a second push:
+
+    git subtree push --prefix site origin gh-pages
+
+Three options were on the table and this was the cheapest. A GitHub Actions workflow
+would deploy on push with nothing to remember, but adds CI to a repo that deliberately
+has none and switches Pages off its legacy branch build. Building to the repo root would
+need no configuration at all, but puts a 256 kB artifact in the root and a `.nojekyll`
+beside it. Pointing a branch at the existing build output moves nothing and documents in
+one line.
+
+The failure mode this leaves is worth naming, because it is the same shape as the one
+`docs/comparison_row.md` had before yesterday: a generated artifact whose staleness is
+silent. There a test closed it. Here nothing can — the live page is on a server — so it
+is written into `README.md` under "Publishing" and into `CLAUDE.md`'s environment notes
+instead, in both cases as the sentence *a push to `main` alone changes nothing a visitor
+sees*.
+
+No code, no physics and no number changed.

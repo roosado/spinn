@@ -31,6 +31,12 @@ belongs in the device physics and the error model.
 - Node, for the two web runners.
 - Run the suite with `.venv/Scripts/python.exe -m pytest`. Build the page with
   `python -m apps.build_site`.
+- **The site is published from `gh-pages`, not from `main`.** Pages serves that branch's
+  root, which is the *contents* of `site/`. Building and committing `site/index.html`
+  updates the repo and not the live page; publishing is
+  `git subtree push --prefix site origin gh-pages`. This was set up on 2026-09-10, after
+  a push to `main` left the live URL serving a Jekyll rendering of `README.md` — which is
+  what the root of `main` resolves to, since it has no `index.html`.
 
 ---
 

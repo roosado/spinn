@@ -65,6 +65,37 @@ output is not versioned. Both of those copies are committed and both have a test
 fails when they drift from what regenerates them, so a stale one says so rather than
 quietly publishing a previous run's numbers.
 
+## Publishing
+
+The site is at **<https://roosado.github.io/spinn/>**, and it is **not served from
+`main`**. GitHub Pages is set to the `gh-pages` branch, root path, and that branch holds
+the *contents* of `site/` — one file, `index.html`, since `_artifact_body.html` is
+gitignored. So `main` carries the source and the built page, and `gh-pages` carries only
+what a visitor is served.
+
+Publishing is therefore a second push, after the build and the commit:
+
+```sh
+.venv/Scripts/python.exe -m apps.build_site         # writes site/index.html
+git add site/index.html && git commit               # the committed bytes are the page
+git subtree push --prefix site origin gh-pages      # publish
+```
+
+**A push to `main` alone changes nothing a visitor sees.** That is the whole trap here,
+and it is a quiet one: the build is green, the test asserting the committed bytes match
+the generator passes, the commit lands, and the live page is still the previous one.
+
+If `git subtree push` refuses because the histories have diverged, the reliable form is
+to split and force:
+
+```sh
+git push origin "$(git subtree split --prefix site main)":gh-pages --force
+```
+
+That is safe here in a way it usually is not: `gh-pages` is a build artifact with no
+history worth keeping, and every commit on it is reproducible from `main` by running the
+build.
+
 ## State
 
 **The comparable core is done, and the row is in `docs/comparison_row.md`.** The ideal
