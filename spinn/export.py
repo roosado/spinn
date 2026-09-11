@@ -70,11 +70,13 @@ OPERATING_POINT = {
     "g_min_s": OperatingPointField(
         ("crossbar",),
         "Low conductance state, siemens. With g_max_s it fixes the window every "
-        "weight and every noise margin has to fit inside. UNSOURCED."),
+        "weight and every noise margin has to fit inside. A design value, checked "
+        "against device physics, not a measurement."),
     "g_max_s": OperatingPointField(
         ("crossbar",),
         "High conductance state, siemens. The ratio to g_min_s is this platform's "
-        "characteristic constraint. UNSOURCED."),
+        "characteristic constraint. A design value, checked against device physics, "
+        "not a measurement."),
     "read_voltage_v": OperatingPointField(
         ("crossbar",),
         "Row drive at the largest input in a sample. Sets the current, so it sets "

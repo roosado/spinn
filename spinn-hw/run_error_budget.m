@@ -70,9 +70,10 @@ function results = run_error_budget(handoffPath, outPath)
                                          N_DETERMINISTIC, BASE_SEED, threshold);
 
     % -- source 3: IR drop, deterministic ----------------------------------
-    % UNSOURCED, so the ladder is chosen to bracket rather than to model a real
-    % wire: a device is ~1/g_min ohms, and the drop starts to matter when the
-    % accumulated wire resistance along a line approaches that.
+    % The ladder is chosen to bracket rather than to model one wire: a device is
+    % ~1/g_min ohms, and the drop starts to matter when the accumulated wire
+    % resistance along a line approaches that. Published crossbar wiring is 2-20
+    % ohms per cell (docs/history.md, 2026-09-11), at the bottom of this ladder.
     mags3 = [1e1 1e2 3e2 1e3 3e3 1e4 3e4 1e5 3e5];
     results.wire_resistance_ohm = sweepOne(h, "wire_resistance_ohm", mags3, ...
                                            N_DETERMINISTIC, BASE_SEED, threshold);

@@ -104,6 +104,10 @@ binds, at 4.84 effective bits**, ahead of resolvable states and IR drop. Deliver
 precision, energy per inference and latency are `UNSOURCED`, so no margin is claimed and
 that column is omitted rather than estimated.
 
+The operating point is a design — a thick-barrier magnetic tunnel junction, read through
+and written beside — checked against cited device physics rather than copied from a
+device. In it, published wiring resistances sit five times inside IR drop's edge.
+
 The array is 36×10 logical, 720 devices in differential pairs, and that size is fixed and
 stated because IR drop grows with it. `docs/history.md` is the full record, newest last.
 
@@ -121,7 +125,9 @@ last section of the page states what each would take.
 
 Every as-built magnitude is either cited or marked `UNSOURCED` and shown as such. Where a
 value cannot be sourced, no margin is claimed against it and the column is left out rather
-than estimated. Spintronic device parameters are spread across a literature that mixes
+than estimated. Design values — the conductance window and the read voltage — are this
+project's own choice, held to being something the device can physically be; the sources
+that show it are cited, and none of their numbers is copied. Spintronic device parameters are spread across a literature that mixes
 measurements with roadmap projections, so this binds harder here than it might elsewhere.
 
 See `CLAUDE.md` for the working conventions and the open decisions.

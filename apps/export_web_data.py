@@ -122,8 +122,8 @@ def collect() -> dict:
         "seed": int(ideal["seed"]),
         "idealAccuracy": float(ideal["ideal_accuracy"]),
         "geometry": {"rows": 36, "cols": 10, "side": 6, "devices": 720},
-        # UNSOURCED, all three, and carried only because error source 3 needs an
-        # absolute conductance -- sources 1 and 2 cancel them exactly.
+        # The design point, not a measurement, and carried only because error
+        # source 3 needs an absolute conductance -- sources 1 and 2 cancel it exactly.
         "operatingPoint": {"gMinS": 1.0e-6, "gMaxS": 3.0e-6, "readVoltageV": 0.1},
         "threshold": float(budget["threshold"]),
         "baseSeed": int(budget["baseSeed"]),

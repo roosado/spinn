@@ -35,7 +35,7 @@ function keys = error_sources(arch)
                 ... % 1. err.conductance_variation -- stochastic, the likely binder.
                 ... %    Relative to the window span, not in siemens: the reporting
                 ... %    unit is log2(range/sigma), so bits = -log2(sigma_g_rel)
-                ... %    directly, with no UNSOURCED window in the conversion.
+                ... %    directly, with no window in the conversion.
                 "sigma_g_rel", ...
                 ... % 2. err.quantize -- levels per *device*. Under a differential
                 ... %    pair the effective weight resolves finer than this.

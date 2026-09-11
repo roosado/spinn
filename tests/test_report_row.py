@@ -21,7 +21,13 @@ import numpy as np
 import pytest
 
 from apps import report_row
-from apps.report_row import BUDGET, HANDOFF, bits_from_sigma, bits_from_states
+from apps.report_row import (
+    BUDGET,
+    HANDOFF,
+    bits_from_sigma,
+    bits_from_states,
+    design_check,
+)
 from spinn.crossbar import Crossbar
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -54,11 +60,31 @@ def test_a_sigma_of_one_over_two_to_the_n_is_n_bits(sigma, bits):
 def test_the_conversion_needs_no_conductance_window():
     """Why the config key is a *relative* sigma.
 
-    Every absolute conductance in this project is ``UNSOURCED``. Quoting sigma
-    against the window means the bit depth does not inherit that: the same
-    fractional spread gives the same bits whatever the window turns out to be.
+    Every absolute conductance in this project is a design choice that a different
+    junction would change. Quoting sigma against the window means the bit depth does
+    not depend on that: the same fractional spread gives the same bits whatever
+    window a junction is built to.
     """
     assert bits_from_sigma(0.035) == pytest.approx(-math.log2(0.035))
+
+
+def test_the_design_check_on_the_recorded_window():
+    """1 uS and 3 uS, worked by hand.
+
+    R_AP = 1 MOhm and R_P = 333 kOhm, so TMR = (1e6 - 333.3e3) / 333.3e3 = 200%.
+    At 3.4 kOhm um^2 the parallel state needs A = 3.4e3 / 333.3e3 = 1.02e-2 um^2,
+    a disc 114 nm across. 0.1 V across 333.3 kOhm is 0.3 uA, which over that area
+    is 0.3e-6 / 1.02e-10 cm^2 = 2.94e3 A/cm^2 -- 340 times below 1e6. And 1e6 A/cm^2
+    through 3.4 kOhm um^2 is 1e10 A/m^2 * 3.4e-9 Ohm m^2 = 34 V.
+    """
+    d = design_check(1.0e-6, 3.0e-6, 0.1)
+    assert d["r_ap"] == pytest.approx(1.0e6)
+    assert d["r_p"] == pytest.approx(1.0e6 / 3)
+    assert d["tmr"] == pytest.approx(2.0)
+    assert d["pillar_nm"] == pytest.approx(114.0, abs=0.5)
+    assert d["i_read"] == pytest.approx(0.3e-6)
+    assert d["read_below_wall_motion"] == pytest.approx(340.0)
+    assert d["write_through_barrier_v"] == pytest.approx(34.0)
 
 
 def test_a_smaller_spread_is_more_bits():

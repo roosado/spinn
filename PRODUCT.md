@@ -44,7 +44,8 @@ recorded.
 The second: **every number is cited or marked `UNSOURCED` and surfaced.** No margin is
 claimed against an uncited value; tolerance edges are published as brackets ("holds at
 X, fails at Y") and never interpolated. Where a value is missing, the column is omitted
-rather than estimated.
+rather than estimated. A design value is the project's own, but it must be something the
+device can physically be, and that check is cited.
 
 ## Operating Context
 
@@ -69,10 +70,14 @@ the sweeps ran.
 **not** converted to bits — it is a position-dependent systematic, not a spread on a
 stored value. All three at their individual edges together: 0.6819, below the pass mark.
 
-**The holes, which must stay visible.** `g_min`, `g_max`, `read_voltage` and
-`wire_resistance_ohm` are `UNSOURCED` placeholders. Delivered precision, energy per
-inference and latency are `UNSOURCED`. Array read power is 1.577 µW, **array only** —
-it excludes sense amplifiers, ADC and every digital stage after them.
+**The design point, which is not a hole.** `g_min` = 1 µS, `g_max` = 3 µS,
+`read_voltage` = 0.1 V: a 2 nm CoFeB/MgO junction about 114 nm across, written beside and
+read through in a three-terminal cell, each step cited. Published wiring (2–20 Ω per
+cell) sits five times inside IR drop's 100 Ω edge.
+
+**The holes, which must stay visible.** Delivered precision, energy per inference and
+latency are `UNSOURCED`. Array read power is 1.577 µW, **array only** — it excludes
+sense amplifiers, ADC and every digital stage after them.
 
 **Technical constraints.** Everything inlined; no external subresource. Theme-aware with
 a persisted toggle (`spinn-theme`). Widgets mount through `window.SpinnMount`, draw
@@ -99,9 +104,9 @@ Real, and usable directly by the page:
 - `docs/comparison_row.md` — the row, stated once.
 - `spinn/crossbar.py`, `spinn-hw/+err/*.m` — the exact algorithms the widgets reproduce.
 
-**No measured device data exists.** No fabrication, no measurement, no cited conductance
-window. Nothing on the page may imply otherwise, and no physical constant may be
-invented.
+**No device of this design has been built or measured.** The window is designed and
+checked against cited physics, not measured. Nothing on the page may imply otherwise,
+and no physical constant may be invented.
 
 ## Product Principles
 

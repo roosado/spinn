@@ -280,7 +280,7 @@ def test_no_unsourced_number_is_presented_as_a_measurement():
     in prose without it, which would read as an ordinary emphasis.
     """
     html = page_html("index.html")
-    # Prose only. The inlined widget modules discuss UNSOURCED placeholders at
+    # Prose only. The inlined widget modules may discuss the operating point at
     # length in their own comments, and a source comment is not a claim to a reader.
     body = html[html.index("<main"):html.index("</footer>")]
     plain = re.findall(r"UNSOURCED", body)

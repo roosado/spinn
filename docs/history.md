@@ -859,3 +859,144 @@ instead, in both cases as the sentence *a push to `main` alone changes nothing a
 sees*.
 
 No code, no physics and no number changed.
+---
+
+## 2026-09-11 — the operating point is a design, and the design is checked
+
+The window, the read voltage and the wire resistance had been `UNSOURCED` placeholders
+since plan 03, and the next work named in `CLAUDE.md` was to source them. A literature
+pass found numbers for most of them. What it changed is less the numbers than what kind
+of number the operating point is.
+
+### The rule, stated
+
+**A design value may be this project's own; a delivered one may not.** The window and
+the drive are chosen, not measured, and nothing obliges them to copy a published device.
+What they must be is *buildable*: something a magnetic tunnel junction can physically
+be, with each step of that check cited. The sources back a claim of feasibility. They
+are not a menu of numbers to pick from — and every source consulted stays cited in the
+prose, because a claim is only as good as what it can point at. A device-to-device
+spread or a read time is different: only fabrication delivers those, so they are cited
+for *this* device or they stay holes.
+
+### The window is a real junction
+
+1 µS and 3 µS are 1 MΩ and 333 kΩ, a ratio of 3 — a tunnel magnetoresistance of 200%.
+Hayakawa et al. measured exactly that regime in sputtered CoFeB/MgO/CoFeB: a 2.0 nm
+barrier gives a resistance–area product of 3.4 kΩ·µm², with TMR of 200% after a 325 °C
+anneal and 260% after 375 °C, and RA rises exponentially with barrier thickness over
+1.15–2.4 nm. At 3.4 kΩ·µm², 333 kΩ is a junction of 0.0102 µm², a pillar about 114 nm
+across. A ratio of three is what Grollier et al. call typical; perpendicular junctions
+reach 249% (M. Wang et al. 2018); and thin barriers give the ratio up, from 165% at
+RA = 2.9 Ω·µm² to 27% at 0.8 (Ikeda et al. 2005).
+
+**A barrier that thick cannot be written through**, and that is the whole reason
+commodity MRAM does not use one. Spin transfer moves a domain wall at current densities
+of order 10⁶ A/cm² (Lequeux et al. 2016); through 3.4 kΩ·µm² that density needs 34 V
+across 2 nm of oxide. Jung et al. say so of their own MRAM crossbar: a thicker insulator
+"would demand a higher write voltage or current, which may not be possible in the CMOS
+technology in which the MRAM is embedded."
+
+So the design is **three-terminal**: written along a low-impedance line and read through
+the junction. Liu et al. (2012) built the first of these with a spin-Hall strip — "current
+passing through a low impedance Ta-ferromagnet bilayer to effect switching of a
+nanomagnet, with a higher-impedance magnetic tunnel junction for read-out" — and
+domain-wall versions exist for in-memory computing (Alamdar et al. 2021, TMR 164%). imec
+built that class for current-summing arrays at R_on = 6 MΩ (Doevenspeck et al. 2020, as
+reported by Cai et al. 2021).
+
+**The read voltage checks too.** 0.1 V across 333 kΩ is 0.3 µA, which at a 114 nm pillar
+is 2.9×10³ A/cm² — some 340 times below where Lequeux's walls moved. A read does not
+write. And at 333 kΩ an access transistor of a few kilo-ohms is a small fraction of the
+cell, so the junction's ratio survives into the cell's.
+
+`apps/report_row.py` now carries that arithmetic as `design_check` — window to
+resistances, pillar, read current density and write voltage — with the cited constants
+beside it and a hand-worked test, so the row's operating-point section is computed from
+the handoff rather than typed.
+
+### Why Jung's window was not adopted
+
+The strongest measured source found was Jung et al. (2022): a real 64×64 MRAM crossbar,
+13 kΩ and 26 kΩ per cell over 8,192 cells, transistor included. The first survey read it
+as a correction to this window — adopt it, rerun, and IR drop moves into the budget. It
+is not a correction. It is **a different machine**: Jung et al. sum *resistances* along
+a column rather than currents on a wire, precisely because "the low resistance of MRAM
+... would result in large power consumption in a conventional crossbar array that uses
+current summation." Putting their window into this model would simulate the array they
+declined to build.
+
+Both windows are physical. This one fits the machine this repository models, so it
+stands, and **nothing was rerun**: the operating point did not change, so no recorded
+number moved.
+
+### What can now be said about IR drop
+
+Open decision 2 asked whether IR drop matters at all, and it waited on a wire resistance.
+Published crossbar wiring runs from 2 Ω per cell at 65 nm (Agrawal et al. 2019,
+"calculated from typical BEOL resistances and the cell area"), through 2–10 Ω across
+45–65 nm, to about 20 Ω at 7 nm (Victor et al. 2024). C. Wang, Victor & Gupta (2023) give
+the 7 nm figure from its parts: 182 Ω/µm for scaled-liner M1–M3 over a two-gate-pitch
+SOT-MRAM cell of 108 nm is 19.7 Ω, where Intel's 45 nm stack was 3.3 Ω/µm (Moon et al.
+2008, as they quote it).
+
+**At 36×10 and in this window, IR drop does not bind**: the design holds to 100 Ω, five
+times the most scaled of those. That is a sourced value against the holding side of a
+bracket, not an interpolation and not a margin. One caveat is real: a segment is
+resistance per length times the cell pitch, and on 7 nm minimum-pitch wiring 100 Ω is a
+0.55 µm pitch. A cell carrying a 114 nm pillar is wired wider than minimum — as older
+nodes are anyway; at 45 nm, 100 Ω takes 30 µm of line.
+
+What keeps the wires out is the window. Jung's cells are 26–38 times more conductive
+than this design, past the tenfold at which the row already recorded 100 Ω failing. A
+thin-barrier window would put IR drop in the budget; the thick-barrier read junction is
+what keeps it out.
+
+### What stays a hole
+
+**Delivered precision.** Nobody has published the device-to-device spread of a
+thick-barrier three-terminal junction. The only MTJ-crossbar spread found is Jung's:
+σ = 1.6 kΩ on 13 kΩ and 2.0 kΩ on 26 kΩ — 12.3% and 7.7% — access transistor included.
+It is quoted for scale and **no margin is computed from it**. Expressed against this
+window's span, the same relative spreads are 0.18 on the low-resistance state and 0.038
+on the high — past the 0.035 that holds on both, and past the 0.05 that fails on the
+low-resistance one. Whether a thick barrier spreads more or less than a thin one is
+exactly what a measurement would say.
+
+**Energy per inference and latency.** Both need a read time, and a read time belongs to a
+sense amplifier this model deliberately does not include. For scale: MRAM macros read in
+4 ns counting sensing alone (Wei et al., ISSCC 2019) and 9 ns for a full access (Shih et
+al. 2020) — both known here from the reference lists of the papers above, not read — and
+Jung's columns settle in 13–29 ns through a time-domain readout, loaded by 2.1 fF of line
+per cell (the textbook rule is about 0.2 fF/µm; Harris 1997). The array read power,
+1.577 µW, is now the power at the design point rather than an arithmetic example, and it
+is still array only.
+
+### Sources
+
+Every source consulted for this entry, and what it is cited for.
+
+| source | cited for |
+|---|---|
+| Hayakawa, Ikeda, Matsukura, Takahashi & Ohno, *Jpn. J. Appl. Phys.* 44, L587 (2005), [arXiv:cond-mat/0504051](https://arxiv.org/abs/cond-mat/0504051) | RA 3.4 kΩ·µm² and TMR 200–260% at 2.0 nm MgO; RA exponential in thickness |
+| Ikeda et al., *Jpn. J. Appl. Phys.* 44, L1442 (2005), [arXiv:cond-mat/0510531](https://arxiv.org/abs/cond-mat/0510531) | TMR 27% → 165% as RA rises 0.8 → 2.9 Ω·µm²; 355% at room temperature |
+| M. Wang et al., *Nature Communications* 9 (2018), [arXiv:1708.04111](https://arxiv.org/abs/1708.04111) | TMR up to 249% in perpendicular junctions, RA as low as 7.0 Ω·µm² |
+| Grollier et al., *Nature Electronics* 3, 360–370 (2020), [doi:10.1038/s41928-019-0360-9](https://doi.org/10.1038/s41928-019-0360-9) | conductance ratio "typically around three" |
+| Liu, Pai, Li, Tseng, Ralph & Buhrman, *Science* 336, 555–558 (2012), [arXiv:1203.2875](https://arxiv.org/abs/1203.2875) | the three-terminal cell: low-impedance write line, higher-impedance MTJ read-out |
+| Alamdar et al., *Appl. Phys. Lett.* 118, 112401 (2021), [arXiv:2010.13879](https://arxiv.org/abs/2010.13879) | three-terminal domain-wall MTJs for in-memory computing; TMR 164%, RA 31 Ω·µm² |
+| Lequeux et al., *Sci. Rep.* 6, 31510 (2016), [PMC4990964](https://pmc.ncbi.nlm.nih.gov/articles/PMC4990964/) | walls moved at ~10⁶ A/cm²; 15–20 intermediate states; TMR ~95% |
+| Jung et al., *Nature* 601, 211–216 (2022), [doi:10.1038/s41586-021-04196-6](https://doi.org/10.1038/s41586-021-04196-6) | 13/26 kΩ per cell, σ 1.6/2.0 kΩ over 8,192 cells; resistance summation; 2.1 fF per cell; 13–29 ns readout |
+| Cai et al. (2021), [arXiv:2110.03937](https://arxiv.org/abs/2110.03937) | reports Doevenspeck et al. (imec, VLSI 2020) at R_on = 6 MΩ; calls TMR of "100%-200%" regular |
+| Agrawal, Lee & Roy, "X-CHANGR" (2019), [arXiv:1907.00285](https://arxiv.org/abs/1907.00285) | 2 Ω per crossbar node at 65 nm |
+| Victor, Kim, Wang, Roy & Gupta, "WAGONN" (2024), [arXiv:2406.14706](https://arxiv.org/abs/2406.14706) | 2–10 Ω per bit-cell at 45–65 nm, up to 20 Ω at 7 nm |
+| C. Wang, Victor & Gupta (2023), [arXiv:2307.04261](https://arxiv.org/abs/2307.04261) | 182 Ω/µm at 7 nm; 108 nm SOT-MRAM cell; SOT junctions simulated at 8–100 kΩ; 3.3 Ω/µm at 45 nm, quoting Moon et al. (Intel Technol. J. 12, 2008) |
+| Wei et al., ISSCC 2019; Shih et al. 2020 | 4 ns read sensing; 9 ns read access — from reference lists, not read |
+| Harris, "Interconnect RC", lecture notes (1997), [pdf](https://pages.hmc.edu/harris/class/hal/lect4.pdf) | about 0.2 fF/µm of wire capacitance |
+
+### Numbers
+
+No physics changed and no result moved: the ideal is still 0.7345, conductance variation
+still binds at 4.84 effective bits, and every bracket is the one `5646471` measured. The
+row gained an operating-point section, a delivered-precision section and a sources list;
+the page gained the check in section 01, the IR-drop statement in section 06 and a
+fourteen-entry reference list in section 07. Tests **171 → 172**, no skips.

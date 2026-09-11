@@ -38,10 +38,10 @@
  *
  * Error source 3 breaks it. A wire drop is `R * I`, and `I` is an absolute
  * current, so IR drop is the one source whose result depends on the value of
- * `g_min` and `g_max` -- which are UNSOURCED placeholders. The slow path
- * therefore reconstitutes real conductances and a real drive, and the page states
- * the dependence rather than hiding it behind a widget that looks equally
- * confident either way.
+ * `g_min` and `g_max` -- a design point, which a thinner-barrier junction would
+ * move. The slow path therefore reconstitutes real conductances and a real drive,
+ * and the page states the dependence rather than hiding it behind a widget that
+ * looks equally confident either way.
  */
 (function () {
   "use strict";

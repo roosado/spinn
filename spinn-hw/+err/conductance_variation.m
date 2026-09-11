@@ -11,7 +11,8 @@ function G = conductance_variation(G, sigmaRel, handoff, seed)
 %
 %   which is dimensionless, so a tolerance quoted against the span converts
 %   straight across: bits = -log2(sigma_g_rel). An absolute sigma would have to be
-%   divided by a window whose own value is UNSOURCED before it meant anything.
+%   divided by the window before it meant anything, and the window is a design
+%   choice that a different junction would change.
 %
 %   The counterpart of photonn's phase-shifter error, and the source most likely
 %   to bind here: the window this has to fit inside is small.

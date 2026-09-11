@@ -89,9 +89,12 @@ single statement of it — the hub refers to it rather than copying it. Delivere
 precision, energy per inference and latency are all `UNSOURCED`, so no margin is
 claimed and that column is omitted.
 
-`g_min`, `g_max` and `read_voltage` are `UNSOURCED` placeholders and **cancel exactly**
-in the decode — a test asserts the ideal accuracy is unchanged across unrelated windows.
-They are carried because the error model needs them.
+`g_min`, `g_max` and `read_voltage` — 1 µS, 3 µS, 0.1 V — are a **design point**, not a
+measurement: a CoFeB/MgO junction with a 2 nm barrier (RA ≈ 3.4 kΩ·µm², TMR 200%, a
+~114 nm pillar), written along a separate line and read through the junction. The check
+that this can be built, and the windows other work chose, are in `docs/history.md`
+(2026-09-11). They **cancel exactly** in the decode — a test asserts the ideal accuracy
+is unchanged across unrelated windows — except in IR drop, which is `R·I`.
 
 ### Inherited from photonn
 
@@ -198,6 +201,12 @@ deferred*.
   than in photonn: spintronic device parameters are spread across a literature that mixes
   measurements with roadmap projections. A confident wrong number costs more than an
   admitted hole. **Do not invent a physical constant.**
+- **A design value may be our own; a delivered one may not.** What the design chooses —
+  the window, the drive — need not copy a published device, but it must be something
+  the device can physically be, and that check is cited. Sources back a claim of
+  feasibility; they are not a menu of numbers to copy, and every one consulted stays
+  cited in the prose. What only fabrication can deliver — a device-to-device spread, a
+  read time — is cited *for this device* or stays `UNSOURCED`.
 - **No margin against an uncited value.** Publish tolerance *edges* and omit the margin
   column entirely rather than estimating it.
 - **Tolerance edges are brackets** — "holds at X, fails at Y" — never interpolated.
@@ -222,18 +231,30 @@ deferred*.
 
 Do not assume an answer; ask.
 
-1. **A source for the conductance window.** `g_max/g_min` is the platform's
-   characteristic constraint and the current value is a placeholder. This is the largest
-   open sourcing gap.
-   Also unsourced, and needed by plan 05: a wire resistance for `wire_resistance_ohm`,
-   and the energy and latency constants.
-2. **Whether IR drop matters at all**, which cannot be answered without a sourced wire
-   resistance. Its cliff is sharp — 100 Ω holds, 1 kΩ is chance — so the sourced value
-   decides between "irrelevant" and "fatal" with little in between at this array size.
+1. **A delivered spread for this device.** Delivered precision on the binding source is
+   the hole that decides the row's margin. The window can be designed; the
+   device-to-device spread of a thick-barrier, three-terminal junction cannot, and no one
+   has published it. The only MTJ-crossbar spread found (Jung et al. 2022: σ/R of 7.7%
+   and 12.3%) is for a thin-barrier STT cell and is quoted for scale only.
+2. **A read time.** Energy per inference and latency both need one, and a read time
+   belongs to a sense amplifier this model deliberately excludes. Published MRAM reads
+   (4–9 ns) and the commodity crossbar's settling (13–29 ns) are quoted for scale.
 
 ### Resolved
 
 Kept so a later session does not reopen a question already answered.
+
+- **The window is a design point, checked against the physics** (2026-09-11).
+  1 µS / 3 µS / 0.1 V is a 2 nm CoFeB/MgO junction about 114 nm across, read through and
+  written beside in a three-terminal cell; every step is cited in `docs/history.md`.
+  Jung et al.'s measured 13/26 kΩ window was considered and **not adopted**: it belongs
+  to a resistance-summing array whose authors left current summation because cells that
+  conductive draw too much power, so adopting it would model the machine they declined
+  to build. Nothing about the operating point changed, so the budget was not rerun.
+- **IR drop does not bind at 36×10 in this window.** Published crossbar wiring is
+  2–20 Ω per cell from 65 nm to 7 nm; the design holds to 100 Ω. It would bind in a
+  thin-barrier window 26–38× more conductive. A segment is resistance per length times
+  the cell pitch, so a cell this size is wired wider than minimum.
 
 - **Signed weights: the differential pair.** Two devices per weight. The window is the
   binding constraint, so doubling the signed range it yields is worth the devices: two

@@ -31,10 +31,11 @@ is ``0`` -- the differential pair reduced to a sign bit at twice the device coun
 an offset. That was the first implementation here, and the round-trip test is what
 caught it.
 
-**Which numbers matter.** ``g_min``, ``g_max`` and ``read_voltage`` are all
-``UNSOURCED``. The ideal accuracy does not depend on them: they scale out of the
-decode, exactly. They are carried because the error model needs them, and because
-a conductance window with no numbers in it invites someone to invent some.
+**Which numbers matter.** ``g_min``, ``g_max`` and ``read_voltage`` are a design
+point -- chosen, then checked against what a magnetic tunnel junction can physically
+be, rather than copied from a device or left blank. The ideal accuracy does not
+depend on them: they scale out of the decode, exactly. They are carried because the
+error model needs them, and IR drop, which is ``R * I``, does not cancel them.
 """
 from __future__ import annotations
 
@@ -42,22 +43,32 @@ from dataclasses import dataclass
 
 import numpy as np
 
-#: Placeholder conductance window, in siemens.
+#: The conductance window, in siemens: 1 MOhm and 333 kOhm.
 #:
-#: UNSOURCED -- both endpoints. MTJ and domain-wall parameters are spread across a
-#: literature that mixes measurements with roadmap projections, and no distribution
-#: has been read into this repo yet.
+#: A design point, not a measurement -- chosen, then checked against what a magnetic
+#: tunnel junction can physically be. A ratio of 3 is a tunnel magnetoresistance of
+#: 200%, and a CoFeB/MgO junction with a 2.0 nm barrier measures 200-260% at a
+#: resistance-area product of 3.4 kOhm um^2 (Hayakawa et al., Jpn. J. Appl. Phys. 44,
+#: L587, 2005), which puts 333 kOhm at a pillar about 114 nm across. A barrier that
+#: thick cannot carry a spin-transfer write, so the cell is three-terminal: written
+#: along a low-impedance line -- a spin-Hall strip or the domain-wall track -- and
+#: read through the junction.
 #:
 #: The *ratio* is the number that matters and it is the platform's characteristic
 #: constraint -- the counterpart of photonn's 2*pi phase range, and far smaller.
 #: Every distinguishable weight state and every noise margin has to fit inside it.
-#: See ``docs/history.md``. Nothing in this module depends on either value.
-G_MIN = 1.0e-6  # UNSOURCED
-G_MAX = 3.0e-6  # UNSOURCED
+#: The absolute scale reaches only IR drop and energy. ``docs/history.md``
+#: (2026-09-11) has the check, its sources, and the windows other work chose.
+#: Nothing in this module depends on either value.
+G_MIN = 1.0e-6  # design: 1 MOhm, the antiparallel state
+G_MAX = 3.0e-6  # design: 333 kOhm, the parallel state
 
-#: Read voltage, volts. UNSOURCED. Sets the input scale and hence the current, so
-#: it matters to energy and to shot noise, and not at all to the ideal accuracy.
-READ_VOLTAGE = 0.1  # UNSOURCED
+#: Read voltage, volts. A design value: at most 0.3 uA through a device -- at the
+#: pillar above, some 340 times below the current density at which spin transfer
+#: moves a domain wall (Lequeux et al., Sci. Rep. 6, 31510, 2016), so a read does
+#: not write. Sets the input scale and hence the current, so it matters to energy
+#: and to shot noise, and not at all to the ideal accuracy.
+READ_VOLTAGE = 0.1  # design
 
 SCHEMES = ("differential", "offset")
 
@@ -92,7 +103,8 @@ class Crossbar:
         Binary MTJ is 2; a domain-wall device resolves more. One knob, two
         families. This is error source 2 and is off for the ideal baseline.
     g_min, g_max, read_voltage
-        The physical window and drive. All ``UNSOURCED``; none affects accuracy.
+        The physical window and drive: a design point, checked against device
+        physics rather than measured. None affects accuracy.
 
     Why differential is the default
     -------------------------------

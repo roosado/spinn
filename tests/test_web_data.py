@@ -140,13 +140,13 @@ def test_the_budget_carries_every_source_and_its_bracket(payload):
     assert payload["threshold"] == recorded["threshold"]
 
 
-def test_the_unsourced_operating_point_crossed_with_its_values(payload):
+def test_the_design_operating_point_crossed_with_its_values(payload):
     """It has to cross, because error source 3 needs an absolute conductance.
 
     Sources 1 and 2 cancel the window exactly, which is why the page can say the
     accuracy does not depend on it. IR drop is ``R * I`` and cannot, so these three
-    placeholders are load-bearing for one of the three panels -- and the page has to
-    keep saying they are placeholders.
+    design values are load-bearing for one of the three panels -- and the page has
+    to keep saying that bracket is conditional on them.
     """
     op = payload["operatingPoint"]
     assert op == {"gMinS": 1.0e-6, "gMaxS": 3.0e-6, "readVoltageV": 0.1}

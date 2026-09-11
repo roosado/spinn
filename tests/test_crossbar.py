@@ -9,8 +9,8 @@ The headline is :func:`test_an_ideal_crossbar_computes_exactly_a_matrix_product`
 Both signed-weight schemes, at any conductance window and any read voltage, must
 reduce exactly to ``normalised_input @ W``. That single identity pins the
 programming map, the current summation and the decode against each other -- and it
-is what makes the conductance window's ``UNSOURCED`` values harmless to the ideal
-number, rather than merely believed to be harmless.
+is what makes the ideal number independent of which conductance window the design
+chose, rather than merely believed to be.
 """
 from __future__ import annotations
 
@@ -94,7 +94,7 @@ def test_an_ideal_crossbar_computes_exactly_a_matrix_product():
     """The identity both schemes must satisfy, at any window and any drive.
 
     An ideal crossbar is a matrix-vector multiply and nothing else. If this holds
-    for a randomly chosen window, the ``UNSOURCED`` conductances cannot be
+    for a randomly chosen window, the design's choice of conductances cannot be
     influencing the ideal accuracy -- they cancel in the decode, exactly, rather
     than approximately or by convention.
     """
