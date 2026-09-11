@@ -1000,3 +1000,7 @@ still binds at 4.84 effective bits, and every bracket is the one `5646471` measu
 row gained an operating-point section, a delivered-precision section and a sources list;
 the page gained the check in section 01, the IR-drop statement in section 06 and a
 fourteen-entry reference list in section 07. Tests **171 → 172**, no skips.
+
+Landed on `main` as `e4de1ff`. As the 2026-09-10 entry records, a commit to `main` alone
+changes nothing a visitor sees: the page goes live with
+`git subtree push --prefix site origin gh-pages`, a separate step not taken here.
