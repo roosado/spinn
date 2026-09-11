@@ -480,6 +480,37 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
         doubles, a net <span class="q">&radic;2</span> in signal-to-noise, before counting
         the baseline current an offset scheme would have to subtract downstream.
       </p>
+      <p>
+        <strong>The window is designed, then checked against the physics.</strong> Its two
+        states are 1&nbsp;M&#937; and 333&nbsp;k&#937; &mdash; <span class="q">g_min</span>
+        = 1&nbsp;&micro;S and <span class="q">g_max</span> = 3&nbsp;&micro;S, a ratio of
+        three, which is a tunnel magnetoresistance of 200%. That is a
+        cobalt&ndash;iron&ndash;boron junction with a two-nanometre magnesium-oxide barrier:
+        at that thickness Hayakawa and colleagues measured a resistance&ndash;area product of
+        3.4&nbsp;k&#937;&middot;&micro;m&sup2; and a ratio of 200 to 260%<sup class="r">1</sup>,
+        which puts 333&nbsp;k&#937; at a pillar about 114&nbsp;nm across. A ratio of three is
+        what Grollier and colleagues call typical<sup class="r">2</sup>, and perpendicular
+        junctions reach 249%<sup class="r">3</sup>. Thin barriers give it up &mdash; from
+        165% at 2.9&nbsp;&#937;&middot;&micro;m&sup2; to 27% at 0.8<sup class="r">4</sup>
+        &mdash; which is the first reason this one is thick.
+      </p>
+      <p>
+        The second is current. Spin transfer moves a domain wall at densities of order
+        10<sup>6</sup>&nbsp;A/cm&sup2;<sup class="r">5</sup>, and pushing that through
+        3.4&nbsp;k&#937;&middot;&micro;m&sup2; would take 34&nbsp;V across two nanometres of
+        oxide &mdash; which is why memory cells keep their barriers thin, and why Jung and
+        colleagues' MRAM crossbar runs at 13 and 26&nbsp;k&#937; a cell. Its authors say
+        so: a thicker insulator &ldquo;would demand a higher write voltage or
+        current&rdquo;<sup class="r">6</sup>. So this design writes <em>beside</em> the
+        junction and reads <em>through</em> it. In a three-terminal cell the write current
+        runs along a low-impedance line &mdash; a spin-Hall strip<sup class="r">7</sup>, or
+        the domain-wall track itself<sup class="r">8</sup> &mdash; and the junction is used
+        only to read, which frees its barrier to be as thick as the read wants. imec built
+        that class of device for current-summing arrays, at 6&nbsp;M&#937;<sup class="r">9</sup>.
+        The 0.1&nbsp;V read then drives at most 0.3&nbsp;&micro;A through a device, some 340
+        times below the density at which those domain walls moved<sup class="r">5</sup>: a
+        read does not write.
+      </p>
     </div>
 
     <div class="inst">
@@ -753,8 +784,19 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
         conditional twice over: on the array size, because the drop grows with it, and
         on the conductance window, because a wire drop is <span class="q">R&middot;I</span>
         and the current depends on the absolute conductance of the devices. Sources 1 and
-        2 cancel that window exactly; source 3 cannot, and the window is
-        <span class="q hole">UNSOURCED</span>.
+        2 cancel that window exactly; source 3 cannot.
+      </p>
+      <p>
+        <strong>At this size and in this window, IR drop does not bind.</strong> The design
+        holds to 100&nbsp;&#937; per wire segment. Published crossbar wiring runs from
+        2&nbsp;&#937; per cell at 65&nbsp;nm<sup class="r">10</sup> to about 20&nbsp;&#937;
+        at 7&nbsp;nm<sup class="r">11,12</sup>, so the wires would have to be five times
+        worse than the most scaled of them before this source bound &mdash; and since a
+        segment is resistance per length times the cell pitch, a cell as large as this
+        one's is wired wider than minimum to stay there. What keeps the wires out is the
+        window. A thin-barrier memory cell is 26 to 38 times more conductive than this
+        design<sup class="r">6</sup>, and at ten times this window 100&nbsp;&#937; has
+        already failed.
       </p>
       <p>
         <strong>Budgeting each source to its own edge leaves nothing over.</strong> All
@@ -800,29 +842,68 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     </div>
 
     <div class="prose col">
-      <p class="sub-h">What the holes are, and why they stay holes</p>
+      <p class="sub-h">What is designed, what is cited, and what is still a hole</p>
       <p>
-        Spintronic device parameters are spread across a literature that mixes
-        measurements with roadmap projections, and no distribution has been read into this
-        repository yet. So <span class="q">g_min</span>, <span class="q">g_max</span>,
-        the read voltage and the wire resistance are placeholders, marked as such
-        everywhere they appear. <strong>No margin is claimed against an uncited value</strong>,
-        and the margin column is omitted rather than estimated. A confident wrong number
-        costs more than an admitted hole.
+        <strong>The operating point is designed.</strong> The window and the drive are this
+        project's own choice, held to one rule: they must be something a magnetic tunnel
+        junction can physically be, and the check is cited &mdash; section 01 gives it.
+        The sources back a claim that the device can be built this way; they are not a
+        menu of numbers to copy. Other work chose other windows, for other machines. Jung
+        and colleagues' MRAM crossbar runs at 13 and 26&nbsp;k&#937; and sums
+        <em>resistances</em> rather than currents, because a current-summing array of cells
+        that conductive draws too much power<sup class="r">6</sup>. imec's current-summing
+        arrays went the other way, to 6&nbsp;M&#937;<sup class="r">9</sup>. A 7&nbsp;nm
+        simulation study used spin-orbit junctions of 8 to 100&nbsp;k&#937;<sup class="r">12</sup>,
+        and domain-wall junctions have been made at 95%<sup class="r">5</sup> and
+        164%<sup class="r">8</sup> magnetoresistance. This window sits between the two
+        built extremes: 26 to 38 times less conductive than the commodity cell, 18 times
+        more than imec's.
       </p>
       <p>
-        The accuracy and the bit depths do not depend on those placeholders &mdash; the
+        <strong>Delivered precision is still a hole</strong>, because nobody has measured the
+        device-to-device spread of this design. The one MTJ crossbar with a published
+        spread is the commodity cell: &sigma;/R of 7.7% on its high-resistance state and
+        12.3% on its low, over 8,192 cells with the access transistor
+        included<sup class="r">6</sup>. It is a different device, so it is not this design's
+        delivered precision and <strong>no margin is computed from it</strong>. For scale
+        only: the same relative spreads against this window's span are 0.038 and 0.18
+        &mdash; past the 0.035 that holds on both states, and past the 0.05 that fails on
+        the low-resistance one. The binding source is the one to measure first.
+      </p>
+      <p>
+        The accuracy and the bit depths do not depend on the operating point &mdash; the
         window and the drive cancel exactly in the decode, and a test asserts the ideal
-        accuracy is unchanged across unrelated windows. The energy figure does, so the
-        arithmetic is given rather than the conclusion. <strong>Array read power is
-        1.577&nbsp;&micro;W</strong>, computed as
+        accuracy is unchanged across unrelated windows. The energy figure does.
+        <strong>Array read power is 1.577&nbsp;&micro;W</strong> at this operating point,
+        computed as
         <span class="q">mean&#8345;(&Sigma;&#7522;&#11388; V&#7522;&sup2; G&#7522;&#11388;)</span>
         over all 720 devices, and it is <em>array only</em>: it excludes the sense
         amplifiers, the converter and every digital stage after them, and the periphery
-        frequently dominates an analog accelerator's energy. Energy per inference needs a
-        read time on top of that, and no read time has been sourced &mdash; so multiply by
-        whichever one a source supports.
+        frequently dominates an analog accelerator's energy. Energy per inference and
+        latency both need a read time, and a read time belongs to the sense amplifier,
+        which this model does not include. For scale: MRAM macros read in 4&nbsp;ns
+        counting sensing alone<sup class="r">13</sup> and 9&nbsp;ns for a full
+        access<sup class="r">14</sup>, and the commodity crossbar's columns settle in 13 to
+        29&nbsp;ns, loaded by 2.1&nbsp;fF of line per cell<sup class="r">6</sup>. Multiply by
+        whichever the periphery supports.
       </p>
+
+      <ol class="refs">
+        <li><b>1</b> Hayakawa, Ikeda, Matsukura, Takahashi &amp; Ohno, <i>Jpn. J. Appl. Phys.</i> 44, L587 (2005). RA 3.4&nbsp;k&#937;&middot;&micro;m&sup2; and TMR 200&ndash;260% at 2.0&nbsp;nm MgO; RA rises exponentially with barrier thickness. <a href="https://arxiv.org/abs/cond-mat/0504051">arXiv:cond-mat/0504051</a></li>
+        <li><b>2</b> Grollier, Querlioz, Camsari, Everschor-Sitte, Fukami &amp; Stiles, &ldquo;Neuromorphic spintronics&rdquo;, <i>Nature Electronics</i> 3, 360&ndash;370 (2020). An MTJ's conductance ratio is &ldquo;typically around three&rdquo;. <a href="https://doi.org/10.1038/s41928-019-0360-9">doi:10.1038/s41928-019-0360-9</a></li>
+        <li><b>3</b> M. Wang et al., <i>Nature Communications</i> 9 (2018). TMR up to 249% in perpendicular junctions. <a href="https://arxiv.org/abs/1708.04111">arXiv:1708.04111</a></li>
+        <li><b>4</b> Ikeda et al., <i>Jpn. J. Appl. Phys.</i> 44, L1442 (2005). TMR 27% at RA 0.8&nbsp;&#937;&middot;&micro;m&sup2;, rising to 165% at 2.9; 355% at room temperature. <a href="https://arxiv.org/abs/cond-mat/0510531">arXiv:cond-mat/0510531</a></li>
+        <li><b>5</b> Lequeux et al., <i>Scientific Reports</i> 6, 31510 (2016). Domain walls displaced at current densities of order 10<sup>6</sup>&nbsp;A/cm&sup2;; 15&ndash;20 intermediate states; TMR about 95%. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4990964/">PMC4990964</a></li>
+        <li><b>6</b> Jung et al., <i>Nature</i> 601, 211&ndash;216 (2022). A 64&times;64 MRAM crossbar: 13&nbsp;k&#937; (&sigma; 1.6) and 26&nbsp;k&#937; (&sigma; 2.0) over 8,192 cells, transistor included; 2.1&nbsp;fF of column per cell; 13&ndash;29&nbsp;ns column readout. <a href="https://doi.org/10.1038/s41586-021-04196-6">doi:10.1038/s41586-021-04196-6</a></li>
+        <li><b>7</b> Liu, Pai, Li, Tseng, Ralph &amp; Buhrman, <i>Science</i> 336, 555&ndash;558 (2012). A three-terminal cell: a low-impedance write line, with a higher-impedance MTJ for read-out. <a href="https://arxiv.org/abs/1203.2875">arXiv:1203.2875</a></li>
+        <li><b>8</b> Alamdar et al., <i>Appl. Phys. Lett.</i> 118, 112401 (2021). Three-terminal domain-wall MTJs for in-memory computing; TMR 164%, RA 31&nbsp;&#937;&middot;&micro;m&sup2;. <a href="https://arxiv.org/abs/2010.13879">arXiv:2010.13879</a></li>
+        <li><b>9</b> Doevenspeck et al. (imec), IEEE Symposium on VLSI Technology (2020), as reported by Cai et al.: SOT-MRAM analog in-memory computing with R<sub>on</sub> = 6&nbsp;M&#937;. <a href="https://arxiv.org/abs/2110.03937">arXiv:2110.03937</a></li>
+        <li><b>10</b> Agrawal, Lee &amp; Roy, &ldquo;X-CHANGR&rdquo; (2019). 2&nbsp;&#937; per crossbar node at 65&nbsp;nm. <a href="https://arxiv.org/abs/1907.00285">arXiv:1907.00285</a></li>
+        <li><b>11</b> Victor, Kim, Wang, Roy &amp; Gupta, &ldquo;WAGONN&rdquo; (2024). 2&ndash;10&nbsp;&#937; per bit-cell at 45&ndash;65&nbsp;nm, up to 20&nbsp;&#937; at 7&nbsp;nm. <a href="https://arxiv.org/abs/2406.14706">arXiv:2406.14706</a></li>
+        <li><b>12</b> C. Wang, Victor &amp; Gupta (2023). 182&nbsp;&#937;/&micro;m wiring at 7&nbsp;nm over a 108&nbsp;nm SOT-MRAM cell; simulated SOT junctions of 8&ndash;100&nbsp;k&#937;. <a href="https://arxiv.org/abs/2307.04261">arXiv:2307.04261</a></li>
+        <li><b>13</b> Wei et al., ISSCC (2019). A 7&nbsp;Mb STT-MRAM with 4&nbsp;ns read sensing in 22FFL; known from the reference list of ref.&nbsp;6, not read.</li>
+        <li><b>14</b> Shih et al. (2020). An 8&nbsp;Mb STT-MRAM macro with 9&nbsp;ns read access in 16&nbsp;nm FinFET; known from the reference list of ref.&nbsp;9, not read.</li>
+      </ol>
     </div>
   </section>
 
@@ -843,28 +924,21 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
 
     <ul class="next-list">
       <li>
-        <b>Source the window</b>
+        <b>Measure the spread this design delivers</b>
         <span>
-          <span class="q">g_max/g_min</span> is the platform's characteristic constraint
-          and it is currently a placeholder. It is the largest open gap: a cited
-          distribution would turn the delivered-precision hole into a number and give the
-          row its margin column.
-        </span>
-      </li>
-      <li>
-        <b>Source a wire resistance</b>
-        <span>
-          IR drop's cliff is sharp &mdash; 100 &#937; holds and 1 k&#937; is chance
-          &mdash; so a sourced value decides between &ldquo;irrelevant&rdquo; and
-          &ldquo;fatal&rdquo; with very little in between at this array size.
+          Delivered precision is the one hole on the binding source. The window can be
+          designed; the device-to-device spread of a thick-barrier, three-terminal junction
+          cannot, and it is what would give the row its margin column. The commodity
+          cell's spread is a warning, not an answer.
         </span>
       </li>
       <li>
         <b>Sweep the array size</b>
         <span>
-          IR drop grows with the array, so the number above is one point on a curve. The
-          size is fixed and stated first for exactly that reason; the curve is the obvious
-          next measurement.
+          IR drop grows with the array, so the number above is one point on a curve. At
+          36&times;10 published wiring sits five times inside the edge; the curve says at
+          what size it stops doing so, and whether the wires or conductance variation bind
+          first there.
         </span>
       </li>
       <li>
@@ -873,7 +947,8 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
           The present model is first order: the drops are computed from the currents the
           ideal voltages would draw, so one pass overstates them. That is the safe
           direction for a tolerance study and it is not the same as being right. Iterating
-          is the refinement, and it matters most if this source turns out to bind.
+          is the refinement, and it matters once a larger array brings this source near its
+          edge.
         </span>
       </li>
       <li>
@@ -911,8 +986,9 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       <div>
         <h3>How numbers are treated</h3>
         <p>
-          Cited, or marked <span class="q hole">UNSOURCED</span> and surfaced. A confident
-          wrong number costs more than an admitted hole.
+          A measured value is cited, or marked <span class="q hole">UNSOURCED</span> and
+          surfaced. A design value is this project's own, checked against what the device
+          can physically be. A confident wrong number costs more than an admitted hole.
         </p>
       </div>
       <div>
@@ -1508,10 +1584,10 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
  *
  * Error source 3 breaks it. A wire drop is `R * I`, and `I` is an absolute
  * current, so IR drop is the one source whose result depends on the value of
- * `g_min` and `g_max` -- which are UNSOURCED placeholders. The slow path
- * therefore reconstitutes real conductances and a real drive, and the page states
- * the dependence rather than hiding it behind a widget that looks equally
- * confident either way.
+ * `g_min` and `g_max` -- a design point, which a thinner-barrier junction would
+ * move. The slow path therefore reconstitutes real conductances and a real drive,
+ * and the page states the dependence rather than hiding it behind a widget that
+ * looks equally confident either way.
  */
 (function () {
   "use strict";
