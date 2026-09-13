@@ -306,6 +306,29 @@ footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.76rem;color:
 .sp-field input[type="range"]:focus-visible{outline:2px solid var(--accent);
   outline-offset:4px;border-radius:2px;}
 
+/* Touch. A fingertip wants a target about 44 px across, and these controls are drawn
+   smaller than that on purpose: a hairline track, an 11x16 handle, a 34 px tool
+   button. So wherever the page can be touched, the *hit area* grows to 44 px and the
+   drawing does not. Buttons and the topbar's pills get an invisible margin of their
+   own. A range input grows its own box around a track that stays centred and one
+   pixel thick, and its label and value close up to meet it, so the field grows by a
+   few pixels rather than by twenty-eight; its focus ring then hugs that box, because
+   four pixels outside it would cut through the label. `any-pointer` rather than
+   `pointer`, because a laptop with a touchscreen reports a fine primary pointer and is
+   touched anyway. */
+@media (any-pointer:coarse){
+  .theme-toggle,.topbar-nav a,.xh-btn,.bn-btn,.dw-btn,.wr-btn{position:relative;}
+  .theme-toggle::after,.topbar-nav a::after,.xh-btn::after,.bn-btn::after,
+  .dw-btn::after,.wr-btn::after{content:"";position:absolute;inset:-6px -4px;}
+  .theme-toggle::after{inset:-10px -4px;}
+  .topbar-nav a::after{inset:-7px -4px;}
+  .sp-field label{margin-bottom:0;}
+  .sp-field output{margin-top:0;}
+  .sp-field input[type="range"]{height:44px;}
+  .sp-field input[type="range"]:focus-visible{outline-offset:0;}
+  .toc-list a{padding-top:12px;padding-bottom:12px;}
+}
+
 /* --------------------------------------------------------------------- the hero
    Not a header with a picture beside it. The left column carries the claim and the
    right column carries the machine making it, and on a phone the machine goes
@@ -316,13 +339,28 @@ footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.76rem;color:
 .machine-say{grid-area:say;min-width:0;}
 .machine-do{grid-area:do;min-width:0;}
 .machine-read{grid-area:read;min-width:0;}
-/* On a phone the machine follows the headline immediately, ahead of the readout
-   that describes it: the claim is "watch this thing work", and a reader who has to
-   scroll past a paragraph and a number to reach the thing has been told instead. */
+/* Below 980px the band is one column and the machine follows the headline
+   immediately: ahead of its readout, and ahead of the standfirst as well. The claim
+   is "watch this thing work", and a reader who has to scroll past a paragraph and a
+   number to reach the thing has been told instead.
+
+   The standfirst lives inside .machine-say, beside the headline it belongs with on a
+   wide screen, so here that wrapper steps aside (display:contents) and its children
+   take rows of their own. Only the picture moves; the markup still reads headline,
+   standfirst, machine. Grid rows do not collapse margins, so the children's are
+   zeroed and the row gap is the whole rhythm -- at a specificity that outranks a
+   rule written for the headline itself. */
 @media (max-width:980px){
-  .machine{grid-template-columns:1fr;grid-template-rows:none;
-    grid-template-areas:"say" "do" "read";gap:24px;padding:44px 0 14px;}
+  .machine{grid-template-columns:minmax(0,1fr);grid-template-rows:none;
+    grid-template-areas:"title" "bar" "do" "read" "lede";row-gap:22px;
+    padding:44px 0 14px;}
+  .machine-say{display:contents;}
+  .machine-say>h1{grid-area:title;}
+  .machine-say>.underbar{grid-area:bar;}
+  .machine-say>.standfirst{grid-area:lede;}
+  .machine .machine-say>*{margin-top:0;margin-bottom:0;}
 }
+@media (max-width:640px){.machine{padding-top:30px;}}
 
 /* Four facts, separated by rules rather than boxed into tiles. */
 .spec{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border);
@@ -2225,7 +2263,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     + "text-transform:uppercase;color:var(--muted);}"
     + ".xh-legend span{display:flex;align-items:center;gap:6px;}"
     + ".xh-legend i{width:9px;height:9px;border-radius:2px;display:block;}"
-    + ".xh-controls{display:flex;align-items:center;gap:8px;margin-top:12px;}"
+    + ".xh-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px;}"
     + ".xh-btn{font-family:var(--mono);font-size:.75rem;letter-spacing:.1em;"
     + "text-transform:uppercase;background:transparent;color:var(--ink-dim);"
     + "border:1px solid var(--border);border-radius:7px;padding:6px 12px;cursor:pointer;"
@@ -2234,6 +2272,10 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     + ".xh-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
     + ".xh-tally{font-family:var(--mono);font-size:.75rem;color:var(--muted);"
     + "font-variant-numeric:tabular-nums;margin-left:auto;}"
+    // A phone cannot fit two buttons and a tally that grows to "2000 / 2000 correct
+    // so far" on one line. Given a line of its own from the start, the tally never
+    // drops onto one partway through a run and shoves the legend down.
+    + "@media (max-width:460px){.xh-tally{flex:1 0 100%;margin-left:0;}}"
     // The readout in the headline column: one very large numeral, because it is
     // the answer, and the rest of the machine's state in small type beneath it.
     + ".xr{display:flex;align-items:flex-start;gap:18px;margin:26px 0 0;"
@@ -2247,7 +2289,11 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     + "text-transform:uppercase;color:var(--muted);margin:0;}"
     + ".xr-t{margin:.3rem 0 0;color:var(--ink-dim);font-size:.94rem;line-height:1.45;}"
     + ".xr-t b{color:var(--ink);font-weight:600;}"
-    + "@media (max-width:720px){.xr-digit{font-size:3.2rem;}}";
+    + "@media (max-width:720px){.xr-digit{font-size:3.2rem;}}"
+    // Below 980px the readout sits straight under the machine it narrates, and the
+    // band's row gap already separates the two. The top margin was for sitting under
+    // the standfirst, in the headline's column, on a wide screen.
+    + "@media (max-width:980px){.xr{margin-top:0;}}";
 
   var HOLD_MS = 1750;
 
@@ -2769,6 +2815,15 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     + ".wr-col[aria-pressed=\"true\"]{color:var(--accent-ink);border-color:var(--accent);"
     + "background:var(--accent-soft);font-weight:600;}"
     + ".wr-col:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
+    // Touch. Ten keys sit four pixels apart, so an invisible margin like the tool
+    // buttons' would land on the neighbour; on a touch screen the key itself is 44px
+    // instead.
+    + "@media (any-pointer:coarse){.wr-col{width:44px;height:44px;}}"
+    // Narrow, ten keys do not fit on one line -- not at 44px, and at 30px they fit
+    // nine and leave the tenth alone underneath. Two rows of five, across the width.
+    + "@media (max-width:560px){"
+    + ".wr-cols{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;flex:1 1 100%;}"
+    + ".wr-col{width:auto;}}"
     + ".wr-foot{margin-top:12px;color:var(--ink-dim);font-size:.9rem;line-height:1.5;}"
     + ".wr-foot b{color:var(--ink);font-weight:600;font-family:var(--mono);"
     + "font-variant-numeric:tabular-nums;}"
@@ -3004,13 +3059,33 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
   var P = window.SpinnPlot, V = window.SpinnView, C = window.SpinnCrossbar;
 
   var CSS = ""
-    + ".bn-rails{display:grid;grid-template-columns:repeat(3,1fr);gap:22px 30px;"
-    + "border-top:1px solid var(--border);padding-top:18px;}"
-    + "@media (max-width:800px){.bn-rails{grid-template-columns:1fr;gap:18px;}}"
-    + ".bn-body{display:grid;grid-template-columns:minmax(200px,0.9fr) minmax(240px,1.1fr);"
-    + "gap:26px 34px;margin-top:28px;align-items:start;}"
-    + "@media (max-width:800px){.bn-body{grid-template-columns:1fr;}}"
-    + ".bn-body canvas{display:block;width:100%;}"
+    // One grid for the whole instrument, so the result can change places without the
+    // markup changing. Wide: the rails across the top, and the array and its result
+    // side by side beneath them.
+    + ".bn{display:grid;grid-template-columns:minmax(200px,0.9fr) minmax(240px,1.1fr);"
+    + "grid-template-areas:'rails rails' 'array result' 'tools tools' 'note note';"
+    + "column-gap:34px;align-items:start;}"
+    + ".bn-rails{grid-area:rails;display:grid;grid-template-columns:repeat(3,1fr);"
+    + "gap:22px 30px;align-items:end;border-top:1px solid var(--border);padding-top:18px;}"
+    + ".bn-array{grid-area:array;min-width:0;margin-top:28px;}"
+    + ".bn-result{grid-area:result;min-width:0;margin-top:28px;}"
+    + ".bn-tools{grid-area:tools;}.bn-note{grid-area:note;}"
+    + ".bn canvas{display:block;width:100%;}"
+    // Narrow. A thumb dragging a slider covers everything below it, and stacked in
+    // the wide order a 420px array would sit between the sliders and the number they
+    // move. So the number and its meter, which hold still, go above the sliders; the
+    // verdict, which grows and shrinks by a line or three as it updates, goes below
+    // them, where a reflow cannot move a slider under the finger; and the array,
+    // which is looked at rather than operated, goes last. The result's wrapper steps
+    // aside so its two halves can take separate rows.
+    + "@media (max-width:800px){"
+    + ".bn{grid-template-columns:minmax(0,1fr);"
+    + "grid-template-areas:'read' 'rails' 'verdict' 'tools' 'array' 'note';}"
+    + ".bn .bn-result{display:contents;}"
+    + ".bn .bn-read{grid-area:read;}"
+    + ".bn .bn-verdict{grid-area:verdict;margin-top:18px;}"
+    + ".bn .bn-rails{margin-top:22px;}}"
+    + "@media (max-width:640px){.bn .bn-rails{grid-template-columns:1fr;gap:18px;}}"
     + ".bn-acc{font-family:var(--mono);font-size:2.9rem;font-weight:600;line-height:1;"
     + "color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.02em;}"
     + ".bn-acc.fail{color:var(--bad);}"
@@ -3080,8 +3155,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     var qIn = field("bn-states", "Resolvable states", states, 0);
     var rIn = field("bn-wire", "Wire resistance", wire, 0);
 
-    var body = P.el("div", "bn-body");
-    var leftCol = P.el("div", "",
+    var leftCol = P.el("div", "bn-array",
       '<p class="bn-accl">The array, as built</p>');
     var arrayCanvas = document.createElement("canvas");
     arrayCanvas.setAttribute("role", "img");
@@ -3089,19 +3163,20 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     leftCol.appendChild(P.el("p", "bn-cap",
       "360 differential pairs &middot; teal positive, amber negative"));
 
-    var rightCol = P.el("div", "",
+    // The result in two pieces: the number and its meter, which hold still, and the
+    // verdict, which reflows. A narrow screen puts them on either side of the sliders.
+    var rightCol = P.el("div", "bn-result");
+    var readout = P.el("div", "bn-read",
       '<p class="bn-accl">Accuracy, all 2,000 frozen test digits</p>'
       + '<div><span class="bn-acc"></span><span class="bn-delta"></span></div>');
     var meter = document.createElement("canvas");
     meter.setAttribute("role", "img");
-    rightCol.appendChild(meter);
+    readout.appendChild(meter);
+    rightCol.appendChild(readout);
     var verdict = P.el("p", "bn-verdict", "");
     verdict.setAttribute("role", "status");
     verdict.setAttribute("aria-live", "off");
     rightCol.appendChild(verdict);
-
-    body.appendChild(leftCol);
-    body.appendChild(rightCol);
 
     var tools = P.el("div", "bn-tools");
     var rollBtn = P.el("button", "bn-btn", "Re-roll the devices");
@@ -3124,10 +3199,15 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       + "currents, where the winner is decided by the order the additions happened "
       + "in; that moves the accuracy by one digit in two thousand.");
 
-    el.appendChild(rails);
-    el.appendChild(body);
-    el.appendChild(tools);
-    el.appendChild(note);
+    // Markup order is reading order -- controls, then what they did -- whatever
+    // order the grid draws them in.
+    var bench = P.el("div", "bn");
+    bench.appendChild(rails);
+    bench.appendChild(leftCol);
+    bench.appendChild(rightCol);
+    bench.appendChild(tools);
+    bench.appendChild(note);
+    el.appendChild(bench);
 
     var accEl = rightCol.querySelector(".bn-acc");
     var deltaEl = rightCol.querySelector(".bn-delta");
