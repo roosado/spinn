@@ -376,6 +376,29 @@ footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.76rem;color:
 .sp-field input[type="range"]:focus-visible{outline:2px solid var(--accent);
   outline-offset:4px;border-radius:2px;}
 
+/* Touch. A fingertip wants a target about 44 px across, and these controls are drawn
+   smaller than that on purpose: a hairline track, an 11x16 handle, a 34 px tool
+   button. So wherever the page can be touched, the *hit area* grows to 44 px and the
+   drawing does not. Buttons and the topbar's pills get an invisible margin of their
+   own. A range input grows its own box around a track that stays centred and one
+   pixel thick, and its label and value close up to meet it, so the field grows by a
+   few pixels rather than by twenty-eight; its focus ring then hugs that box, because
+   four pixels outside it would cut through the label. `any-pointer` rather than
+   `pointer`, because a laptop with a touchscreen reports a fine primary pointer and is
+   touched anyway. */
+@media (any-pointer:coarse){
+  .theme-toggle,.topbar-nav a,.xh-btn,.bn-btn,.dw-btn,.wr-btn{position:relative;}
+  .theme-toggle::after,.topbar-nav a::after,.xh-btn::after,.bn-btn::after,
+  .dw-btn::after,.wr-btn::after{content:"";position:absolute;inset:-6px -4px;}
+  .theme-toggle::after{inset:-10px -4px;}
+  .topbar-nav a::after{inset:-7px -4px;}
+  .sp-field label{margin-bottom:0;}
+  .sp-field output{margin-top:0;}
+  .sp-field input[type="range"]{height:44px;}
+  .sp-field input[type="range"]:focus-visible{outline-offset:0;}
+  .toc-list a{padding-top:12px;padding-bottom:12px;}
+}
+
 /* --------------------------------------------------------------------- the hero
    Not a header with a picture beside it. The left column carries the claim and the
    right column carries the machine making it, and on a phone the machine goes
@@ -386,13 +409,28 @@ footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.76rem;color:
 .machine-say{grid-area:say;min-width:0;}
 .machine-do{grid-area:do;min-width:0;}
 .machine-read{grid-area:read;min-width:0;}
-/* On a phone the machine follows the headline immediately, ahead of the readout
-   that describes it: the claim is "watch this thing work", and a reader who has to
-   scroll past a paragraph and a number to reach the thing has been told instead. */
+/* Below 980px the band is one column and the machine follows the headline
+   immediately: ahead of its readout, and ahead of the standfirst as well. The claim
+   is "watch this thing work", and a reader who has to scroll past a paragraph and a
+   number to reach the thing has been told instead.
+
+   The standfirst lives inside .machine-say, beside the headline it belongs with on a
+   wide screen, so here that wrapper steps aside (display:contents) and its children
+   take rows of their own. Only the picture moves; the markup still reads headline,
+   standfirst, machine. Grid rows do not collapse margins, so the children's are
+   zeroed and the row gap is the whole rhythm -- at a specificity that outranks a
+   rule written for the headline itself. */
 @media (max-width:980px){
-  .machine{grid-template-columns:1fr;grid-template-rows:none;
-    grid-template-areas:"say" "do" "read";gap:24px;padding:44px 0 14px;}
+  .machine{grid-template-columns:minmax(0,1fr);grid-template-rows:none;
+    grid-template-areas:"title" "bar" "do" "read" "lede";row-gap:22px;
+    padding:44px 0 14px;}
+  .machine-say{display:contents;}
+  .machine-say>h1{grid-area:title;}
+  .machine-say>.underbar{grid-area:bar;}
+  .machine-say>.standfirst{grid-area:lede;}
+  .machine .machine-say>*{margin-top:0;margin-bottom:0;}
 }
+@media (max-width:640px){.machine{padding-top:30px;}}
 
 /* Four facts, separated by rules rather than boxed into tiles. */
 .spec{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border);

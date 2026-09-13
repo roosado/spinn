@@ -36,7 +36,7 @@
     + "text-transform:uppercase;color:var(--muted);}"
     + ".xh-legend span{display:flex;align-items:center;gap:6px;}"
     + ".xh-legend i{width:9px;height:9px;border-radius:2px;display:block;}"
-    + ".xh-controls{display:flex;align-items:center;gap:8px;margin-top:12px;}"
+    + ".xh-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px;}"
     + ".xh-btn{font-family:var(--mono);font-size:.75rem;letter-spacing:.1em;"
     + "text-transform:uppercase;background:transparent;color:var(--ink-dim);"
     + "border:1px solid var(--border);border-radius:7px;padding:6px 12px;cursor:pointer;"
@@ -45,6 +45,10 @@
     + ".xh-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
     + ".xh-tally{font-family:var(--mono);font-size:.75rem;color:var(--muted);"
     + "font-variant-numeric:tabular-nums;margin-left:auto;}"
+    // A phone cannot fit two buttons and a tally that grows to "2000 / 2000 correct
+    // so far" on one line. Given a line of its own from the start, the tally never
+    // drops onto one partway through a run and shoves the legend down.
+    + "@media (max-width:460px){.xh-tally{flex:1 0 100%;margin-left:0;}}"
     // The readout in the headline column: one very large numeral, because it is
     // the answer, and the rest of the machine's state in small type beneath it.
     + ".xr{display:flex;align-items:flex-start;gap:18px;margin:26px 0 0;"
@@ -58,7 +62,11 @@
     + "text-transform:uppercase;color:var(--muted);margin:0;}"
     + ".xr-t{margin:.3rem 0 0;color:var(--ink-dim);font-size:.94rem;line-height:1.45;}"
     + ".xr-t b{color:var(--ink);font-weight:600;}"
-    + "@media (max-width:720px){.xr-digit{font-size:3.2rem;}}";
+    + "@media (max-width:720px){.xr-digit{font-size:3.2rem;}}"
+    // Below 980px the readout sits straight under the machine it narrates, and the
+    // band's row gap already separates the two. The top margin was for sitting under
+    // the standfirst, in the headline's column, on a wide screen.
+    + "@media (max-width:980px){.xr{margin-top:0;}}";
 
   var HOLD_MS = 1750;
 

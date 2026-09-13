@@ -39,6 +39,15 @@
     + ".wr-col[aria-pressed=\"true\"]{color:var(--accent-ink);border-color:var(--accent);"
     + "background:var(--accent-soft);font-weight:600;}"
     + ".wr-col:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
+    // Touch. Ten keys sit four pixels apart, so an invisible margin like the tool
+    // buttons' would land on the neighbour; on a touch screen the key itself is 44px
+    // instead.
+    + "@media (any-pointer:coarse){.wr-col{width:44px;height:44px;}}"
+    // Narrow, ten keys do not fit on one line -- not at 44px, and at 30px they fit
+    // nine and leave the tenth alone underneath. Two rows of five, across the width.
+    + "@media (max-width:560px){"
+    + ".wr-cols{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;flex:1 1 100%;}"
+    + ".wr-col{width:auto;}}"
     + ".wr-foot{margin-top:12px;color:var(--ink-dim);font-size:.9rem;line-height:1.5;}"
     + ".wr-foot b{color:var(--ink);font-weight:600;font-family:var(--mono);"
     + "font-variant-numeric:tabular-nums;}"

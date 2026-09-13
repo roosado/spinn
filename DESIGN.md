@@ -316,9 +316,13 @@ Instruments are allowed to break the measure and use the full 1120px; prose neve
 
 The first viewport is a two-column band at ≥980px — the claim on the left at roughly 38%,
 the running machine on the right at 62%, with the live readout beneath the claim — laid out
-on named grid areas so that below 980px it restacks as claim, machine, readout: the machine
-comes *before* the paragraph describing it, because the page's promise is "watch this thing
-work".
+on named grid areas so that below 980px it restacks as headline, machine, readout,
+standfirst: the machine comes *before* the paragraph describing it, because the page's
+promise is "watch this thing work". The standfirst shares `.machine-say` with the headline,
+so below 980px that wrapper is `display: contents` and its children take rows of their own.
+Only the picture moves; the markup, and so the order a screen reader hears, stays headline,
+standfirst, machine. Those rows are spaced by a 22px gap alone, their margins zeroed,
+because grid rows do not collapse margins and two systems of spacing would fight.
 
 Sections are separated by a 1px top border and 52px of padding, each opening with a
 monospace section number in a soft-teal box beside its serif heading. The in-page contents
@@ -327,10 +331,17 @@ list pinned in the right margin as a border-left rail — 1500px being where a 1
 its gap clear the 1120px wrap on both sides without moving the content off centre.
 
 Instrument-internal grids collapse at their own breakpoints, close to the content:
-980px (hero), 860px (the three tolerance panels), 800px (the bench), 720px (device, draw,
-the four-cell spec strip), 640px (topbar padding, hero padding), 560px (the comparison
-record and the next-work list). Rhythm is a loose 4/8/14/20/26px scale; sections at 52px.
-Anchor targets carry `scroll-margin-top: 78px` to clear the sticky topbar.
+980px (hero), 860px (the three tolerance panels), 800px (the bench goes to one column),
+720px (device, draw, the four-cell spec strip), 640px (topbar padding, hero padding, the
+bench's three rails), 560px (the comparison record, the next-work list, and the column keys
+on a touch screen). Rhythm is a loose 4/8/14/20/26px scale; sections at 52px. Anchor
+targets carry `scroll-margin-top: 78px` to clear the sticky topbar.
+
+On a narrow screen an instrument is ordered for the thumb that operates it. A finger covers
+whatever is below the control it is dragging, so the bench puts its accuracy and meter
+*above* its sliders, and puts the verdict — which grows and shrinks by a line or three as
+it updates — *below* them, where a reflow cannot move a slider under the finger. The array
+it corrupts comes last, because it is looked at rather than operated.
 
 ## Elevation & Depth
 
@@ -364,12 +375,22 @@ the nav links — where the round form marks page-level chrome as distinct from 
 chrome.
 
 Borders are always exactly 1px and always `--border` at rest, going teal on hover. Focus is
-a `2px solid var(--accent)` outline with a 2–4px offset, applied through `:focus-visible` on
-every interactive element without exception. Controls are drawn as *rules and handles*: a
-range input is a 1px track with an 11×16px square running along it — a scale with a marker
-on it — rather than a pill with a bead in it. Canvas geometry follows the same logic: array
-cells are drawn with no gap between rows, because a crossbar is a continuous sheet of wiring
-and separating every cell into its own tile reads as a spreadsheet.
+a `2px solid var(--accent)` outline applied through `:focus-visible` on every interactive
+element without exception, at a 2–4px offset — 0 on a range input on a touch screen, whose
+enlarged box would otherwise put the ring through its label. Controls are drawn as *rules
+and handles*: a range input is a 1px track with an 11×16px square running along it — a
+scale with a marker on it — rather than a pill with a bead in it. Canvas geometry follows
+the same logic: array cells are drawn with no gap between rows, because a crossbar is a
+continuous sheet of wiring and separating every cell into its own tile reads as a
+spreadsheet.
+
+**The Hit-Area Rule.** A control is drawn at the size its meaning needs and hit at the size
+a finger needs, and those are different numbers. On any device that can be touched
+(`any-pointer: coarse`, so a touchscreen laptop counts) every hit area grows to 44px and no
+drawing changes: tool buttons and the topbar's pills gain an invisible `::after` margin, a
+range input grows its own box around a track that stays one pixel thick and centred, and
+the contents list's rows gain height. The one control that visibly grows is the column key,
+because ten of them sit 4px apart and an invisible margin would land on the neighbour.
 
 Icons are drawn as inline SVG with `currentColor`, never as Unicode glyphs or an icon font;
 the theme mark is a 16-viewBox half-filled circle at 11px.
@@ -386,6 +407,10 @@ the theme mark is a 16-viewBox half-filled circle at 11px.
 - **Toggle state:** `aria-pressed="true"` promotes it to teal ink on `--accent-soft` with a
   teal border and 600 weight; there is no separate "selected" colour.
 - **Column button:** the same button squared to 30×30px, used as the ten column selectors.
+  On a touch screen the key itself is 44×44px, and below 560px the ten become two rows of
+  five across the full width.
+- **Touch:** every other button keeps its drawing and gains an invisible 44px hit area
+  through `::after` (the Hit-Area Rule, under Shapes).
 
 ### Chips
 - **Hole chip** (`.q.hole`): the inline-code chip recoloured amber — amber ink, 8% amber
@@ -410,6 +435,8 @@ Used sparingly and only for detached objects.
 - **Hover:** the thumb scales 1.18× vertically over 120ms — the handle grows, the track
   never changes.
 - **Focus:** 2px teal outline at 4px offset around the whole track.
+- **Touch:** the input's own box grows to 44px around the unchanged track; the label and
+  value close up to meet it, and the focus ring hugs the box at 0 offset.
 - **Caret:** `caret-color: var(--accent)` on every input, button, select and textarea.
 
 ### Navigation

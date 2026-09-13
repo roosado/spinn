@@ -33,13 +33,33 @@
   var P = window.SpinnPlot, V = window.SpinnView, C = window.SpinnCrossbar;
 
   var CSS = ""
-    + ".bn-rails{display:grid;grid-template-columns:repeat(3,1fr);gap:22px 30px;"
-    + "border-top:1px solid var(--border);padding-top:18px;}"
-    + "@media (max-width:800px){.bn-rails{grid-template-columns:1fr;gap:18px;}}"
-    + ".bn-body{display:grid;grid-template-columns:minmax(200px,0.9fr) minmax(240px,1.1fr);"
-    + "gap:26px 34px;margin-top:28px;align-items:start;}"
-    + "@media (max-width:800px){.bn-body{grid-template-columns:1fr;}}"
-    + ".bn-body canvas{display:block;width:100%;}"
+    // One grid for the whole instrument, so the result can change places without the
+    // markup changing. Wide: the rails across the top, and the array and its result
+    // side by side beneath them.
+    + ".bn{display:grid;grid-template-columns:minmax(200px,0.9fr) minmax(240px,1.1fr);"
+    + "grid-template-areas:'rails rails' 'array result' 'tools tools' 'note note';"
+    + "column-gap:34px;align-items:start;}"
+    + ".bn-rails{grid-area:rails;display:grid;grid-template-columns:repeat(3,1fr);"
+    + "gap:22px 30px;align-items:end;border-top:1px solid var(--border);padding-top:18px;}"
+    + ".bn-array{grid-area:array;min-width:0;margin-top:28px;}"
+    + ".bn-result{grid-area:result;min-width:0;margin-top:28px;}"
+    + ".bn-tools{grid-area:tools;}.bn-note{grid-area:note;}"
+    + ".bn canvas{display:block;width:100%;}"
+    // Narrow. A thumb dragging a slider covers everything below it, and stacked in
+    // the wide order a 420px array would sit between the sliders and the number they
+    // move. So the number and its meter, which hold still, go above the sliders; the
+    // verdict, which grows and shrinks by a line or three as it updates, goes below
+    // them, where a reflow cannot move a slider under the finger; and the array,
+    // which is looked at rather than operated, goes last. The result's wrapper steps
+    // aside so its two halves can take separate rows.
+    + "@media (max-width:800px){"
+    + ".bn{grid-template-columns:minmax(0,1fr);"
+    + "grid-template-areas:'read' 'rails' 'verdict' 'tools' 'array' 'note';}"
+    + ".bn .bn-result{display:contents;}"
+    + ".bn .bn-read{grid-area:read;}"
+    + ".bn .bn-verdict{grid-area:verdict;margin-top:18px;}"
+    + ".bn .bn-rails{margin-top:22px;}}"
+    + "@media (max-width:640px){.bn .bn-rails{grid-template-columns:1fr;gap:18px;}}"
     + ".bn-acc{font-family:var(--mono);font-size:2.9rem;font-weight:600;line-height:1;"
     + "color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.02em;}"
     + ".bn-acc.fail{color:var(--bad);}"
@@ -109,8 +129,7 @@
     var qIn = field("bn-states", "Resolvable states", states, 0);
     var rIn = field("bn-wire", "Wire resistance", wire, 0);
 
-    var body = P.el("div", "bn-body");
-    var leftCol = P.el("div", "",
+    var leftCol = P.el("div", "bn-array",
       '<p class="bn-accl">The array, as built</p>');
     var arrayCanvas = document.createElement("canvas");
     arrayCanvas.setAttribute("role", "img");
@@ -118,19 +137,20 @@
     leftCol.appendChild(P.el("p", "bn-cap",
       "360 differential pairs &middot; teal positive, amber negative"));
 
-    var rightCol = P.el("div", "",
+    // The result in two pieces: the number and its meter, which hold still, and the
+    // verdict, which reflows. A narrow screen puts them on either side of the sliders.
+    var rightCol = P.el("div", "bn-result");
+    var readout = P.el("div", "bn-read",
       '<p class="bn-accl">Accuracy, all 2,000 frozen test digits</p>'
       + '<div><span class="bn-acc"></span><span class="bn-delta"></span></div>');
     var meter = document.createElement("canvas");
     meter.setAttribute("role", "img");
-    rightCol.appendChild(meter);
+    readout.appendChild(meter);
+    rightCol.appendChild(readout);
     var verdict = P.el("p", "bn-verdict", "");
     verdict.setAttribute("role", "status");
     verdict.setAttribute("aria-live", "off");
     rightCol.appendChild(verdict);
-
-    body.appendChild(leftCol);
-    body.appendChild(rightCol);
 
     var tools = P.el("div", "bn-tools");
     var rollBtn = P.el("button", "bn-btn", "Re-roll the devices");
@@ -153,10 +173,15 @@
       + "currents, where the winner is decided by the order the additions happened "
       + "in; that moves the accuracy by one digit in two thousand.");
 
-    el.appendChild(rails);
-    el.appendChild(body);
-    el.appendChild(tools);
-    el.appendChild(note);
+    // Markup order is reading order -- controls, then what they did -- whatever
+    // order the grid draws them in.
+    var bench = P.el("div", "bn");
+    bench.appendChild(rails);
+    bench.appendChild(leftCol);
+    bench.appendChild(rightCol);
+    bench.appendChild(tools);
+    bench.appendChild(note);
+    el.appendChild(bench);
 
     var accEl = rightCol.querySelector(".bn-acc");
     var deltaEl = rightCol.querySelector(".bn-delta");
