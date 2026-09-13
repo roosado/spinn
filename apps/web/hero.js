@@ -100,7 +100,7 @@
       '<span><i style="background:var(--accent)"></i>positive weight</span>'
       + '<span><i style="background:var(--accent-2)"></i>negative weight</span>'
       + "<span>360 weights &middot; 720 devices, two per weight</span>"
-      + "<span>the tallest column wins</span>");
+      + "<span>the most current wins</span>");
     wrap.appendChild(legend);
     el.appendChild(wrap);
 
@@ -200,7 +200,8 @@
       var hit = winner === label;
       digitEl.textContent = String(winner);
       read.classList.toggle("miss", !hit);
-      textEl.innerHTML = "This digit is a <b>" + label + "</b>, and the column that drew "
+      textEl.innerHTML = "This digit is " + (label === 8 ? "an" : "a") + " <b>" + label
+        + "</b>, and the column that drew "
         + "the most current is <b>" + winner + "</b> &mdash; "
         + (hit ? "correct" : "wrong") + ". Over the whole frozen test set the ideal array "
         + "gets <b>73.45%</b> right.";

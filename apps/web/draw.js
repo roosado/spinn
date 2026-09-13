@@ -203,7 +203,8 @@
         guess.classList.remove("none");
         second.textContent = "runner-up " + order[1] + " · margin "
           + (logits[order[0]] - logits[order[1]]).toFixed(2)
-          + (testIdx >= 0 ? " · this one is really a " + model.labels[testIdx] : "");
+          + (testIdx >= 0 ? " · this one is really " + (model.labels[testIdx] === 8 ? "an " : "a ")
+            + model.labels[testIdx] : "");
       } else {
         guess.textContent = "—";
         guess.classList.add("none");

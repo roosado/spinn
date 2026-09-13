@@ -38,7 +38,7 @@
   <div class="spec">
     <div><span class="v">720</span><span class="l">devices, in 360 differential pairs</span></div>
     <div><span class="v">0.7345</span><span class="l">accuracy on the shared task, ideal array</span></div>
-    <div><span class="v">4.84</span><span class="l">effective bits the binding error source demands</span></div>
+    <div><span class="v">4.84</span><span class="l">effective bits the most demanding error source requires</span></div>
     <div><span class="v">36&times;10</span><span class="l">array size, stated because IR drop grows with it</span></div>
   </div>
 
@@ -333,8 +333,10 @@
         Take the ideal array apart. Each slider lands only on magnitudes the Monte Carlo
         actually swept &mdash; this project publishes tolerance <em>edges</em> as brackets
         and never interpolates, so a control that glided through unmeasured values would
-        be inviting you to read off a number the measurement does not contain. The pass
-        mark is 95% of ideal, declared before any of the sweeps were run.
+        be inviting you to read off a number the measurement does not contain. On each
+        track, the green mark is the last magnitude that held the pass mark and the rust
+        mark the first that failed it. The pass mark is 95% of ideal, declared before any
+        of the sweeps were run.
       </p>
       <div id="errorBench"></div>
     </div>

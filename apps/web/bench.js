@@ -14,9 +14,11 @@
  * through unmeasured values would be inviting the reader to read off a number the
  * measurement does not support.
  *
- * Every number here is computed from the real weights over all two thousand frozen
- * test images, on the spot. Two honest differences from the recorded budget, both
- * stated in the widget's own footnote rather than buried:
+ * The array, the meter and the per-digit bars are computed from the real weights
+ * over all two thousand frozen test images, on the spot. The headline number is not
+ * always: with one source switched on it is the recorded budget's, for the reason
+ * `headline()` gives. Two honest differences between the two, both stated in the
+ * widget's own footnote rather than buried:
  *
  *   - The conductance draw uses a different random generator from MATLAB's, so a
  *     single realisation here is not a realisation from the recorded sweep. The
@@ -81,7 +83,15 @@
     + ".bn-note{font-size:.8125rem;color:var(--muted);margin:20px 0 0;line-height:1.55;"
     + "border-top:1px solid var(--border);padding-top:12px;max-width:64ch;}"
     + ".bn-cap{font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;"
-    + "text-transform:uppercase;color:var(--muted);margin:8px 0 0;}";
+    + "text-transform:uppercase;color:var(--muted);margin:8px 0 0;}"
+    // The bracket, on the control itself: the last rung that held and the first that
+    // failed. Drawn beneath the handle, which covers them when it sits on one.
+    + ".bn-track{position:relative;display:block;}"
+    + ".bn-track input{position:relative;}"
+    + ".bn-mark{position:absolute;top:50%;width:2px;height:7px;margin:3px 0 0 -1px;"
+    + "pointer-events:none;}"
+    + ".bn-mark.hold{background:var(--good);}"
+    + ".bn-mark.fail{background:var(--bad);}";
 
   //: The swept ladders, with a leading "off". Values, and their labels, come from
   //: exports/error_budget.json by way of apps/web/data.js -- so a re-run of the
@@ -114,18 +124,30 @@
     });
 
     var rails = P.el("div", "bn-rails");
-    function field(id, name, ladder, start) {
+    /** A slider over one ladder, with that source's bracket marked on its track. */
+    function field(id, name, ladder, entry) {
+      var max = ladder.values.length - 1;
+      function mark(cls, magnitude) {
+        var i = ladder.values.indexOf(magnitude);
+        if (i < 0) return "";
+        // The handle's centre runs from half its 11px width in to half its width
+        // short of the far end, so a rung sits at its fraction of what is left.
+        return '<i class="bn-mark ' + cls + '" style="left:calc(5.5px + (100% - 11px) * '
+          + (i / max) + ')"></i>';
+      }
       var f = P.el("div", "sp-field",
         '<label for="' + id + '">' + name + "</label>"
-        + '<input id="' + id + '" type="range" min="0" max="' + (ladder.values.length - 1)
-        + '" step="1" value="' + start + '">'
+        + '<span class="bn-track">' + mark("hold", entry.lastHolding)
+        + mark("fail", entry.firstFailing)
+        + '<input id="' + id + '" type="range" min="0" max="' + max
+        + '" step="1" value="0"></span>'
         + '<output for="' + id + '"></output>');
       rails.appendChild(f);
       return f.querySelector("input");
     }
-    var sIn = field("bn-sigma", "Conductance variation", sigma, 0);
-    var qIn = field("bn-states", "Resolvable states", states, 0);
-    var rIn = field("bn-wire", "Wire resistance", wire, 0);
+    var sIn = field("bn-sigma", "Conductance variation", sigma, b.sigma);
+    var qIn = field("bn-states", "Resolvable states", states, b.states);
+    var rIn = field("bn-wire", "Wire resistance", wire, b.wire);
 
     var leftCol = P.el("div", "bn-array",
       '<p class="bn-accl">The array, as built</p>');
@@ -163,8 +185,10 @@
     tools.appendChild(resetBtn);
 
     var note = P.el("p", "bn-note",
-      "Computed here, now, from the trained weights over the whole frozen test set. "
-      + "Two honest gaps against the recorded budget: the conductance draw uses a "
+      "The array, the pointer on the meter and the per-digit bars are computed here, "
+      + "now, from the trained weights over the whole frozen test set; with one source "
+      + "switched on, the number above them is the recorded budget's. Two honest gaps "
+      + "between the two: the conductance draw uses a "
       + "different random generator from MATLAB's, so one realisation here is not one "
       + "of the recorded realisations &mdash; re-roll a few times to see the spread. "
       + "And at coarse quantisation a few digits produce two exactly equal column "
@@ -183,6 +207,7 @@
 
     var accEl = rightCol.querySelector(".bn-acc");
     var deltaEl = rightCol.querySelector(".bn-delta");
+    var accLabel = rightCol.querySelector(".bn-accl");
     var mode = "effective";
     var seed = 20260908;
     var queued = false, current = null;
@@ -209,7 +234,7 @@
         "The 36 by 10 weight array as built, at " + describeSettings() + ".");
     }
 
-    function drawMeter(res) {
+    function drawMeter(res, hl) {
       var colours = V.ink(document.documentElement);
       var W = Math.max(200, Math.round(meter.getBoundingClientRect().width || 340));
       var H = 126;
@@ -223,8 +248,8 @@
       // slab, and the two reference lines above are the part being read.
       ctx.fillStyle = colours.surface2;
       ctx.fillRect(0, 10, W, 9);
-      ctx.fillStyle = res.accuracy < model.threshold ? colours.bad : colours.accent;
-      ctx.fillRect(0, 10, Math.max(1, xOf(res.accuracy)), 9);
+      ctx.fillStyle = hl.value < model.threshold ? colours.bad : colours.accent;
+      ctx.fillRect(0, 10, Math.max(1, xOf(hl.value)), 9);
 
       // The two lines that make the number mean something. They sit four hundredths
       // apart on a scale that is 0.78 wide, so their labels would collide if both
@@ -260,6 +285,30 @@
       ctx.textAlign = fits ? "left" : "right";
       ctx.fillText(idealText, xIdeal + (fits ? 5 : -5), 51);
 
+      // The recorded spread as a whisker under the bar, and the draw computed here as
+      // a pointer above it. At the holding edge the pass mark sits inside the
+      // whisker, which is what "holds, by a quarter of a standard deviation" looks
+      // like; one rung further out, the whole whisker is below it.
+      if (hl.sd > 0) {
+        var x0 = xOf(Math.max(lo, hl.value - hl.sd)), x1 = xOf(Math.min(hi, hl.value + hl.sd));
+        ctx.strokeStyle = colours.dim;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x0, 23.5); ctx.lineTo(x1, 23.5);
+        ctx.moveTo(x0 + 0.5, 21); ctx.lineTo(x0 + 0.5, 26);
+        ctx.moveTo(x1 - 0.5, 21); ctx.lineTo(x1 - 0.5, 26);
+        ctx.stroke();
+      }
+      var drawn = hl.recorded && Math.abs(res.accuracy - hl.value) > 1e-9;
+      if (drawn) {
+        var xt = xOf(res.accuracy);
+        ctx.fillStyle = colours.ink;
+        ctx.beginPath();
+        ctx.moveTo(xt - 4, 1); ctx.lineTo(xt + 4, 1); ctx.lineTo(xt, 8);
+        ctx.closePath();
+        ctx.fill();
+      }
+
       // per-digit, because "accuracy fell four points" hides whether the machine
       // lost a little of everything or stopped recognising one digit entirely
       var barW = W / 10, base = H - 15, span = 46;
@@ -274,10 +323,12 @@
       }
       ctx.textAlign = "left";
       ctx.fillStyle = colours.muted;
-      ctx.fillText("PER DIGIT", 0, base - span - 5);
+      ctx.fillText(drawn ? "PER DIGIT, THIS DRAW" : "PER DIGIT", 0, base - span - 5);
       meter.setAttribute("aria-label",
-        "Accuracy " + res.accuracy.toFixed(4) + " against a pass mark of "
-        + model.threshold.toFixed(4) + ".");
+        (hl.recorded ? "Recorded accuracy " : "Accuracy ") + hl.value.toFixed(4)
+        + (hl.sd > 0 ? " plus or minus " + hl.sd.toFixed(4) : "")
+        + " against a pass mark of " + model.threshold.toFixed(4)
+        + (drawn ? "; this realisation " + res.accuracy.toFixed(3) : "") + ".");
     }
 
     function describeSettings() {
@@ -294,63 +345,131 @@
       return i < 0 ? null : { mean: entry.accMean[i], sd: entry.accStd[i] };
     }
 
-    function verdictText(res) {
+    //: The three sources, by the names their sliders carry.
+    var NAMES = { sigma: "conductance variation", states: "resolvable states",
+      wire: "wire resistance" };
+
+    /** The sources switched on, as [key, magnitude] pairs. */
+    function active() {
       var s = settings();
-      var drop = model.ideal - res.accuracy;
-      var passed = res.accuracy >= model.threshold;
-      var live = [s.sigma && "conductance variation", s.states && "finite states",
-        s.wireOhm && "wire resistance"].filter(Boolean);
-      if (!live.length) {
+      return [["sigma", s.sigma], ["states", s.states], ["wire", s.wireOhm]]
+        .filter(function (p) { return p[1]; });
+    }
+
+    /**
+     * What the bench's number and verdict report, and on whose authority.
+     *
+     * With one source switched on, the budget has a recorded figure for exactly this
+     * setting, so that leads: the mean over twenty realisations, and its spread. The
+     * draw computed here is one realisation, shown as a pointer against it rather
+     * than as the answer. At the holding edge the recorded mean clears the pass mark
+     * by a quarter of a standard deviation, so a single draw lands under it about two
+     * times in five -- and a headline built on one draw would contradict, that
+     * often, the bracket the page publishes two sections down.
+     *
+     * With two or three on, nothing was recorded for the combination except the one
+     * point where all three sit at their holding edges. Everywhere else the live
+     * draw is all there is, and the widget says so.
+     */
+    function headline(res) {
+      var on = active(), s = settings(), j = b.joint && b.joint.config;
+      if (on.length === 1) {
+        var rec = recorded(b[on[0][0]], on[0][1]);
+        if (rec) {
+          return { value: rec.mean, sd: rec.sd, recorded: true,
+            label: rec.sd > 0 ? "Recorded, mean of twenty realisations" : "Recorded accuracy" };
+        }
+      }
+      if (on.length === 3 && j && s.sigma === j.sigma_g_rel
+          && s.states === j.states_per_device && s.wireOhm === j.wire_resistance_ohm) {
+        return { value: b.joint.mean, sd: b.joint.std, recorded: true, joint: true,
+          label: "Recorded, all three at their edges" };
+      }
+      return { value: res.accuracy, sd: 0, recorded: false,
+        label: on.length ? "Accuracy of this realisation"
+          : "Accuracy, all 2,000 frozen test digits" };
+    }
+
+    /** "a", "a and b", "a, b and c". */
+    function list(words) {
+      return words.length < 3 ? words.join(" and ")
+        : words.slice(0, -1).join(", ") + " and " + words[words.length - 1];
+    }
+
+    function verdictText(res, hl) {
+      var on = active();
+      if (!on.length) {
         return "Nothing is wrong with this array. Every device holds exactly the "
           + "conductance it was programmed to, and the wires are perfect.";
       }
+      var passed = hl.value >= model.threshold;
+      var mark = "the 95%-of-ideal mark of " + model.threshold.toFixed(4);
+      var lead = passed ? '<span class="pass">Holds.</span> '
+        : '<span class="fail">Fails.</span> ';
+      var draw = res.accuracy.toFixed(3);
 
-      var text = "This realisation loses <b>" + (drop * 100).toFixed(1)
-        + " points</b> against ideal and "
-        + (passed
-          ? '<span class="pass">clears</span>'
-          : '<span class="fail">misses</span>')
-        + " the 95%-of-ideal mark, with " + live.join(", ") + " in play.";
-
-      // The honest qualifier, and the reason it is not optional: with only sigma
-      // set, this widget draws once where the budget averaged twenty, and at the
-      // holding edge the recorded mean clears the pass mark by a quarter of a
-      // standard deviation. A single draw landing under it is the sweep's own
-      // spread, not a different answer -- and without this line the page would
-      // appear to contradict the bracket it publishes two sections down.
-      if (s.sigma && !s.states && !s.wireOhm) {
-        var rec = recorded(b.sigma, s.sigma);
-        if (rec) {
-          text += " The budget recorded <b>" + rec.mean.toFixed(4) + " &plusmn; "
-            + rec.sd.toFixed(4) + "</b> here, over twenty realisations; one draw "
-            + "lands anywhere in that spread, so the bracket is the mean and this "
-            + "number is not.";
-        }
+      if (hl.joint) {
+        return lead + "This is the one combination the budget measured: each source at "
+          + "the last magnitude it held on its own. Twenty realisations recorded <b>"
+          + hl.value.toFixed(4) + " &plusmn; " + hl.sd.toFixed(4) + "</b>, "
+          + (passed ? "clearing " : "under ") + mark + " &mdash; budgeting each source "
+          + "to its own edge leaves nothing over. The draw computed here, <b>" + draw
+          + "</b>, is the pointer above the bar.";
       }
-      return text;
+      if (hl.recorded && hl.sd > 0) {
+        return lead + "The budget recorded <b>" + hl.value.toFixed(4) + " &plusmn; "
+          + hl.sd.toFixed(4) + "</b> here, over twenty realisations, which "
+          + (passed ? "clears " : "misses ") + mark + ". The draw computed in front of "
+          + "you is one more realisation, <b>" + draw + "</b>, the pointer above the "
+          + "bar: re-roll and it moves, and the recorded mean does not.";
+      }
+      if (hl.recorded) {
+        var same = Math.abs(res.accuracy - hl.value) < 1e-9;
+        return lead + "The budget recorded <b>" + hl.value.toFixed(4) + "</b> here, "
+          + (passed ? "clearing " : "missing ") + mark + ". This source involves no "
+          + "random draw, so "
+          + (same ? "the array computed here gives exactly that."
+            : "the array computed here should give the same, and gives <b>"
+              + res.accuracy.toFixed(4) + "</b>: two columns tie on a few digits, "
+              + "and which one wins depends on the order of the additions.");
+      }
+      return "One realisation, with " + list(on.map(function (p) { return NAMES[p[0]]; }))
+        + " in play, " + (passed ? '<span class="pass">clears</span> '
+          : '<span class="fail">misses</span> ') + mark + ". The budget measured each "
+        + "source on its own, so nothing was recorded for this combination to set it "
+        + "against.";
     }
 
     function recompute() {
       var mach = C.machine(model, settings());
       var res = C.evaluate(model, mach);
-      current = { mach: mach, res: res };
-      // Three figures, not four: the fourth is one digit of two thousand, and on a
-      // single realisation of a random draw it is noise being reported as signal.
-      accEl.textContent = settings().sigma
-        ? res.accuracy.toFixed(3)
-        : res.accuracy.toFixed(4);
-      accEl.classList.toggle("fail", res.accuracy < model.threshold);
-      deltaEl.textContent = (res.accuracy >= model.ideal ? "+" : "−")
-        + Math.abs(res.accuracy - model.ideal).toFixed(4) + " vs ideal";
-      verdict.innerHTML = verdictText(res);
+      var hl = headline(res);
+      current = { mach: mach, res: res, hl: hl };
+      // Three figures, not four, for a live draw with a random source in it: the
+      // fourth is one digit of two thousand, and on a single realisation of a random
+      // draw it is noise being reported as signal. A recorded mean earns all four.
+      accEl.textContent = !hl.recorded && settings().sigma
+        ? hl.value.toFixed(3)
+        : hl.value.toFixed(4);
+      accEl.classList.toggle("fail", hl.value < model.threshold);
+      accLabel.textContent = hl.label;
+      deltaEl.textContent = (hl.sd > 0 ? "± " + hl.sd.toFixed(4) + " · " : "")
+        + (hl.value >= model.ideal ? "+" : "−")
+        + Math.abs(hl.value - model.ideal).toFixed(4) + " vs ideal";
+      verdict.innerHTML = verdictText(res, hl);
       drawArray(res);
-      drawMeter(res);
+      drawMeter(res, hl);
     }
 
+    /** Each slider's value, and in words where it sits on that source's bracket. */
     function labels() {
-      sIn.parentNode.querySelector("output").textContent = sigma.label(Number(sIn.value));
-      qIn.parentNode.querySelector("output").textContent = states.label(Number(qIn.value));
-      rIn.parentNode.querySelector("output").textContent = wire.label(Number(rIn.value));
+      [[sIn, sigma, b.sigma], [qIn, states, b.states], [rIn, wire, b.wire]]
+        .forEach(function (f) {
+          var i = Number(f[0].value), v = f[1].values[i];
+          f[0].closest(".sp-field").querySelector("output").textContent = f[1].label(i)
+            + (v === f[2].lastHolding ? " · last that holds"
+              : v === f[2].firstFailing ? " · first that fails" : "");
+        });
     }
 
     function schedule() {
@@ -394,10 +513,10 @@
     });
 
     P.onWidthChange(el, function () {
-      if (current) { drawArray(current.res); drawMeter(current.res); }
+      if (current) { drawArray(current.res); drawMeter(current.res, current.hl); }
     });
     P.onThemeChange(function () {
-      if (current) { drawArray(current.res); drawMeter(current.res); }
+      if (current) { drawArray(current.res); drawMeter(current.res, current.hl); }
     });
 
     labels();

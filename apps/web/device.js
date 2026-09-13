@@ -208,7 +208,7 @@
       var res = C.evaluate(model, C.machine(model, { states: states }));
       var bits = Math.log(2 * states - 1) / Math.LN2;
 
-      outEl.textContent = states;
+      outEl.textContent = states + " states";
       nEl.textContent = states + " levels";
       stackWrap.innerHTML = stack(level, states);
       note.innerHTML = states === 2

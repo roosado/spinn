@@ -77,7 +77,7 @@
       })(j);
     }
     head.appendChild(cols);
-    var nextBtn = P.el("button", "wr-btn", "Another digit");
+    var nextBtn = P.el("button", "wr-btn", "Next digit");
     nextBtn.type = "button";
     head.appendChild(nextBtn);
 
@@ -217,7 +217,7 @@
         b.setAttribute("aria-pressed", j === column ? "true" : "false");
       });
       foot.innerHTML = "Column <b>" + column + "</b> ends up carrying <b>"
-        + logits[column].toFixed(2) + "</b> for this digit, which is a <b>" + label
+        + logits[column].toFixed(2) + "</b> for this digit, which is " + (label === 8 ? "an" : "a") + " <b>" + label
         + "</b>. The largest of the ten columns is <b>" + win + "</b> at <b>"
         + logits[win].toFixed(2) + "</b>, so that is the answer"
         + (win === label ? "." : ", and it is wrong.");
