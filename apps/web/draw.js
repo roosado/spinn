@@ -31,16 +31,17 @@
     + "gap:20px 30px;align-items:start;justify-content:start;}"
     + "@media (max-width:720px){.dw{grid-template-columns:1fr 1fr;}"
     + ".dw-out{grid-column:1 / -1;}}"
-    + ".dw-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.14em;"
+    + ".dw-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;"
     + "text-transform:uppercase;color:var(--muted);margin:0 0 8px;}"
     + ".dw-pad{border:1px solid var(--border);border-radius:10px;background:var(--surface);"
     + "touch-action:none;cursor:crosshair;display:block;}"
     + ".dw-pad:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
     + ".dw-seen{border:1px solid var(--border);border-radius:10px;display:block;}"
-    + ".dw-guess{font-family:var(--serif);font-size:3.6rem;line-height:1;font-weight:600;"
+    + ".dw-guess{font-family:var(--serif);font-size:4.2rem;line-height:.86;font-weight:600;"
     + "color:var(--accent-ink);font-variant-numeric:tabular-nums;}"
     + ".dw-guess.none{color:var(--muted);}"
-    + ".dw-second{font-family:var(--mono);font-size:.8rem;color:var(--muted);"
+    + "@media (max-width:720px){.dw-guess{font-size:3.2rem;}}"
+    + ".dw-second{font-family:var(--mono);font-size:.8125rem;color:var(--muted);"
     + "margin:6px 0 0;font-variant-numeric:tabular-nums;}"
     + ".dw-bars{display:block;width:100%;max-width:330px;margin-top:12px;}"
     + ".dw-tools{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}"
@@ -50,9 +51,8 @@
     + "transition:color .15s,border-color .15s,background .15s;}"
     + ".dw-btn:hover{color:var(--ink);border-color:var(--accent);background:var(--accent-soft);}"
     + ".dw-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
-    + ".dw-hint{font-size:.82rem;color:var(--muted);margin:12px 0 0;line-height:1.5;}";
+    + ".dw-hint{font-size:.8125rem;color:var(--muted);margin:12px 0 0;line-height:1.5;}";
 
-  var MONO = 'ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace';
   var PAD = 24;        // the pad's own grid
   var PAD_PX = 168;    // its drawn size, 7 screen pixels per cell
   var TILE_PX = 108;
@@ -177,7 +177,7 @@
       var bw = W / 10, base = H - 15, peak = 1e-9, j;
       for (j = 0; j < 10; j++) peak = Math.max(peak, Math.abs(logits[j]));
       var top = has ? C.argmax(logits) : -1;
-      ctx.font = "9px " + MONO;
+      ctx.font = V.font();
       for (j = 0; j < 10; j++) {
         var h = has ? (Math.max(0, logits[j]) / peak) * (base - 4) : 0;
         ctx.fillStyle = j === top ? c.accent : V.mix(c.border, c.ink, 0.25);

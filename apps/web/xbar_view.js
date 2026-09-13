@@ -90,6 +90,35 @@
     return mix(c.surface2, negative ? c.accent2 : c.accent, Math.min(1, Math.max(0, occupancy)));
   }
 
+  /* -------------------------------------------------------------------- type */
+
+  //: The one size for type drawn on a canvas. The stylesheet's label size is 12px;
+  //: the densest canvas axes -- the ladder's tick labels, the per-digit bars, two
+  //: bracket rungs thirty pixels apart -- have no room for it, so canvas type sits
+  //: one step below, and never smaller.
+  var CANVAS_PX = 11;
+
+  var monoStack = null;
+
+  /**
+   * A canvas font, in the page's own monospace at the one canvas size.
+   *
+   * Read from `--mono` rather than repeated as a literal. Six widgets used to carry
+   * their own copy of the stack, none with the stylesheet's Liberation Mono or Menlo,
+   * so on Linux and on Chrome for macOS a label drawn on a canvas was set in a
+   * different face from the label beside it in the DOM. A canvas cannot resolve
+   * `var()`, but it takes the stack itself as a string.
+   */
+  function font(weight) {
+    if (monoStack === null) {
+      var cs = typeof getComputedStyle === "function" && typeof document !== "undefined"
+        ? getComputedStyle(document.documentElement) : null;
+      monoStack = (cs && String(cs.getPropertyValue("--mono") || "").trim())
+        || 'ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace';
+    }
+    return (weight ? weight + " " : "") + CANVAS_PX + "px " + monoStack;
+  }
+
   /* ------------------------------------------------------------------ pieces */
 
   /** The 6x6 input, drawn as the pixels that become row voltages. */
@@ -212,7 +241,7 @@
 
       if (label) {
         ctx.fillStyle = win ? c.accentInk : c.muted;
-        ctx.font = (win ? "600 " : "") + "11px " + label;
+        ctx.font = font(win ? 600 : 0);
         ctx.textAlign = "center";
         ctx.fillText(String(j), x + cw / 2 - 0.75, y0 + height + 13);
       }
@@ -230,7 +259,7 @@
     VARS: VARS, ink: ink, rgb: rgb, mix: mix,
     weightColour: weightColour, railColour: railColour,
     drawInput: drawInput, drawArray: drawArray, drawDrive: drawDrive,
-    drawColumns: drawColumns, readout: readout,
+    drawColumns: drawColumns, readout: readout, font: font, CANVAS_PX: CANVAS_PX,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = API;

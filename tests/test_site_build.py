@@ -171,6 +171,28 @@ def test_a_single_page_site_has_no_hand_off_card():
     assert 'class="pagenext' not in page_html("index.html")
 
 
+def test_every_rule_for_the_headline_matches_the_markup():
+    """The regression that shipped, and that nothing else in this file could see.
+
+    The first viewport was rebuilt around the machine and its wrapper renamed from
+    ``.hero`` to ``.machine``; the headline's rules kept targeting ``.hero``. So the
+    page's one claim rendered in the browser's default bold sans -- no serif, no
+    amber emphasis, a spectral underbar zero pixels tall -- while the committed bytes
+    matched the generator and every other assertion here passed. A selector naming a
+    class the markup does not carry is not an error in CSS. It is simply never applied.
+    """
+    css = re.sub(r"/\*.*?\*/", "", build_site.CSS, flags=re.S)
+    body = build_site.page_body("index")
+    selectors = [s.strip() for block in re.findall(r"([^{}@]+)\{", css)
+                 for s in block.split(",")]
+    headline = [s for s in selectors if re.search(r"\bh1\b|\.underbar\b", s)]
+    assert headline, "the stylesheet has no rule for the headline at all"
+    for sel in headline:
+        for cls in re.findall(r"\.([a-zA-Z][\w-]*)", sel):
+            assert re.search(rf'class="[^"]*\b{re.escape(cls)}\b', body), (
+                f"`{sel}` targets .{cls}, which the page does not carry")
+
+
 def test_the_artifact_body_uses_absolute_links_and_supplies_no_head():
     body = page_html("_artifact_body.html")
     assert "<!doctype html>" not in body.lower()

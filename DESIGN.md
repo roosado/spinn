@@ -45,33 +45,71 @@ typography:
     lineHeight: 1.14
   title:
     fontFamily: "{typography.display.fontFamily}"
-    fontSize: "clamp(1.15rem, 2vw, 1.42rem)"
+    fontSize: "clamp(1.25rem, 2vw, 1.42rem)"
     fontWeight: 600
     lineHeight: 1.2
   body:
-    fontFamily: "ui-sans-serif,-apple-system,\"Segoe UI\",Roboto,\"Helvetica Neue\",Arial,sans-serif"
-    fontSize: "17px"
+    fontFamily: "ui-sans-serif,-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,\"Helvetica Neue\",Arial,sans-serif"
+    fontSize: "1.0625rem"
     fontWeight: 400
     lineHeight: 1.65
   standfirst:
     fontFamily: "{typography.body.fontFamily}"
     fontSize: "1.16rem"
     lineHeight: 1.65
+  caption:
+    fontFamily: "{typography.body.fontFamily}"
+    fontSize: ".9375rem"
+    fontWeight: 400
+    lineHeight: 1.5
+  note:
+    fontFamily: "{typography.body.fontFamily}"
+    fontSize: ".8125rem"
+    fontWeight: 400
+    lineHeight: 1.5
+  datum:
+    fontFamily: "{typography.label.fontFamily}"
+    fontSize: ".8125rem"
+    fontWeight: 400
+    fontFeature: "tabular-nums"
   label:
     fontFamily: "ui-monospace,\"Cascadia Code\",\"SF Mono\",Consolas,\"Liberation Mono\",Menlo,monospace"
+    fontSize: ".75rem"
+    fontWeight: 400
+    lineHeight: 1
+    letterSpacing: ".12em"
+  label-title:
+    fontFamily: "{typography.label.fontFamily}"
     fontSize: ".75rem"
     fontWeight: 600
     lineHeight: 1
     letterSpacing: ".16em"
+  readout-small:
+    fontFamily: "{typography.label.fontFamily}"
+    fontSize: ".95rem"
+    fontFeature: "tabular-nums"
   readout:
     fontFamily: "{typography.label.fontFamily}"
-    fontSize: "clamp(1.05rem, 2vw, 1.42rem)"
+    fontSize: "clamp(1.25rem, 2vw, 1.42rem)"
     fontWeight: 600
     letterSpacing: "-.01em"
+    fontFeature: "tabular-nums"
+  readout-large:
+    fontFamily: "{typography.label.fontFamily}"
+    fontSize: "2.9rem"
+    fontWeight: 600
+    lineHeight: 1
+    letterSpacing: "-.02em"
     fontFeature: "tabular-nums"
   answer:
     fontFamily: "{typography.display.fontFamily}"
     fontSize: "4.2rem"
+    fontWeight: 600
+    lineHeight: 0.86
+    fontFeature: "tabular-nums"
+  answer-compact:
+    fontFamily: "{typography.display.fontFamily}"
+    fontSize: "3.2rem"
     fontWeight: 600
     lineHeight: 0.86
     fontFeature: "tabular-nums"
@@ -281,25 +319,41 @@ size ramp, never on that specific face's metrics.
 
 ### Hierarchy
 - **Display** (600, `clamp(2.1rem, 4.6vw, 3.35rem)`, 1.08, −.01em, balanced wrap): the one
-  h1. Its emphasised word is italic in amber ink.
+  h1, styled through `.machine-say h1`. Its emphasised word is italic in amber ink.
 - **Headline** (600, `clamp(1.55rem, 2.8vw, 2.05rem)`, 1.14): section headings, always
   inside a `.phase-head` beside a monospace section number.
-- **Title** (600, `clamp(1.15rem, 2vw, 1.42rem)`, 1.2): sub-headings inside a section.
+- **Title** (600, `clamp(1.25rem, 2vw, 1.42rem)`, 1.2): sub-headings inside a section. The
+  floor was 1.15rem, which on a phone put a heading below the standfirst it follows.
 - **Standfirst** (1.16rem, dim ink, max 60ch): the single paragraph under the h1.
-- **Body** (17px/1.65, dim ink, max `--measure` = 68ch): running prose. Bolded runs step up
-  to full ink rather than changing colour.
-- **Label** (mono, 600, .75rem, .10–.18em tracking, uppercase, muted): every caption,
-  legend, axis title, control label, table header and instrument title on the page.
-- **Readout** (mono, 600, tabular-nums, 1.15rem–2.9rem by importance): every measured
-  number, in ink; four sizes exist and they rank the numbers, not the layout.
-- **Answer** (serif, 600, 4.2rem, tabular-nums, teal ink; amber ink when wrong): the single
-  digit the array is currently claiming.
+- **Body** (1.0625rem/1.65, dim ink, max `--measure` = 60ch): running prose. Bolded runs step
+  up to full ink rather than changing colour. In rem, not px, so it follows a reader's own
+  default size along with everything else; at `17px` it was the one thing that did not.
+- **Caption** (sans, .9375rem/1.5, dim ink): instrument captions, the readout's sentence,
+  the bench's verdict, the comparison record's values, the next-work notes, the footer.
+- **Note** (sans, .8125rem/1.5, muted): the reference list, widget footnotes, the spec
+  strip's labels. **Datum** is the same size in mono, tabular: deltas, the ladder's
+  brackets, the colophon, the column keys.
+- **Label** (mono, 400, .75rem, .12em, uppercase, muted): every legend, field label, axis
+  title and record key. **Label title** is the same at 600 and .16em in teal or rust ink:
+  instrument titles, the ladder's panel names, the finding's tag, footer headings. Tool
+  buttons keep their own .10em.
+- **Readout** (mono, 600, tabular-nums): every measured number, in ink, at three sizes that
+  rank the numbers rather than the layout — small (.95rem: slider values, section numbers),
+  medium (`clamp(1.25rem, 2vw, 1.42rem)`: the spec strip, the device's outputs) and large
+  (2.9rem: the bench's accuracy).
+- **Answer** (serif, 600, 4.2rem, 3.2rem below 720px, tabular-nums, teal ink; amber ink
+  when wrong): the digit the array is claiming — in the hero, and for the reader's own
+  drawing.
 
 ### Named Rules
 **The One Micro-Size Rule.** There is one small-label size: `.75rem`. It replaced six
 near-identical sizes that were all doing the same job, four of them under 12px. A new
 caption, legend or control label uses `.75rem` and earns its rank from tracking, case and
-colour — never from a fractional size step.
+colour — never from a fractional size step. The same discipline holds one level up: prose
+smaller than body is a Caption or a Note, and nothing else; twelve sizes between 12 and
+15px once did those two jobs. Type drawn on a canvas is one size, 11px, through
+`SpinnView.font()`, which reads `--mono` from the stylesheet — the densest axes have no room
+for 12.
 
 **The Tabular Rule.** Any number a reader might compare or watch change is monospace with
 `font-variant-numeric: tabular-nums`. A readout that reflows its own width as it counts is

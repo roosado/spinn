@@ -28,10 +28,10 @@
     + ".wr canvas{display:block;width:100%;max-width:620px;}"
     + ".wr-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 18px;"
     + "margin:0 0 14px;}"
-    + ".wr-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;"
+    + ".wr-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;"
     + "text-transform:uppercase;color:var(--muted);margin:0;}"
     + ".wr-cols{display:flex;gap:4px;flex-wrap:wrap;}"
-    + ".wr-col{font-family:var(--mono);font-size:.8rem;width:30px;height:30px;"
+    + ".wr-col{font-family:var(--mono);font-size:.8125rem;width:30px;height:30px;"
     + "border:1px solid var(--border);border-radius:7px;background:transparent;"
     + "color:var(--muted);cursor:pointer;font-variant-numeric:tabular-nums;"
     + "transition:color .12s,border-color .12s,background .12s;}"
@@ -48,7 +48,7 @@
     + "@media (max-width:560px){"
     + ".wr-cols{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;flex:1 1 100%;}"
     + ".wr-col{width:auto;}}"
-    + ".wr-foot{margin-top:12px;color:var(--ink-dim);font-size:.9rem;line-height:1.5;}"
+    + ".wr-foot{margin-top:12px;color:var(--ink-dim);font-size:.9375rem;line-height:1.5;}"
     + ".wr-foot b{color:var(--ink);font-weight:600;font-family:var(--mono);"
     + "font-variant-numeric:tabular-nums;}"
     + ".wr-btn{font-family:var(--mono);font-size:.75rem;letter-spacing:.1em;"
@@ -56,8 +56,6 @@
     + "border:1px solid var(--border);border-radius:7px;padding:6px 12px;cursor:pointer;}"
     + ".wr-btn:hover{color:var(--ink);border-color:var(--accent);background:var(--accent-soft);}"
     + ".wr-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}";
-
-  var MONO = 'ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace';
 
   function mount(el) {
     P.injectStyle("spinn-wire-style", CSS);
@@ -140,7 +138,7 @@
         peakA = Math.max(peakA, Math.abs(run));
       }
 
-      ctx.font = "9px " + MONO;
+      ctx.font = V.font();
       ctx.fillStyle = muted;
       ctx.textAlign = "left";
       ctx.fillText("DRIVE", 0, 12);
@@ -200,12 +198,12 @@
       ctx.arc(finalX, finalY, 3.6, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = c.accentInk;
-      ctx.font = "600 11px " + MONO;
+      ctx.font = V.font(600);
       ctx.textAlign = finalX > accMid ? "left" : "right";
       ctx.fillText(cum[rows - 1].toFixed(2),
         finalX + (finalX > accMid ? 8 : -8), top + rows * rowH + 16);
 
-      ctx.font = "9px " + MONO;
+      ctx.font = V.font();
       ctx.fillStyle = muted;
       ctx.textAlign = "left";
       ctx.fillText("36 devices, top to bottom", 0, top + rows * rowH + 16);

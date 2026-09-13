@@ -26,25 +26,29 @@
     + ".dv-grid{display:grid;grid-template-columns:minmax(180px,.62fr) minmax(280px,1fr);"
     + "gap:26px 40px;align-items:start;max-width:940px;}"
     + "@media (max-width:720px){.dv-grid{grid-template-columns:1fr;gap:20px;}}"
-    + ".dv-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;"
+    + ".dv-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;"
     + "text-transform:uppercase;color:var(--muted);margin:0 0 10px;}"
     + ".dv-stack{display:block;width:100%;max-width:250px;height:auto;}"
-    + ".dv-note{font-size:.86rem;color:var(--muted);margin:10px 0 0;line-height:1.5;}"
+    + ".dv-note{font-size:.8125rem;color:var(--muted);margin:10px 0 0;line-height:1.5;}"
     + ".dv-lat{display:block;width:100%;}"
     + ".dv-rowlab{display:flex;justify-content:space-between;align-items:baseline;"
-    + "font-family:var(--mono);font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;"
+    + "font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;"
     + "color:var(--muted);margin:16px 0 4px;}"
     + ".dv-rowlab b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;"
     + "letter-spacing:0;}"
     + ".dv-ctl{margin-top:26px;border-top:1px solid var(--border);padding-top:18px;}"
     + ".dv-out{display:flex;flex-wrap:wrap;gap:18px 26px;margin-top:16px;}"
     + ".dv-out div{min-width:104px;}"
-    + ".dv-out .v{display:block;font-family:var(--mono);font-size:1.24rem;font-weight:600;"
+    + ".dv-out .v{display:block;font-family:var(--mono);font-size:clamp(1.25rem,2vw,1.42rem);font-weight:600;"
     + "color:var(--ink);font-variant-numeric:tabular-nums;}"
     + ".dv-out .v.warn{color:var(--accent-2-ink);}"
-    + ".dv-out .l{display:block;font-size:.76rem;color:var(--muted);margin-top:2px;}";
+    + ".dv-out .l{display:block;font-size:.8125rem;color:var(--muted);margin-top:2px;}";
 
   var MONO = 'ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace';
+  //: The same stack for an SVG attribute, which is itself double-quoted. Pasted in
+  //: as it was, the stack's own quotes closed the attribute early, the family was
+  //: invalid, and the diagram's labels fell back to the sans at twice their size.
+  var SVG_MONO = MONO.replace(/"/g, "'");
 
   /**
    * The device itself: two magnetic layers, a barrier, and an arrow that turns.
@@ -92,11 +96,11 @@
       // contacts
       + '<rect x="18" y="16" width="10" height="76" fill="var(--border)"/>'
       + '<rect x="98" y="16" width="10" height="76" fill="var(--border)"/>'
-      + '<text x="63" y="14" text-anchor="middle" font-family="' + MONO + '" font-size="8" '
-      + 'fill="var(--muted)" letter-spacing="1.4">' + (binary ? "FREE LAYER" : "WALL TRACK")
+      + '<text x="63" y="14" text-anchor="middle" font-family="' + SVG_MONO + '" font-size="6" '
+      + 'fill="var(--muted)" letter-spacing=".75">' + (binary ? "FREE LAYER" : "WALL TRACK")
       + "</text>"
-      + '<text x="63" y="98" text-anchor="middle" font-family="' + MONO + '" font-size="8" '
-      + 'fill="var(--muted)" letter-spacing="1.4">REFERENCE</text>'
+      + '<text x="63" y="98" text-anchor="middle" font-family="' + SVG_MONO + '" font-size="6" '
+      + 'fill="var(--muted)" letter-spacing=".75">REFERENCE</text>'
       + "</svg>";
   }
 
@@ -146,7 +150,7 @@
       return t < -0.01 ? accent2 : (t > 0.01 ? accent : muted);
     }, -1);
 
-    ctx.font = "10px " + MONO;
+    ctx.font = window.SpinnView.font();
     ctx.fillStyle = muted;
     ctx.textAlign = "left";
     ctx.fillText("g_min", pad, 50);

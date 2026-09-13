@@ -96,9 +96,9 @@ CSS = r"""
   --bad-ink:#ba4530;
   --rule-gradient:linear-gradient(90deg,#39d1a0,#4fc6e6,#f2c14e,#ef7d5a,#c05aa8);
   --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
-  --sans:ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,"Liberation Mono",Menlo,monospace;
-  --measure:68ch;
+  --measure:60ch;
 }
 @media (prefers-color-scheme:dark){
   :root{
@@ -128,7 +128,7 @@ CSS = r"""
 
 *{box-sizing:border-box;}
 body{margin:0;background:var(--bg);color:var(--ink);
-  font-family:var(--sans);font-size:17px;line-height:1.65;
+  font-family:var(--sans);font-size:1.0625rem;line-height:1.65;
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
 .topline{height:3px;background:var(--rule-gradient);}
 
@@ -137,7 +137,7 @@ body{margin:0;background:var(--bg);color:var(--ink);
   border-bottom:1px solid var(--border);}
 .topbar-in{max-width:1120px;margin:0 auto;padding:9px 24px;
   display:flex;align-items:center;justify-content:space-between;gap:6px 16px;flex-wrap:wrap;}
-.brand{font-family:var(--mono);font-size:.82rem;letter-spacing:.02em;color:var(--ink-dim);}
+.brand{font-family:var(--mono);font-size:.8125rem;letter-spacing:.02em;color:var(--ink-dim);}
 .brand b{color:var(--accent-ink);font-weight:600;}
 .theme-toggle{font-family:var(--mono);font-size:.75rem;letter-spacing:.04em;
   background:transparent;border:1px solid var(--border);color:var(--muted);
@@ -179,12 +179,12 @@ body{margin:0;background:var(--bg);color:var(--ink);
    rail is worth. Below it the card is the whole feature and nothing is missing. */
 .toc{background:var(--surface);border:1px solid var(--border);border-radius:12px;
   padding:15px 18px 17px;margin:30px 0 4px;max-width:var(--measure);}
-.toc-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;
+.toc-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;
   color:var(--muted);margin:0 0 .55rem;}
 .toc-list{list-style:none;margin:0;padding:0;}
 .toc-list li{margin:1px 0;}
 .toc-list a{display:flex;gap:9px;text-decoration:none;color:var(--ink-dim);
-  font-size:.88rem;line-height:1.35;border-radius:6px;padding:3px 7px;
+  font-size:.9375rem;line-height:1.35;border-radius:6px;padding:3px 7px;
   border-left:1px solid transparent;transition:color .15s,background .15s,border-color .15s;}
 .toc-list a:hover{color:var(--ink);background:var(--accent-soft);}
 .toc-list a:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
@@ -201,7 +201,7 @@ body{margin:0;background:var(--bg);color:var(--ink);
   .toc{position:fixed;top:78px;left:calc(50% + 580px);width:176px;margin:0;padding:0 0 0 13px;
     max-height:calc(100vh - 120px);overflow:auto;background:transparent;border:0;
     border-left:1px solid var(--border);border-radius:0;}
-  .toc-list a{font-size:.82rem;}
+  .toc-list a{font-size:.8125rem;}
 }
 /* Anchor jumps have to clear the sticky topbar, which is 42-46 px and taller once
    the nav wraps. */
@@ -219,13 +219,16 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .wrap{max-width:1120px;margin:0 auto;padding:0 24px;}
 .col{max-width:var(--measure);}
 
-/* hero */
-.hero{padding:76px 0 30px;}
-.hero h1{font-family:var(--serif);font-weight:600;text-wrap:balance;
+/* The headline. These rules once targeted a .hero wrapper that the first viewport
+   lost when it was rebuilt around the machine, so the page's one claim shipped in the
+   browser's default bold sans and nothing noticed: the committed bytes matched the
+   generator, and the generator was wrong. tests/test_site_build.py now checks that
+   every selector here matches the markup. */
+.machine-say h1{font-family:var(--serif);font-weight:600;text-wrap:balance;
   font-size:clamp(2.1rem,4.6vw,3.35rem);line-height:1.08;letter-spacing:-.01em;
   margin:.2rem 0 .1rem;}
-.hero h1 em{font-style:italic;color:var(--accent-2-ink);}
-.hero .underbar{width:132px;height:3px;background:var(--rule-gradient);margin:20px 0 22px;border-radius:2px;}
+.machine-say h1 em{font-style:italic;color:var(--accent-2-ink);}
+.machine-say .underbar{width:132px;height:3px;background:var(--rule-gradient);margin:20px 0 22px;border-radius:2px;}
 .standfirst{font-size:1.16rem;color:var(--ink-dim);max-width:60ch;}
 .standfirst b{color:var(--ink);font-weight:600;}
 
@@ -250,7 +253,7 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .prose p{margin:.85rem 0;max-width:var(--measure);}
 .prose strong{color:var(--ink);font-weight:600;}
 .sub-h{font-family:var(--serif);font-weight:600;color:var(--ink);
-  font-size:clamp(1.15rem,2vw,1.42rem);line-height:1.2;margin:2.1rem 0 .2rem;}
+  font-size:clamp(1.25rem,2vw,1.42rem);line-height:1.2;margin:2.1rem 0 .2rem;}
 .q{font-family:var(--mono);font-size:.92em;background:var(--surface-2);
   border:1px solid var(--border);border-radius:5px;padding:.05em .38em;color:var(--ink);
   white-space:nowrap;}
@@ -303,9 +306,9 @@ a.link:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-r
 .tbl tr:last-child td{border-bottom:0;}
 
 /* inline reference list, for the sections sourced from outside this project */
-.refs{list-style:none;padding:0;margin:1.6rem 0 0;max-width:var(--measure);
+.refs{list-style:none;padding:0;margin:1.6rem 0 0;max-width:var(--measure);font-size:.8125rem;
   border-top:1px solid var(--border);padding-top:.9rem;}
-.refs li{font-size:.84rem;color:var(--muted);margin:.42rem 0;line-height:1.5;}
+.refs li{color:var(--muted);margin:.42rem 0;line-height:1.5;}
 .refs li b{font-family:var(--mono);color:var(--accent-ink);font-weight:600;margin-right:.45em;}
 .refs a{color:inherit;text-decoration:none;
   border-bottom:1px solid color-mix(in srgb,var(--muted) 40%,transparent);}
@@ -334,8 +337,8 @@ footer{border-top:1px solid var(--border);margin-top:20px;padding:44px 0 70px;}
 .foot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:26px;}
 footer h3{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;
   color:var(--accent-ink);margin:0 0 .6rem;font-weight:600;}
-footer p{margin:.3rem 0;color:var(--ink-dim);font-size:.92rem;max-width:42ch;}
-footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.76rem;color:var(--muted);
+footer p{margin:.3rem 0;color:var(--ink-dim);font-size:.9375rem;max-width:42ch;}
+footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.8125rem;color:var(--muted);
   border-top:1px solid var(--border);padding-top:18px;}
 
 /* ------------------------------------------------------------------ instruments
@@ -356,10 +359,10 @@ footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.76rem;color:
 .inst-t{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;
   text-transform:uppercase;color:var(--accent-ink);font-weight:600;margin:0;}
 .inst-n{font-family:var(--mono);font-size:.75rem;color:var(--muted);}
-.inst-d{color:var(--ink-dim);font-size:.93rem;margin:.4rem 0 20px;max-width:64ch;}
+.inst-d{color:var(--ink-dim);font-size:.9375rem;margin:.4rem 0 20px;max-width:60ch;}
 
 .sp-field label{display:block;font-family:var(--mono);font-size:.75rem;
-  letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
 .sp-field output{display:block;font-family:var(--mono);font-size:.95rem;color:var(--ink);
   font-variant-numeric:tabular-nums;margin-top:9px;letter-spacing:.01em;}
 .sp-field input[type="range"]{-webkit-appearance:none;appearance:none;width:100%;
@@ -438,9 +441,9 @@ footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.76rem;color:
 .spec>div{padding:15px 22px 15px 0;border-right:1px solid var(--border);min-width:0;}
 .spec>div+div{padding-left:22px;}
 .spec>div:last-child{border-right:0;}
-.spec .v{display:block;font-family:var(--mono);font-size:clamp(1.05rem,2vw,1.42rem);
+.spec .v{display:block;font-family:var(--mono);font-size:clamp(1.25rem,2vw,1.42rem);
   font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.01em;}
-.spec .l{display:block;font-size:.78rem;color:var(--muted);margin-top:4px;line-height:1.4;}
+.spec .l{display:block;font-size:.8125rem;color:var(--muted);margin-top:4px;line-height:1.4;}
 @media (max-width:720px){
   .spec{grid-template-columns:1fr 1fr;}
   .spec>div{border-bottom:1px solid var(--border);}
@@ -457,9 +460,9 @@ footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.76rem;color:
 .row-rec{border-top:1px solid var(--border);margin:24px 0 0;max-width:var(--measure);}
 .row-rec>div{display:grid;grid-template-columns:minmax(130px,.5fr) 1fr;gap:6px 22px;
   padding:11px 0;border-bottom:1px solid var(--border);}
-.row-rec dt,.row-rec .k{font-family:var(--mono);font-size:.75rem;letter-spacing:.1em;
+.row-rec dt,.row-rec .k{font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;
   text-transform:uppercase;color:var(--muted);margin:0;padding-top:.18em;}
-.row-rec dd,.row-rec .v{margin:0;color:var(--ink-dim);font-size:.95rem;line-height:1.5;}
+.row-rec dd,.row-rec .v{margin:0;color:var(--ink-dim);font-size:.9375rem;line-height:1.5;}
 .row-rec .v b{color:var(--ink);font-weight:600;font-family:var(--mono);
   font-variant-numeric:tabular-nums;}
 @media (max-width:560px){.row-rec>div{grid-template-columns:1fr;gap:2px;}}
@@ -469,8 +472,8 @@ footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.76rem;color:
   border-top:1px solid var(--border);}
 .next-list li{padding:14px 0;border-bottom:1px solid var(--border);
   display:grid;grid-template-columns:minmax(150px,.44fr) 1fr;gap:4px 22px;}
-.next-list b{font-family:var(--mono);font-size:.78rem;color:var(--ink);font-weight:600;}
-.next-list span{color:var(--ink-dim);font-size:.92rem;line-height:1.5;}
+.next-list b{font-family:var(--mono);font-size:.8125rem;color:var(--ink);font-weight:600;}
+.next-list span{color:var(--ink-dim);font-size:.9375rem;line-height:1.5;}
 @media (max-width:560px){.next-list li{grid-template-columns:1fr;}}
 
 /* ------------------------------------------------------- surfaces we did not draw
@@ -493,7 +496,6 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
 
 @media (max-width:640px){
   .phase-head{gap:13px;}
-  .hero{padding:52px 0 22px;}
 }
 """
 

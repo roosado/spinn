@@ -32,7 +32,7 @@
     + ".xh-frame{position:relative;}"
     + ".xh canvas{display:block;width:100%;}"
     + ".xh-legend{display:flex;flex-wrap:wrap;gap:4px 18px;margin-top:14px;"
-    + "font-family:var(--mono);font-size:.75rem;letter-spacing:.09em;"
+    + "font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;"
     + "text-transform:uppercase;color:var(--muted);}"
     + ".xh-legend span{display:flex;align-items:center;gap:6px;}"
     + ".xh-legend i{width:9px;height:9px;border-radius:2px;display:block;}"
@@ -58,9 +58,9 @@
     + "transition:color .25s ease;}"
     + ".xr.miss .xr-digit{color:var(--accent-2-ink);}"
     + ".xr-body{padding-top:5px;}"
-    + ".xr-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;"
+    + ".xr-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;"
     + "text-transform:uppercase;color:var(--muted);margin:0;}"
-    + ".xr-t{margin:.3rem 0 0;color:var(--ink-dim);font-size:.94rem;line-height:1.45;}"
+    + ".xr-t{margin:.3rem 0 0;color:var(--ink-dim);font-size:.9375rem;line-height:1.5;}"
     + ".xr-t b{color:var(--ink);font-weight:600;}"
     + "@media (max-width:720px){.xr-digit{font-size:3.2rem;}}"
     // Below 980px the readout sits straight under the machine it narrates, and the
@@ -69,10 +69,6 @@
     + "@media (max-width:980px){.xr{margin-top:0;}}";
 
   var HOLD_MS = 1750;
-
-  //: Canvas cannot resolve `var(--mono)`, so the one place a widget draws type it
-  //: repeats the stack the stylesheet sets rather than inheriting it.
-  var MONO = 'ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace';
 
   function mount(el, readoutEl) {
     P.injectStyle("spinn-hero-style", CSS);
@@ -216,7 +212,7 @@
 
     /** The three labels that turn a coloured grid into a mechanism. */
     function annotate(ctx) {
-      ctx.font = "10px " + MONO;
+      ctx.font = V.font();
       ctx.fillStyle = colours.muted;
       ctx.textAlign = "left";
       ctx.fillText("DIGIT IN", layout.tileX, layout.tileY - 8);
@@ -224,7 +220,9 @@
       ctx.save();
       // Rotated up the left edge of the array, where the drive lines enter it: the
       // rows are the input and the label has to sit on them to say so.
-      ctx.translate(geom.x - 7, geom.y + geom.h);
+      // Five pixels off the array: at the canvas size the caps are about seven tall,
+      // which leaves two clear of the drive lines that end fourteen pixels out.
+      ctx.translate(geom.x - 5, geom.y + geom.h);
       ctx.rotate(-Math.PI / 2);
       ctx.textAlign = "left";
       ctx.fillText("36 ROWS DRIVEN", 0, 0);
@@ -249,7 +247,7 @@
         geom, px, Math.round(el2 * model.rows));
       ctx.drawImage(arrayBuf, geom.x, geom.y, geom.w, geom.h);
       V.drawColumns(ctx, colours, geom, geom.y + geom.h + 14, layout.barsH,
-        logits, winner, MONO, grow);
+        logits, winner, true, grow);
       annotate(ctx);
 
       if (playing && now - t0 > HOLD_MS) advance();

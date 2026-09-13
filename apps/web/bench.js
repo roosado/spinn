@@ -63,11 +63,11 @@
     + ".bn-acc{font-family:var(--mono);font-size:2.9rem;font-weight:600;line-height:1;"
     + "color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.02em;}"
     + ".bn-acc.fail{color:var(--bad);}"
-    + ".bn-accl{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;"
+    + ".bn-accl{font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;"
     + "text-transform:uppercase;color:var(--muted);margin:0 0 8px;}"
-    + ".bn-delta{font-family:var(--mono);font-size:.86rem;color:var(--muted);"
+    + ".bn-delta{font-family:var(--mono);font-size:.8125rem;color:var(--muted);"
     + "margin-left:10px;font-variant-numeric:tabular-nums;}"
-    + ".bn-verdict{margin:14px 0 0;font-size:.92rem;color:var(--ink-dim);line-height:1.5;}"
+    + ".bn-verdict{margin:14px 0 0;font-size:.9375rem;color:var(--ink-dim);line-height:1.5;}"
     + ".bn-verdict b{color:var(--ink);font-weight:600;}"
     + ".bn-verdict .fail{color:var(--bad-ink);font-weight:600;}"
     + ".bn-verdict .pass{color:var(--good-ink);font-weight:600;}"
@@ -78,12 +78,10 @@
     + "transition:color .15s,border-color .15s,background .15s;}"
     + ".bn-btn:hover{color:var(--ink);border-color:var(--accent);background:var(--accent-soft);}"
     + ".bn-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
-    + ".bn-note{font-size:.8rem;color:var(--muted);margin:20px 0 0;line-height:1.55;"
+    + ".bn-note{font-size:.8125rem;color:var(--muted);margin:20px 0 0;line-height:1.55;"
     + "border-top:1px solid var(--border);padding-top:12px;max-width:64ch;}"
     + ".bn-cap{font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;"
     + "text-transform:uppercase;color:var(--muted);margin:8px 0 0;}";
-
-  var MONO = 'ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace';
 
   //: The swept ladders, with a leading "off". Values, and their labels, come from
   //: exports/error_budget.json by way of apps/web/data.js -- so a re-run of the
@@ -233,7 +231,7 @@
       // were placed against their own line: the pass mark keeps the line and the
       // ideal is labelled at the end of the axis, where there is room.
       var xPass = xOf(model.threshold), xIdeal = xOf(model.ideal);
-      ctx.font = "9px " + MONO;
+      ctx.font = V.font();
 
       ctx.strokeStyle = colours.muted;
       ctx.setLineDash([3, 3]);
@@ -265,7 +263,7 @@
       // per-digit, because "accuracy fell four points" hides whether the machine
       // lost a little of everything or stopped recognising one digit entirely
       var barW = W / 10, base = H - 15, span = 46;
-      ctx.font = "9px " + MONO;
+      ctx.font = V.font();
       for (var d = 0; d < 10; d++) {
         var h = res.perDigit[d] * span;
         ctx.fillStyle = res.perDigit[d] < 0.5 ? colours.accent2 : colours.accent;

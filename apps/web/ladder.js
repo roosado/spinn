@@ -31,16 +31,14 @@
     + ".ld{display:grid;grid-template-columns:repeat(3,1fr);gap:26px 30px;}"
     + "@media (max-width:860px){.ld{grid-template-columns:1fr;gap:30px;}}"
     + ".ld-p canvas{display:block;width:100%;}"
-    + ".ld-h{font-family:var(--mono);font-size:.75rem;letter-spacing:.14em;"
+    + ".ld-h{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;"
     + "text-transform:uppercase;color:var(--accent-ink);margin:0 0 2px;font-weight:600;}"
-    + ".ld-s{font-size:.86rem;color:var(--ink-dim);margin:0 0 12px;line-height:1.45;}"
-    + ".ld-b{font-family:var(--mono);font-size:.76rem;color:var(--muted);margin:10px 0 0;"
+    + ".ld-s{font-size:.8125rem;color:var(--ink-dim);margin:0 0 12px;line-height:1.45;}"
+    + ".ld-b{font-family:var(--mono);font-size:.8125rem;color:var(--muted);margin:10px 0 0;"
     + "line-height:1.6;}"
     + ".ld-b b{color:var(--ink);font-weight:600;}"
     + ".ld-b .hold{color:var(--good-ink);}"
     + ".ld-b .fail{color:var(--bad-ink);}";
-
-  var MONO = 'ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace';
 
   var PANELS = [
     {
@@ -101,7 +99,7 @@
     ctx.lineTo(padL + pw, padT + ph + 0.5);
     ctx.stroke();
 
-    ctx.font = "9px " + MONO;
+    ctx.font = V.font();
     ctx.fillStyle = c.muted;
     ctx.textAlign = "right";
     [0, 0.25, 0.5, 0.75].forEach(function (a) {
@@ -111,7 +109,7 @@
     // The pass mark, and the ideal it is 95% of. Both are labelled: unlabelled,
     // they are two horizontal rules four hundredths apart and a reader has no way
     // to tell which one a curve had to stay above.
-    ctx.font = "8px " + MONO;
+    ctx.font = V.font();
     // One label above its line, one below: the two are 0.037 apart on a 0.78 scale,
     // which is about seven pixels here, so both placed above would sit on top of
     // each other.
@@ -172,7 +170,7 @@
     // "0.035" and "0.05" sit thirty pixels apart. So each label is clamped inside
     // the panel and skipped when it would overlap the one before it, bracket rungs
     // taking precedence over the ends.
-    ctx.font = "9px " + MONO;
+    ctx.font = V.font();
     ctx.textAlign = "center";
     var placed = [];
 
