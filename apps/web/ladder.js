@@ -218,7 +218,7 @@
     PANELS.forEach(function (panel) {
       var entry = model.budget[panel.key];
       var box = P.el("div", "ld-p",
-        '<p class="ld-h">' + panel.head + "</p>"
+        '<h4 class="ld-h">' + panel.head + "</h4>"
         + '<p class="ld-s">' + panel.sub + "</p>");
       var canvas = document.createElement("canvas");
       canvas.setAttribute("role", "img");

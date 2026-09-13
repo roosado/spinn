@@ -38,10 +38,15 @@
   "use strict";
 
   const STYLE_ID = "spinn-mount-style";
+  //: The page's own tokens, with fallbacks for a shell that defines none. The grey
+  //: this carried before was hard-coded, and measured about 3.4:1 on the page.
   const CSS = `
 .pm-pending{min-height:120px;display:flex;align-items:center;justify-content:center;}
-.pm-pending::after{content:"Warming up\\2026";font:0.9rem/1.5 ui-sans-serif,system-ui,sans-serif;
-  color:#7a8698;opacity:0;animation:pm-fade .4s ease-out .25s forwards;}
+.pm-pending::after{content:"Warming up\\2026";
+  font:.9375rem/1.5 var(--sans,ui-sans-serif,system-ui,sans-serif);
+  color:var(--muted,#64707f);opacity:0;animation:pm-fade .4s ease-out .25s forwards;}
+.pm-failed{margin:0;max-width:60ch;font:.9375rem/1.5 var(--sans,ui-sans-serif,system-ui,sans-serif);
+  color:var(--accent-2-ink,#9c5411);}
 @keyframes pm-fade{to{opacity:1;}}
 @media (prefers-reduced-motion:reduce){.pm-pending::after{animation:none;opacity:1;}}
 `;
@@ -110,8 +115,23 @@
     } catch (e) {
       // One broken widget must not strand the rest of the queue.
       if (window.console) window.console.error("spinn: mounting #" + job.id + " failed", e);
+      failed(job.el, e);
     }
     job.el.classList.remove("pm-pending");
+  }
+
+  /**
+   * Say so, where the instrument should have been. The console is somewhere no
+   * reader looks, and a blank space under a caption that says "drag this" reads as
+   * a page still loading, or as one that never meant anything to be there.
+   */
+  function failed(el, e) {
+    const p = document.createElement("p");
+    p.className = "pm-failed";
+    p.textContent = "This instrument could not start in this browser"
+      + (e && e.message ? " (" + e.message + ")" : "")
+      + ". The rest of the page does not depend on it.";
+    el.appendChild(p);
   }
 
   /**

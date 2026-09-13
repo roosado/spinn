@@ -100,7 +100,9 @@ CSS = r"""
   --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,"Liberation Mono",Menlo,monospace;
   --measure:60ch;
 }
-@media (prefers-color-scheme:dark){
+/* Both dark palettes are for screens. Paper is white whatever the screen was, and
+   dark-theme ink would print pale onto it, so print always takes the palette in :root. */
+@media screen and (prefers-color-scheme:dark){
   :root{
     --bg:#0a0d12; --surface:#111826; --surface-2:#0e131d;
     --border:#243149; --ink:#e8edf4; --ink-dim:#b7c2d2; --muted:#7787a0;
@@ -119,22 +121,32 @@ CSS = r"""
   --accent-ink:#0a7064; --accent-2-ink:#9c5411; --good-ink:#237a41;
   --bad-ink:#ba4530;
 }
-:root[data-theme="dark"]{
+@media screen{:root[data-theme="dark"]{
   --bg:#0a0d12; --surface:#111826; --surface-2:#0e131d;
   --border:#243149; --ink:#e8edf4; --ink-dim:#b7c2d2; --muted:#7787a0;
   --accent:#2ec9b8; --accent-2:#f2994a; --good:#57c07a; --bad:#e0705f; --accent-soft:rgba(46,201,184,.14);
   --accent-ink:#2ec9b8; --accent-2-ink:#f2994a; --good-ink:#57c07a; --bad-ink:#e0705f;
-}
+}}
 
 *{box-sizing:border-box;}
 body{margin:0;background:var(--bg);color:var(--ink);
   font-family:var(--sans);font-size:1.0625rem;line-height:1.65;
-  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  overflow-wrap:break-word;}
 .topline{height:3px;background:var(--rule-gradient);}
+/* The first stop for a keyboard, and out of sight until it is one. */
+.skip{position:absolute;top:10px;left:16px;z-index:30;transform:translateY(-200%);
+  font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--accent-ink);background:var(--surface);border:1px solid var(--border);
+  border-radius:7px;padding:9px 14px;text-decoration:none;}
+.skip:focus{transform:none;outline:2px solid var(--accent);outline-offset:2px;}
 
 .topbar{position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);
   background:color-mix(in srgb,var(--bg) 82%,transparent);
   border-bottom:1px solid var(--border);}
+/* Where color-mix() is unknown the whole declaration above is dropped, and a sticky
+   bar with no ground shows the page scrolling through its own text. */
+@supports not (background:color-mix(in srgb,red 50%,blue)){.topbar{background:var(--bg);}}
 .topbar-in{max-width:1120px;margin:0 auto;padding:9px 24px;
   display:flex;align-items:center;justify-content:space-between;gap:6px 16px;flex-wrap:wrap;}
 .brand{font-family:var(--mono);font-size:.8125rem;letter-spacing:.02em;color:var(--ink-dim);}
@@ -146,6 +158,10 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .theme-toggle .tm{flex:none;}
 .theme-toggle:hover{color:var(--ink);border-color:var(--accent);}
 .theme-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+/* It does nothing without a script, so without one it is not drawn. The class is set
+   in <head>, before the first paint, so a scripted page never shows the bar without
+   it and then shifts. */
+html:not(.js) .theme-toggle{display:none;}
 .topbar-right{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;}
 /* The nav is quieter than a row of pills: only the page you are on is drawn as
    one. Sized for several pages sharing a row, which is where this is going. */
@@ -252,7 +268,10 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .prose{color:var(--ink-dim);}
 .prose p{margin:.85rem 0;max-width:var(--measure);}
 .prose strong{color:var(--ink);font-weight:600;}
-.sub-h{font-family:var(--serif);font-weight:600;color:var(--ink);
+/* An <h3>, so heading navigation finds it. As a <p> it also lost its margins to
+   `.prose p`, which outranks it, and sat as close to the paragraph above as to the
+   one it introduces. */
+.sub-h{font-family:var(--serif);font-weight:600;color:var(--ink);text-wrap:balance;
   font-size:clamp(1.25rem,2vw,1.42rem);line-height:1.2;margin:2.1rem 0 .2rem;}
 .q{font-family:var(--mono);font-size:.92em;background:var(--surface-2);
   border:1px solid var(--border);border-radius:5px;padding:.05em .38em;color:var(--ink);
@@ -335,7 +354,7 @@ sup.r{font-family:var(--mono);font-size:.66em;color:var(--accent-ink);font-weigh
 /* footer */
 footer{border-top:1px solid var(--border);margin-top:20px;padding:44px 0 70px;}
 .foot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:26px;}
-footer h3{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;
+footer h2{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;
   color:var(--accent-ink);margin:0 0 .6rem;font-weight:600;}
 footer p{margin:.3rem 0;color:var(--ink-dim);font-size:.9375rem;max-width:42ch;}
 footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.8125rem;color:var(--muted);
@@ -400,6 +419,16 @@ footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.8125rem;colo
   .sp-field input[type="range"]{height:44px;}
   .sp-field input[type="range"]:focus-visible{outline-offset:0;}
   .toc-list a{padding-top:12px;padding-bottom:12px;}
+}
+/* Windows high contrast replaces every background with the system's own, and this
+   range input is drawn from nothing but backgrounds -- track and handle both -- so it
+   would vanish. In forced colours it is drawn in system colours instead. */
+@media (forced-colors:active){
+  .sp-field input[type="range"]{forced-color-adjust:none;}
+  .sp-field input[type="range"]::-webkit-slider-runnable-track{background:CanvasText;}
+  .sp-field input[type="range"]::-moz-range-track{background:CanvasText;}
+  .sp-field input[type="range"]::-webkit-slider-thumb{background:Highlight;}
+  .sp-field input[type="range"]::-moz-range-thumb{background:Highlight;}
 }
 
 /* --------------------------------------------------------------------- the hero
@@ -476,6 +505,16 @@ footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.8125rem;colo
 .next-list span{color:var(--ink-dim);font-size:.9375rem;line-height:1.5;}
 @media (max-width:560px){.next-list li{grid-template-columns:1fr;}}
 
+/* Without a script. The prose carries the argument either way; these say what is
+   missing where an instrument would have been, and the budget's list gives its
+   recorded brackets in words. */
+.nojs{margin:0;font-size:.9375rem;line-height:1.5;color:var(--muted);max-width:60ch;}
+.nojs-list{list-style:none;margin:10px 0 0;padding:0;max-width:var(--measure);
+  border-top:1px solid var(--border);}
+.nojs-list li{padding:10px 0;border-bottom:1px solid var(--border);color:var(--ink-dim);
+  font-size:.9375rem;line-height:1.5;}
+.nojs-list b{color:var(--ink);font-weight:600;}
+
 /* ------------------------------------------------------- surfaces we did not draw
    Selection, caret, focus and scrollbars ship with defaults that belong to no
    design system. They are part of the page. */
@@ -496,6 +535,16 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
 
 @media (max-width:640px){
   .phase-head{gap:13px;}
+}
+
+/* Paper. The dark palettes are screen-only, and for the length of a print the page
+   script puts the canvases into the light theme as well. Controls a sheet of paper
+   cannot operate are left off it. */
+@media print{
+  .skip,.theme-toggle,.xh-controls,.bn-tools,.dw-tools{display:none;}
+  .topbar{position:static;backdrop-filter:none;}
+  h2,h3,h4{break-after:avoid;}
+  canvas,svg,.finding,.spec,.row-rec>div,.next-list li,.refs li{break-inside:avoid;}
 }
 """
 
@@ -541,6 +590,7 @@ def topbar(current: str) -> str:
         parts.append(f'<a href="@@HREF_{p.key}@@"{mark}>{p.nav}</a>')
     links = "".join(parts)
     return (
+        '<a class="skip" href="#main">Skip to content</a>\n'
         '<header class="topbar">\n'
         '  <div class="topbar-in">\n'
         '    <span class="brand"><b>spinn</b><span class="brand-tail">'
@@ -851,12 +901,28 @@ def page_body(key: str) -> str:
 # Shared page chrome: the theme toggle (persisted) and the scroll-reveal observer.
 PAGE_SCRIPT = r"""<script>
 (function(){
+  // The saved theme was applied in <head>, before the first paint; see THEME_BOOT.
   var root=document.documentElement, btn=document.getElementById('themeToggle');
-  try{var saved=localStorage.getItem('spinn-theme'); if(saved){root.setAttribute('data-theme',saved);}}catch(e){}
-  function cur(){var a=root.getAttribute('data-theme'); if(a) return a;
-    return window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';}
+  var mq=window.matchMedia('(prefers-color-scheme:dark)');
+  function cur(){var a=root.getAttribute('data-theme'); if(a==='dark'||a==='light') return a;
+    return mq.matches?'dark':'light';}
+  // The button names what a press will do. "theme" on its own tells a screen reader
+  // neither the state the page is in nor the one it would be put in.
+  function name(){btn.setAttribute('aria-label','Switch to '+(cur()==='dark'?'light':'dark')+' theme');}
   btn.addEventListener('click',function(){var n=cur()==='dark'?'light':'dark';
-    root.setAttribute('data-theme',n); try{localStorage.setItem('spinn-theme',n);}catch(e){}});
+    root.setAttribute('data-theme',n); try{localStorage.setItem('spinn-theme',n);}catch(e){} name();});
+  if(mq.addEventListener) mq.addEventListener('change',name);
+  name();
+  // Paper is white. The stylesheet keeps the dark palettes off it, but a canvas is
+  // pixels, drawn in whichever theme was live -- so for the length of a print the
+  // page takes the light theme, every widget redraws through onThemeChange, and the
+  // reader's own choice is put back afterwards.
+  var held=null;
+  addEventListener('beforeprint',function(){held=root.getAttribute('data-theme')||'';
+    root.setAttribute('data-theme','light');});
+  addEventListener('afterprint',function(){if(held===null) return;
+    if(held){root.setAttribute('data-theme',held);}else{root.removeAttribute('data-theme');}
+    held=null;});
 })();
 (function(){
   var els=document.querySelectorAll('.reveal');
@@ -896,15 +962,28 @@ PAGE_SCRIPT = r"""<script>
 </script>"""
 
 
+#: The saved theme, applied in <head> before anything paints. It used to run at the
+#: foot of the body beside the toggle's wiring -- after the page's whole inline data
+#: set and every widget module -- so a reader whose saved choice differed from their
+#: system's could see the wrong theme first. It also marks the document as scripted,
+#: which is how the stylesheet knows to leave out a toggle nothing could operate.
+THEME_BOOT = (
+    "<script>(function(){var r=document.documentElement;r.classList.add('js');"
+    "try{var t=localStorage.getItem('spinn-theme');"
+    "if(t==='light'||t==='dark'){r.setAttribute('data-theme',t);}}catch(e){}})();</script>"
+)
+
+
 def _document(body: str, page: Page) -> str:
     """Wrap a rendered body in the shared document shell."""
     return (
-        '<!doctype html>\n<html lang="en">\n<head>\n'
+        '<!doctype html>\n<html lang="en-GB">\n<head>\n'
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f'<meta name="description" content="{page.desc}">\n'
-        f"<title>{page.title}</title>"
-        "\n<style>\n" + CSS + "\n</style>\n</head>\n<body>\n"
+        f"<title>{page.title}</title>\n"
+        + THEME_BOOT
+        + "\n<style>\n" + CSS + "\n</style>\n</head>\n<body>\n"
         + body
         + "\n</body>\n</html>\n"
     )
@@ -946,7 +1025,7 @@ def render() -> dict:
     out["index.html"] = _document(resolve_links(body), PAGE_BY_KEY["index"])
     # The Artifact is a standalone body with no sibling pages, so its links must be
     # absolute and it supplies no <head> of its own.
-    out["_artifact_body.html"] = ("<style>\n" + CSS + "\n</style>\n"
+    out["_artifact_body.html"] = ("<style>\n" + CSS + "\n</style>\n" + THEME_BOOT + "\n"
                                   + resolve_links(body, absolute=True))
 
     return out

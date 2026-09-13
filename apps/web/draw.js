@@ -20,6 +20,13 @@
  * downsampled tile drawn beside the pad -- is the point: most of what a reader
  * needs to understand about why 36 pixels is hard, they get from watching their 4
  * turn into nine grey squares.
+ *
+ * The pad takes a keyboard as well as a pointer. Arrow keys move a pen over the
+ * 24-grid, a whole ruled square of the six at a time with Shift, and Space puts it
+ * down or lifts it; with the pen down, every cell it passes over is dabbed with the
+ * same brush a pointer uses. Before, the pad was a tab stop that ignored every key,
+ * and "Load a test digit" was the only way in -- which lets a reader watch the
+ * machine, but never write for it.
  */
 (function () {
   "use strict";
@@ -31,6 +38,9 @@
     + "gap:20px 30px;align-items:start;justify-content:start;}"
     + "@media (max-width:720px){.dw{grid-template-columns:1fr 1fr;}"
     + ".dw-out{grid-column:1 / -1;}}"
+    // The 168px pad, the 108px tile and the gap between them need 306px, and a 320px
+    // screen has 272 inside its gutters. One column, rather than a sideways scroll.
+    + "@media (max-width:380px){.dw{grid-template-columns:1fr;}}"
     + ".dw-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;"
     + "text-transform:uppercase;color:var(--muted);margin:0 0 8px;}"
     + ".dw-pad{border:1px solid var(--border);border-radius:10px;background:var(--surface);"
@@ -51,11 +61,25 @@
     + "transition:color .15s,border-color .15s,background .15s;}"
     + ".dw-btn:hover{color:var(--ink);border-color:var(--accent);background:var(--accent-soft);}"
     + ".dw-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
-    + ".dw-hint{font-size:.8125rem;color:var(--muted);margin:12px 0 0;line-height:1.5;}";
+    + ".dw-hint{font-size:.8125rem;color:var(--muted);margin:12px 0 0;line-height:1.5;}"
+    // The keys, shown to whoever is pressing them: on keyboard focus, and not to a
+    // reader who drew with a mouse. A screen reader has them as the pad's description
+    // either way. Capped at the pad's width, or the sentence would widen its column.
+    + ".dw-keys{display:none;max-width:168px;}"
+    + ".dw-pad:focus-visible~.dw-keys{display:block;}"
+    + ".dw-vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;"
+    + "overflow:hidden;clip-path:inset(50%);white-space:nowrap;}";
 
   var PAD = 24;        // the pad's own grid
   var PAD_PX = 168;    // its drawn size, 7 screen pixels per cell
   var TILE_PX = 108;
+  var BRUSH = 1.7;     // the brush's radius, in pad cells
+  //: How long the pad has to be still before the verdict is read out. Every pointer
+  //: event reclassifies, and a live region that spoke each one would be reading out
+  //: numbers faster than anyone can hear them.
+  var SPEAK_MS = 700;
+  //: The arrow keys, as one cell's step.
+  var MOVES = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 
   function mount(el) {
     P.injectStyle("spinn-draw-style", CSS);
@@ -70,10 +94,12 @@
     pad.width = PAD_PX; pad.height = PAD_PX;
     pad.style.width = PAD_PX + "px"; pad.style.height = PAD_PX + "px";
     pad.tabIndex = 0;
+    // An application because it behaves as one: it takes the arrow keys for itself,
+    // which a screen reader left in browse mode would otherwise keep.
     pad.setAttribute("role", "application");
-    pad.setAttribute("aria-label",
-      "Drawing pad. Draw a digit with the pointer, or use the buttons below to load "
-      + "a test digit.");
+    pad.setAttribute("aria-roledescription", "drawing pad");
+    pad.setAttribute("aria-label", "Draw a digit");
+    pad.setAttribute("aria-describedby", "dw-keys");
     padBox.appendChild(pad);
     var tools = P.el("div", "dw-tools");
     var clearBtn = P.el("button", "dw-btn", "Clear");
@@ -83,6 +109,11 @@
     tools.appendChild(clearBtn);
     tools.appendChild(loadBtn);
     padBox.appendChild(tools);
+    var keys = P.el("p", "dw-hint dw-keys",
+      "Arrow keys move the pen, a whole square at a time with Shift. Space puts it "
+      + "down or lifts it; Delete clears the pad.");
+    keys.id = "dw-keys";
+    padBox.appendChild(keys);
 
     var seenBox = P.el("div", "", '<p class="dw-k">What the array sees</p>');
     var seen = document.createElement("canvas");
@@ -95,14 +126,18 @@
     var outBox = P.el("div", "dw-out", '<p class="dw-k">The array says</p>');
     var guess = P.el("div", "dw-guess none", "—");
     var second = P.el("p", "dw-second", "");
-    second.setAttribute("role", "status");
-    second.setAttribute("aria-live", "polite");
     var bars = document.createElement("canvas");
     bars.setAttribute("role", "img");
     bars.className = "dw-bars";
+    // The verdict for a screen reader, spoken once the pad goes still. The visible
+    // line under the numeral changes with every dab, and is deliberately not live.
+    var status = P.el("p", "dw-vh");
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
     outBox.appendChild(guess);
     outBox.appendChild(second);
     outBox.appendChild(bars);
+    outBox.appendChild(status);
 
     grid.appendChild(padBox);
     grid.appendChild(seenBox);
@@ -113,6 +148,10 @@
     var small = new Float64Array(side * side);
     var logits = new Float64Array(model.cols);
     var drawing = false, testIdx = -1;
+    // The keyboard's pen: where it is, whether it is down, and whether it is drawn.
+    // It is drawn only while the pad has keyboard focus.
+    var pen = { x: PAD / 2 - 0.5, y: PAD / 2 - 0.5, down: false, shown: false };
+    var speakTimer = 0;
 
     function paintPad() {
       var c = V.ink(document.documentElement);
@@ -138,6 +177,21 @@
         var p = Math.round((k / side) * PAD_PX) + 0.5;
         ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, PAD_PX); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(PAD_PX, p); ctx.stroke();
+      }
+      // The keyboard's pen: a ring the size of the brush, with a dot in it when down.
+      if (pen.shown && document.activeElement === pad) {
+        var px = pen.x * cell, py = pen.y * cell;
+        ctx.strokeStyle = c.accent;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(px, py, BRUSH * cell, 0, Math.PI * 2);
+        ctx.stroke();
+        if (pen.down) {
+          ctx.fillStyle = c.accent;
+          ctx.beginPath();
+          ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
 
@@ -191,53 +245,76 @@
         : "No digit drawn yet.");
     }
 
-    function classify() {
-      var has = reduce();
+    /**
+     * Say `text` now: the answer to a key, not a running commentary. A verdict that
+     * is already waiting is left to follow it -- lifting the pen at the end of a
+     * stroke must not swallow what the stroke drew.
+     */
+    function say(text) {
+      status.textContent = text;
+    }
+
+    /** Classify the pad; with `speak`, read the verdict out once the pad is still. */
+    function classify(speak) {
+      var has = reduce(), spoken;
       if (has) {
         C.logitsOne(small, 0, mach.weights, model.gain, model.rows, model.cols, logits);
         var top = C.argmax(logits);
         var order = [];
         for (var j = 0; j < 10; j++) order.push(j);
         order.sort(function (a, b) { return logits[b] - logits[a]; });
+        var really = testIdx < 0 ? ""
+          : (model.labels[testIdx] === 8 ? "an " : "a ") + model.labels[testIdx];
         guess.textContent = String(top);
         guess.classList.remove("none");
         second.textContent = "runner-up " + order[1] + " · margin "
           + (logits[order[0]] - logits[order[1]]).toFixed(2)
-          + (testIdx >= 0 ? " · this one is really " + (model.labels[testIdx] === 8 ? "an " : "a ")
-            + model.labels[testIdx] : "");
+          + (really ? " · this one is really " + really : "");
+        spoken = "The array says " + top + ", runner-up " + order[1]
+          + (really ? ". This one is really " + really : "") + ".";
       } else {
         guess.textContent = "—";
         guess.classList.add("none");
         second.textContent = "Nothing on the pad yet.";
+        spoken = "Nothing on the pad yet.";
       }
       paintSeen();
       paintBars(has);
+      if (speak) {
+        window.clearTimeout(speakTimer);
+        speakTimer = window.setTimeout(function () { status.textContent = spoken; }, SPEAK_MS);
+      }
+    }
+
+    /** One dab of a soft round brush, centred at (x, y) in pad cells. */
+    function stamp(x, y) {
+      // Soft and round: a one-cell hard stamp on a 24-grid gives a stroke too thin
+      // to survive the box-average down to six.
+      for (var i = Math.floor(y - BRUSH); i <= Math.ceil(y + BRUSH); i++) {
+        for (var j = Math.floor(x - BRUSH); j <= Math.ceil(x + BRUSH); j++) {
+          if (i < 0 || j < 0 || i >= PAD || j >= PAD) continue;
+          var d = Math.sqrt((i + 0.5 - y) * (i + 0.5 - y) + (j + 0.5 - x) * (j + 0.5 - x));
+          if (d > BRUSH) continue;
+          var at = i * PAD + j;
+          cells[at] = Math.min(1, cells[at] + (1 - d / BRUSH) * 0.85);
+        }
+      }
+      testIdx = -1;
     }
 
     function stroke(ev) {
       var rect = pad.getBoundingClientRect();
-      var x = (ev.clientX - rect.left) / rect.width * PAD;
-      var y = (ev.clientY - rect.top) / rect.height * PAD;
-      // A soft round brush: a one-cell hard stamp on a 24-grid gives a stroke too
-      // thin to survive the box-average down to six.
-      var rad = 1.7;
-      for (var i = Math.floor(y - rad); i <= Math.ceil(y + rad); i++) {
-        for (var j = Math.floor(x - rad); j <= Math.ceil(x + rad); j++) {
-          if (i < 0 || j < 0 || i >= PAD || j >= PAD) continue;
-          var d = Math.sqrt((i + 0.5 - y) * (i + 0.5 - y) + (j + 0.5 - x) * (j + 0.5 - x));
-          if (d > rad) continue;
-          var add = 1 - d / rad;
-          var at = i * PAD + j;
-          cells[at] = Math.min(1, cells[at] + add * 0.85);
-        }
-      }
-      testIdx = -1;
+      stamp((ev.clientX - rect.left) / rect.width * PAD,
+        (ev.clientY - rect.top) / rect.height * PAD);
       paintPad();
-      classify();
+      classify(true);
     }
 
     pad.addEventListener("pointerdown", function (ev) {
       drawing = true;
+      // A pointer takes over from the keyboard: the keyboard's pen lifts and hides.
+      pen.shown = false;
+      pen.down = false;
       pad.setPointerCapture(ev.pointerId);
       stroke(ev);
       ev.preventDefault();
@@ -249,19 +326,61 @@
       pad.addEventListener(name, function () { drawing = false; });
     });
 
+    pad.addEventListener("keydown", function (ev) {
+      if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
+      var move = MOVES[ev.key], changed = false;
+      if (move) {
+        // With the pen down every cell passed over is dabbed, so a Shift move is
+        // still a line and not two dots a square apart.
+        for (var n = ev.shiftKey ? PAD / side : 1; n > 0; n--) {
+          pen.x = Math.max(0.5, Math.min(PAD - 0.5, pen.x + move[0]));
+          pen.y = Math.max(0.5, Math.min(PAD - 0.5, pen.y + move[1]));
+          if (pen.down) { stamp(pen.x, pen.y); changed = true; }
+        }
+      } else if (ev.key === " " || ev.key === "Enter") {
+        pen.down = !pen.down;
+        if (pen.down) { stamp(pen.x, pen.y); changed = true; }
+        say(pen.down ? "Pen down." : "Pen up.");
+      } else if (ev.key === "Escape" && pen.down) {
+        pen.down = false;
+        say("Pen up.");
+      } else if (ev.key === "Delete" || ev.key === "Backspace") {
+        cells.fill(0);
+        testIdx = -1;
+        changed = true;
+      } else {
+        return;
+      }
+      ev.preventDefault();
+      pen.shown = true;
+      paintPad();
+      // A pen moved while up changed nothing, and re-reading an unchanged verdict at
+      // every step would bury the one that did change.
+      if (changed) classify(true);
+    });
+    pad.addEventListener("focus", function () {
+      // Tabbed to, the pen shows at once; clicked, it waits for a key.
+      var keyed = false;
+      try { keyed = pad.matches(":focus-visible"); } catch (e) { keyed = false; }
+      if (keyed) { pen.shown = true; paintPad(); }
+    });
+    pad.addEventListener("blur", function () {
+      pen.down = false;
+      paintPad();
+    });
+
     function clear() {
       cells.fill(0);
       testIdx = -1;
       paintPad();
-      classify();
+      classify(true);
     }
     clearBtn.addEventListener("click", clear);
 
     var pick = C.rng(77);
     loadBtn.addEventListener("click", function () {
-      // Upsampling a frozen test digit onto the pad gives the keyboard-only reader
-      // a way to operate this widget, and everyone else a reference for how
-      // unforgiving six-by-six is once you have tried to draw one by hand.
+      // Upsampling a frozen test digit onto the pad gives every reader a reference
+      // for how unforgiving six-by-six is once you have tried to draw one by hand.
       testIdx = Math.floor(pick() * model.n);
       var base = testIdx * model.rows, per = PAD / side;
       for (var i = 0; i < PAD; i++) {
@@ -271,7 +390,7 @@
         }
       }
       paintPad();
-      classify();
+      classify(true);
     });
 
     P.onWidthChange(el, function () { paintBars(reduce()); });

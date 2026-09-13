@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-GB">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="A weight is the magnetic state of a device and the sum is performed by Kirchhoff's law on a wire. How precisely would such a thing have to be built?">
 <title>spinn &middot; a neural network made of magnets</title>
+<script>(function(){var r=document.documentElement;r.classList.add('js');try{var t=localStorage.getItem('spinn-theme');if(t==='light'||t==='dark'){r.setAttribute('data-theme',t);}}catch(e){}})();</script>
 <style>
 
 :root{
@@ -30,7 +31,9 @@
   --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,"Liberation Mono",Menlo,monospace;
   --measure:60ch;
 }
-@media (prefers-color-scheme:dark){
+/* Both dark palettes are for screens. Paper is white whatever the screen was, and
+   dark-theme ink would print pale onto it, so print always takes the palette in :root. */
+@media screen and (prefers-color-scheme:dark){
   :root{
     --bg:#0a0d12; --surface:#111826; --surface-2:#0e131d;
     --border:#243149; --ink:#e8edf4; --ink-dim:#b7c2d2; --muted:#7787a0;
@@ -49,22 +52,32 @@
   --accent-ink:#0a7064; --accent-2-ink:#9c5411; --good-ink:#237a41;
   --bad-ink:#ba4530;
 }
-:root[data-theme="dark"]{
+@media screen{:root[data-theme="dark"]{
   --bg:#0a0d12; --surface:#111826; --surface-2:#0e131d;
   --border:#243149; --ink:#e8edf4; --ink-dim:#b7c2d2; --muted:#7787a0;
   --accent:#2ec9b8; --accent-2:#f2994a; --good:#57c07a; --bad:#e0705f; --accent-soft:rgba(46,201,184,.14);
   --accent-ink:#2ec9b8; --accent-2-ink:#f2994a; --good-ink:#57c07a; --bad-ink:#e0705f;
-}
+}}
 
 *{box-sizing:border-box;}
 body{margin:0;background:var(--bg);color:var(--ink);
   font-family:var(--sans);font-size:1.0625rem;line-height:1.65;
-  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  overflow-wrap:break-word;}
 .topline{height:3px;background:var(--rule-gradient);}
+/* The first stop for a keyboard, and out of sight until it is one. */
+.skip{position:absolute;top:10px;left:16px;z-index:30;transform:translateY(-200%);
+  font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--accent-ink);background:var(--surface);border:1px solid var(--border);
+  border-radius:7px;padding:9px 14px;text-decoration:none;}
+.skip:focus{transform:none;outline:2px solid var(--accent);outline-offset:2px;}
 
 .topbar{position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);
   background:color-mix(in srgb,var(--bg) 82%,transparent);
   border-bottom:1px solid var(--border);}
+/* Where color-mix() is unknown the whole declaration above is dropped, and a sticky
+   bar with no ground shows the page scrolling through its own text. */
+@supports not (background:color-mix(in srgb,red 50%,blue)){.topbar{background:var(--bg);}}
 .topbar-in{max-width:1120px;margin:0 auto;padding:9px 24px;
   display:flex;align-items:center;justify-content:space-between;gap:6px 16px;flex-wrap:wrap;}
 .brand{font-family:var(--mono);font-size:.8125rem;letter-spacing:.02em;color:var(--ink-dim);}
@@ -76,6 +89,10 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .theme-toggle .tm{flex:none;}
 .theme-toggle:hover{color:var(--ink);border-color:var(--accent);}
 .theme-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+/* It does nothing without a script, so without one it is not drawn. The class is set
+   in <head>, before the first paint, so a scripted page never shows the bar without
+   it and then shifts. */
+html:not(.js) .theme-toggle{display:none;}
 .topbar-right{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;}
 /* The nav is quieter than a row of pills: only the page you are on is drawn as
    one. Sized for several pages sharing a row, which is where this is going. */
@@ -182,7 +199,10 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .prose{color:var(--ink-dim);}
 .prose p{margin:.85rem 0;max-width:var(--measure);}
 .prose strong{color:var(--ink);font-weight:600;}
-.sub-h{font-family:var(--serif);font-weight:600;color:var(--ink);
+/* An <h3>, so heading navigation finds it. As a <p> it also lost its margins to
+   `.prose p`, which outranks it, and sat as close to the paragraph above as to the
+   one it introduces. */
+.sub-h{font-family:var(--serif);font-weight:600;color:var(--ink);text-wrap:balance;
   font-size:clamp(1.25rem,2vw,1.42rem);line-height:1.2;margin:2.1rem 0 .2rem;}
 .q{font-family:var(--mono);font-size:.92em;background:var(--surface-2);
   border:1px solid var(--border);border-radius:5px;padding:.05em .38em;color:var(--ink);
@@ -265,7 +285,7 @@ sup.r{font-family:var(--mono);font-size:.66em;color:var(--accent-ink);font-weigh
 /* footer */
 footer{border-top:1px solid var(--border);margin-top:20px;padding:44px 0 70px;}
 .foot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:26px;}
-footer h3{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;
+footer h2{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;
   color:var(--accent-ink);margin:0 0 .6rem;font-weight:600;}
 footer p{margin:.3rem 0;color:var(--ink-dim);font-size:.9375rem;max-width:42ch;}
 footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.8125rem;color:var(--muted);
@@ -330,6 +350,16 @@ footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.8125rem;colo
   .sp-field input[type="range"]{height:44px;}
   .sp-field input[type="range"]:focus-visible{outline-offset:0;}
   .toc-list a{padding-top:12px;padding-bottom:12px;}
+}
+/* Windows high contrast replaces every background with the system's own, and this
+   range input is drawn from nothing but backgrounds -- track and handle both -- so it
+   would vanish. In forced colours it is drawn in system colours instead. */
+@media (forced-colors:active){
+  .sp-field input[type="range"]{forced-color-adjust:none;}
+  .sp-field input[type="range"]::-webkit-slider-runnable-track{background:CanvasText;}
+  .sp-field input[type="range"]::-moz-range-track{background:CanvasText;}
+  .sp-field input[type="range"]::-webkit-slider-thumb{background:Highlight;}
+  .sp-field input[type="range"]::-moz-range-thumb{background:Highlight;}
 }
 
 /* --------------------------------------------------------------------- the hero
@@ -406,6 +436,16 @@ footer .colophon{margin-top:30px;font-family:var(--mono);font-size:.8125rem;colo
 .next-list span{color:var(--ink-dim);font-size:.9375rem;line-height:1.5;}
 @media (max-width:560px){.next-list li{grid-template-columns:1fr;}}
 
+/* Without a script. The prose carries the argument either way; these say what is
+   missing where an instrument would have been, and the budget's list gives its
+   recorded brackets in words. */
+.nojs{margin:0;font-size:.9375rem;line-height:1.5;color:var(--muted);max-width:60ch;}
+.nojs-list{list-style:none;margin:10px 0 0;padding:0;max-width:var(--measure);
+  border-top:1px solid var(--border);}
+.nojs-list li{padding:10px 0;border-bottom:1px solid var(--border);color:var(--ink-dim);
+  font-size:.9375rem;line-height:1.5;}
+.nojs-list b{color:var(--ink);font-weight:600;}
+
 /* ------------------------------------------------------- surfaces we did not draw
    Selection, caret, focus and scrollbars ship with defaults that belong to no
    design system. They are part of the page. */
@@ -428,6 +468,16 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
   .phase-head{gap:13px;}
 }
 
+/* Paper. The dark palettes are screen-only, and for the length of a print the page
+   script puts the canvases into the light theme as well. Controls a sheet of paper
+   cannot operate are left off it. */
+@media print{
+  .skip,.theme-toggle,.xh-controls,.bn-tools,.dw-tools{display:none;}
+  .topbar{position:static;backdrop-filter:none;}
+  h2,h3,h4{break-after:avoid;}
+  canvas,svg,.finding,.spec,.row-rec>div,.next-list li,.refs li{break-inside:avoid;}
+}
+
 </style>
 </head>
 <body>
@@ -446,6 +496,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
   recorded arithmetic -- a different random stream, a tie broken by summation
   order -- the widget says so in its own footnote.
 -->
+<a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   <div class="topbar-in">
     <span class="brand"><b>spinn</b><span class="brand-tail"> &middot; a device-tolerance study of spintronic neural networks</span></span>
@@ -457,7 +508,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
 </header>
 <div class="topline"></div>
 
-<main class="wrap">
+<main class="wrap" id="main">
 
   <section class="machine">
     <div class="machine-say">
@@ -472,6 +523,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     </div>
     <div class="machine-do">
       <div id="heroMachine"></div>
+      <noscript><p class="nojs">The machine runs in your browser, on JavaScript, which is not running here. With it, this space holds the real array classifying frozen test digits; without it, every number the page reports is still in the text.</p></noscript>
     </div>
     <div class="machine-read" id="heroReadout"></div>
   </section>
@@ -555,7 +607,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
 
     <div class="inst">
       <div class="inst-h">
-        <p class="inst-t">Instrument 01 &middot; one device</p>
+        <h3 class="inst-t">Instrument 01 &middot; one device</h3>
         <span class="inst-n">live &middot; 2,000 test digits per move</span>
       </div>
       <p class="inst-d">
@@ -566,6 +618,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
         on every move. Click the device to step it through its own states.
       </p>
       <div id="deviceExplorer"></div>
+      <noscript><p class="nojs">This instrument runs on JavaScript, which is not running here. It steps one device through its states and rescores all 2,000 test digits at each.</p></noscript>
     </div>
   </section>
 
@@ -602,7 +655,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
 
     <div class="inst">
       <div class="inst-h">
-        <p class="inst-t">Instrument 02 &middot; one column</p>
+        <h3 class="inst-t">Instrument 02 &middot; one column</h3>
         <span class="inst-n">real weights &middot; real test digit</span>
       </div>
       <p class="inst-d">
@@ -613,6 +666,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
         exists, and the number at the bottom is the column's answer.
       </p>
       <div id="wireColumn"></div>
+      <noscript><p class="nojs">This instrument runs on JavaScript, which is not running here. It fills one column&rsquo;s wire, device by device, for a real test digit.</p></noscript>
     </div>
   </section>
 
@@ -656,7 +710,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
 
     <div class="inst">
       <div class="inst-h">
-        <p class="inst-t">Instrument 03 &middot; your digit</p>
+        <h3 class="inst-t">Instrument 03 &middot; your digit</h3>
         <span class="inst-n">the same weights that scored 0.7345</span>
       </div>
       <p class="inst-d">
@@ -667,6 +721,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
         squares explains more about that than a paragraph can.
       </p>
       <div id="drawPad"></div>
+      <noscript><p class="nojs">This instrument runs on JavaScript, which is not running here. It passes a digit you draw through the trained array.</p></noscript>
     </div>
   </section>
 
@@ -770,7 +825,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
 
     <div class="inst">
       <div class="inst-h">
-        <p class="inst-t">Instrument 04 &middot; the bench</p>
+        <h3 class="inst-t">Instrument 04 &middot; the bench</h3>
         <span class="inst-n">all 2,000 digits, recomputed per move</span>
       </div>
       <p class="inst-d">
@@ -783,6 +838,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
         of the sweeps were run.
       </p>
       <div id="errorBench"></div>
+      <noscript><p class="nojs">This instrument runs on JavaScript, which is not running here. It rebuilds the array under the three error sources and rescores all 2,000 test digits; the recorded brackets it is measured against are listed in the next section.</p></noscript>
     </div>
   </section>
 
@@ -804,7 +860,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
 
     <div class="inst">
       <div class="inst-h">
-        <p class="inst-t">Instrument 05 &middot; the budget</p>
+        <h3 class="inst-t">Instrument 05 &middot; the budget</h3>
         <span class="inst-n">recorded &middot; base seed 20260908</span>
       </div>
       <p class="inst-d">
@@ -814,10 +870,18 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
         none was measured. The honest statement is the bracket underneath each panel.
       </p>
       <div id="budgetLadder"></div>
+      <noscript>
+        <p class="nojs">The panels are drawn by JavaScript, which is not running here. The brackets they show:</p>
+        <ul class="nojs-list">
+          <li><b>Conductance variation</b> holds at &sigma; = 0.035 of the window and fails at 0.05 &mdash; 4.84 bits held, 4.32 failed.</li>
+          <li><b>Resolvable states</b> holds at 7 states and fails at 5 &mdash; 3.70 bits held, 3.17 failed.</li>
+          <li><b>IR drop</b> holds at 100&nbsp;&#937; per segment and fails at 300&nbsp;&#937; &mdash; not a bit depth: a systematic, not a spread.</li>
+        </ul>
+      </noscript>
     </div>
 
     <div class="prose col">
-      <p class="sub-h">Two things the panels cannot draw</p>
+      <h3 class="sub-h">Two things the panels cannot draw</h3>
       <p>
         <strong>IR drop is deliberately not converted to bits.</strong> It is a
         position-dependent systematic, not a spread on a stored value, so
@@ -884,7 +948,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     </div>
 
     <div class="prose col">
-      <p class="sub-h">What is designed, what is cited, and what is still a hole</p>
+      <h3 class="sub-h">What is designed, what is cited, and what is still a hole</h3>
       <p>
         <strong>The operating point is designed.</strong> The window and the drive are this
         project's own choice, held to one rule: they must be something a magnetic tunnel
@@ -1019,14 +1083,14 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
   <div class="wrap">
     <div class="foot-grid">
       <div>
-        <h3>What this is</h3>
+        <h2>What this is</h2>
         <p>
           A spintronic crossbar simulator and its device-error model: the ideal design in
           Python, handed one way to an as-built error model in MATLAB.
         </p>
       </div>
       <div>
-        <h3>How numbers are treated</h3>
+        <h2>How numbers are treated</h2>
         <p>
           A measured value is cited, or marked <span class="q hole">UNSOURCED</span> and
           surfaced. A design value is this project's own, checked against what the device
@@ -1034,7 +1098,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
         </p>
       </div>
       <div>
-        <h3>What runs here</h3>
+        <h2>What runs here</h2>
         <p>
           Every widget on this page evaluates the real trained weights over the real
           frozen test set, in your browser. Nothing is fetched; nothing is precomputed
@@ -1417,10 +1481,15 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
   "use strict";
 
   const STYLE_ID = "spinn-mount-style";
+  //: The page's own tokens, with fallbacks for a shell that defines none. The grey
+  //: this carried before was hard-coded, and measured about 3.4:1 on the page.
   const CSS = `
 .pm-pending{min-height:120px;display:flex;align-items:center;justify-content:center;}
-.pm-pending::after{content:"Warming up\\2026";font:0.9rem/1.5 ui-sans-serif,system-ui,sans-serif;
-  color:#7a8698;opacity:0;animation:pm-fade .4s ease-out .25s forwards;}
+.pm-pending::after{content:"Warming up\\2026";
+  font:.9375rem/1.5 var(--sans,ui-sans-serif,system-ui,sans-serif);
+  color:var(--muted,#64707f);opacity:0;animation:pm-fade .4s ease-out .25s forwards;}
+.pm-failed{margin:0;max-width:60ch;font:.9375rem/1.5 var(--sans,ui-sans-serif,system-ui,sans-serif);
+  color:var(--accent-2-ink,#9c5411);}
 @keyframes pm-fade{to{opacity:1;}}
 @media (prefers-reduced-motion:reduce){.pm-pending::after{animation:none;opacity:1;}}
 `;
@@ -1489,8 +1558,23 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     } catch (e) {
       // One broken widget must not strand the rest of the queue.
       if (window.console) window.console.error("spinn: mounting #" + job.id + " failed", e);
+      failed(job.el, e);
     }
     job.el.classList.remove("pm-pending");
+  }
+
+  /**
+   * Say so, where the instrument should have been. The console is somewhere no
+   * reader looks, and a blank space under a caption that says "drag this" reads as
+   * a page still loading, or as one that never meant anything to be there.
+   */
+  function failed(el, e) {
+    const p = document.createElement("p");
+    p.className = "pm-failed";
+    p.textContent = "This instrument could not start in this browser"
+      + (e && e.message ? " (" + e.message + ")" : "")
+      + ". The rest of the page does not depend on it.";
+    el.appendChild(p);
   }
 
   /**
@@ -2295,7 +2379,10 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     + "font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;"
     + "text-transform:uppercase;color:var(--muted);}"
     + ".xh-legend span{display:flex;align-items:center;gap:6px;}"
-    + ".xh-legend i{width:9px;height:9px;border-radius:2px;display:block;}"
+    // A key is its colour. High contrast would paint it out, and the canvas it keys
+    // keeps its colours, so the swatch keeps its own too.
+    + ".xh-legend i{width:9px;height:9px;border-radius:2px;display:block;"
+    + "forced-color-adjust:none;}"
     + ".xh-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px;}"
     + ".xh-btn{font-family:var(--mono);font-size:.75rem;letter-spacing:.1em;"
     + "text-transform:uppercase;background:transparent;color:var(--ink-dim);"
@@ -2393,6 +2480,10 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     var arrayBuf = document.createElement("canvas");
     var geom = null, layout = null, colours = null;
 
+    function clock() {
+      return typeof performance !== "undefined" ? performance.now() : Date.now();
+    }
+
     function measure() {
       var W = Math.max(280, Math.round(canvas.getBoundingClientRect().width || 560));
       var tile = W < 460 ? 72 : 96;
@@ -2447,11 +2538,11 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       label = model.labels[sample];
       seen++;
       if (winner === label) right++;
-      t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
+      t0 = clock();
       updateText();
     }
 
-    /** Announce only what the reader asked for; see the aria-live note above. */
+    /** Announce only what the reader asked for: a press, never the autoplay. */
     function announce(on) {
       textEl.setAttribute("aria-live", on ? "polite" : "off");
     }
@@ -2495,7 +2586,8 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       ctx.fillText("COLUMN CURRENT", geom.x, geom.y + geom.h + 14 + layout.barsH + 30);
     }
 
-    function frameNow(now) {
+    /** One frame of the machine as it stands at time `now`. Draws; changes nothing. */
+    function draw(now) {
       var ctx = P.fitTo(canvas, layout.W, layout.H).ctx;
       var el2 = reduce ? 1 : Math.min(1, (now - t0) / 170);
       var eg = reduce ? 1 : Math.max(0, Math.min(1, (now - t0 - 150) / 300));
@@ -2510,13 +2602,26 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       V.drawColumns(ctx, colours, geom, geom.y + geom.h + 14, layout.barsH,
         logits, winner, true, grow);
       annotate(ctx);
-
-      if (playing && now - t0 > HOLD_MS) advance();
-      if (!reduce) raf = window.requestAnimationFrame(frameNow);
     }
 
+    //: Whether the machine is on screen. Off it, the loop stops rather than redraw
+    //: a picture nobody can see sixty times a second, and it picks up when the
+    //: reader comes back -- with a new digit, the old one having outstayed its hold.
+    var onScreen = true;
+
+    function frameNow(now) {
+      raf = 0;
+      draw(now);
+      if (playing && now - t0 > HOLD_MS) advance();
+      if (!reduce && onScreen) raf = window.requestAnimationFrame(frameNow);
+    }
+
+    // The settled frame. It used to be one pass of the loop run at a late clock, and
+    // the loop advances whenever the hero is playing: under reduced motion with Play
+    // pressed, every tick stepped twice and drew the digit before the one the
+    // readout named. Drawing a frame advances nothing now.
     function still() {
-      frameNow(t0 + 10000);
+      draw(t0 + 10000);
     }
 
     function start() {
@@ -2528,7 +2633,9 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       colours = V.ink(document.documentElement);
       measure();
       paintArray();
-      if (reduce) still();
+      // Drawn now, not on the next frame: a resize has just cleared the canvas, and
+      // a page being printed gets no next frame at all.
+      if (reduce) still(); else draw(clock());
     }
 
     playBtn.addEventListener("click", function () {
@@ -2542,7 +2649,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       } else if (reduce && timer) {
         window.clearInterval(timer); timer = 0;
       }
-      if (playing) t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
+      if (playing) t0 = clock();
     });
     nextBtn.addEventListener("click", function () {
       announce(true);
@@ -2552,6 +2659,12 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
 
     P.onWidthChange(el, relayout);
     P.onThemeChange(function () { relayout(); });
+    if (typeof window.IntersectionObserver === "function") {
+      new window.IntersectionObserver(function (entries) {
+        onScreen = entries[entries.length - 1].isIntersecting;
+        if (onScreen && !reduce) start();
+      }).observe(canvas);
+    }
 
     colours = V.ink(document.documentElement);
     announce(!playing);
@@ -2596,7 +2709,14 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     + "@media (max-width:720px){.dv-grid{grid-template-columns:1fr;gap:20px;}}"
     + ".dv-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;"
     + "text-transform:uppercase;color:var(--muted);margin:0 0 10px;}"
-    + ".dv-stack{display:block;width:100%;max-width:250px;height:auto;}"
+    // The diagram is the button that steps it, so it stays drawn as a diagram: no
+    // border and no ground. On hover its track takes the teal a control's border
+    // takes, and its focus ring is every other control's.
+    + ".dv-stackwrap{display:block;width:100%;max-width:250px;margin:0;padding:0;border:0;"
+    + "background:none;color:inherit;font:inherit;cursor:pointer;border-radius:10px;}"
+    + ".dv-stackwrap:focus-visible{outline:2px solid var(--accent);outline-offset:4px;}"
+    + ".dv-stackwrap:hover .dv-track{stroke:var(--accent);}"
+    + ".dv-stack{display:block;width:100%;height:auto;}"
     + ".dv-note{font-size:.8125rem;color:var(--muted);margin:10px 0 0;line-height:1.5;}"
     + ".dv-lat{display:block;width:100%;}"
     + ".dv-rowlab{display:flex;justify-content:space-between;align-items:baseline;"
@@ -2610,7 +2730,10 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     + ".dv-out .v{display:block;font-family:var(--mono);font-size:clamp(1.25rem,2vw,1.42rem);font-weight:600;"
     + "color:var(--ink);font-variant-numeric:tabular-nums;}"
     + ".dv-out .v.warn{color:var(--accent-2-ink);}"
-    + ".dv-out .l{display:block;font-size:.8125rem;color:var(--muted);margin-top:2px;}";
+    + ".dv-out .l{display:block;font-size:.8125rem;color:var(--muted);margin-top:2px;}"
+    + ".dv-out .l.warn{color:var(--accent-2-ink);}"
+    + ".dv-vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;"
+    + "overflow:hidden;clip-path:inset(50%);white-space:nowrap;}";
 
   var MONO = 'ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace';
   //: The same stack for an SVG attribute, which is itself double-quoted. Pasted in
@@ -2658,7 +2781,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       // barrier
       + '<rect x="30" y="52" width="66" height="8" fill="var(--border)"/>'
       // free layer / track
-      + '<rect x="30" y="24" width="66" height="20" fill="var(--surface-2)" '
+      + '<rect class="dv-track" x="30" y="24" width="66" height="20" fill="var(--surface-2)" '
       + 'stroke="var(--border)"/>'
       + body
       // contacts
@@ -2733,7 +2856,12 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     var model = C.load(window.SpinnData);
 
     var grid = P.el("div", "dv-grid");
-    var left = P.el("div", "", '<p class="dv-k">One device</p><div class="dv-stackwrap"></div>'
+    // The device is a button because it does something: pressed, it steps to its
+    // next state. It was a div with a click handler, which a mouse could press and
+    // a keyboard could not reach.
+    var left = P.el("div", "", '<p class="dv-k">One device</p>'
+      + '<button type="button" class="dv-stackwrap" '
+      + 'aria-label="Step the device to its next state"></button>'
       + '<p class="dv-note"></p>');
     var right = P.el("div", "",
       '<div class="dv-rowlab"><span>What one device can hold</span><b class="dv-n"></b></div>'
@@ -2748,11 +2876,17 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       + '<input id="dv-states" type="range" min="0" max="7" step="1" value="7">'
       + '<output for="dv-states"></output>');
     var out = P.el("div", "dv-out",
-      '<div><span class="v acc"></span><span class="l">accuracy on the frozen test set</span></div>'
+      '<div><span class="v acc"></span><span class="l">accuracy on the frozen test set</span>'
+      + '<span class="l pass"></span></div>'
       + '<div><span class="v bits"></span><span class="l">effective bits per weight</span></div>'
       + '<div><span class="v pair"></span><span class="l">weights a pair can represent</span></div>');
+    // What a press, or a finished drag, changed -- for a reader who cannot see it.
+    var status = P.el("p", "dv-vh");
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
     ctl.appendChild(slider);
     ctl.appendChild(out);
+    ctl.appendChild(status);
 
     el.appendChild(grid);
 
@@ -2766,7 +2900,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     var canvas = right.querySelector(".dv-lat");
     var nEl = right.querySelector(".dv-n");
     var accEl = out.querySelector(".acc"), bitsEl = out.querySelector(".bits");
-    var pairEl = out.querySelector(".pair");
+    var pairEl = out.querySelector(".pair"), passEl = out.querySelector(".pass");
 
     var level = 1;
 
@@ -2775,8 +2909,12 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       level = Math.min(level, states - 1);
       var res = C.evaluate(model, C.machine(model, { states: states }));
       var bits = Math.log(2 * states - 1) / Math.LN2;
+      var below = res.accuracy < model.threshold;
 
       outEl.textContent = states + " states";
+      // The input's own value is a rung on the ladder, so without this a screen
+      // reader announces "5" for nine states.
+      input.setAttribute("aria-valuetext", states + " states");
       nEl.textContent = states + " levels";
       stackWrap.innerHTML = stack(level, states);
       note.innerHTML = states === 2
@@ -2787,18 +2925,29 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       lattice(canvas, states, level);
 
       accEl.textContent = res.accuracy.toFixed(4);
-      accEl.classList.toggle("warn", res.accuracy < model.threshold);
+      accEl.classList.toggle("warn", below);
+      // Written as well as coloured: nothing on this page is said by colour alone.
+      passEl.textContent = (below ? "below" : "clears") + " the pass mark of "
+        + model.threshold.toFixed(4);
+      passEl.classList.toggle("warn", below);
       bitsEl.textContent = bits.toFixed(2);
       pairEl.textContent = 2 * states - 1;
     }
 
     input.addEventListener("input", render);
-    // Clicking the device steps it through its own states, which is the fastest
+    // Read out once the reader has let go, not at every rung a drag passes over.
+    input.addEventListener("change", function () {
+      status.textContent = "Accuracy " + accEl.textContent + ", " + passEl.textContent + ".";
+    });
+    // Pressing the device steps it through its own states, which is the fastest
     // way to feel what "a state" is without reading a caption about it.
     stackWrap.addEventListener("click", function () {
       var states = LADDER[Number(input.value)];
       level = (level + 1) % states;
       render();
+      status.textContent = states === 2
+        ? "Free layer " + (level === 1 ? "parallel" : "antiparallel") + "."
+        : "Wall at position " + level + " of " + (states - 1) + ".";
     });
     P.onWidthChange(el, render);
     P.onThemeChange(render);
@@ -3148,7 +3297,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     // failed. Drawn beneath the handle, which covers them when it sits on one.
     + ".bn-track{position:relative;display:block;}"
     + ".bn-track input{position:relative;}"
-    + ".bn-mark{position:absolute;top:50%;width:2px;height:7px;margin:3px 0 0 -1px;"
+    + ".bn-mark{forced-color-adjust:none;position:absolute;top:50%;width:2px;height:7px;margin:3px 0 0 -1px;"
     + "pointer-events:none;}"
     + ".bn-mark.hold{background:var(--good);}"
     + ".bn-mark.fail{background:var(--bad);}";
@@ -3521,14 +3670,26 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       drawMeter(res, hl);
     }
 
+    /** A ladder label as a screen reader should say it: "Ω" is read as "omega", or not at all. */
+    function spoken(text) {
+      return text.replace(/(\d+(?:\.\d+)?) (k?)Ω/, function (m, n, k) {
+        return n + " " + (k ? "kil" : "") + (n === "1" ? "ohm" : "ohms");
+      });
+    }
+
     /** Each slider's value, and in words where it sits on that source's bracket. */
     function labels() {
       [[sIn, sigma, b.sigma], [qIn, states, b.states], [rIn, wire, b.wire]]
         .forEach(function (f) {
           var i = Number(f[0].value), v = f[1].values[i];
+          var where = v === f[2].lastHolding ? "last that holds"
+            : v === f[2].firstFailing ? "first that fails" : "";
           f[0].closest(".sp-field").querySelector("output").textContent = f[1].label(i)
-            + (v === f[2].lastHolding ? " · last that holds"
-              : v === f[2].firstFailing ? " · first that fails" : "");
+            + (where ? " · " + where : "");
+          // The input's own value is a rung index, so without this a screen reader
+          // announces "5" for sigma = 0.035.
+          f[0].setAttribute("aria-valuetext",
+            spoken(f[1].label(i)) + (where ? ", " + where : ""));
         });
     }
 
@@ -3808,7 +3969,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     PANELS.forEach(function (panel) {
       var entry = model.budget[panel.key];
       var box = P.el("div", "ld-p",
-        '<p class="ld-h">' + panel.head + "</p>"
+        '<h4 class="ld-h">' + panel.head + "</h4>"
         + '<p class="ld-s">' + panel.sub + "</p>");
       var canvas = document.createElement("canvas");
       canvas.setAttribute("role", "img");
@@ -3866,6 +4027,13 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
  * downsampled tile drawn beside the pad -- is the point: most of what a reader
  * needs to understand about why 36 pixels is hard, they get from watching their 4
  * turn into nine grey squares.
+ *
+ * The pad takes a keyboard as well as a pointer. Arrow keys move a pen over the
+ * 24-grid, a whole ruled square of the six at a time with Shift, and Space puts it
+ * down or lifts it; with the pen down, every cell it passes over is dabbed with the
+ * same brush a pointer uses. Before, the pad was a tab stop that ignored every key,
+ * and "Load a test digit" was the only way in -- which lets a reader watch the
+ * machine, but never write for it.
  */
 (function () {
   "use strict";
@@ -3877,6 +4045,9 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     + "gap:20px 30px;align-items:start;justify-content:start;}"
     + "@media (max-width:720px){.dw{grid-template-columns:1fr 1fr;}"
     + ".dw-out{grid-column:1 / -1;}}"
+    // The 168px pad, the 108px tile and the gap between them need 306px, and a 320px
+    // screen has 272 inside its gutters. One column, rather than a sideways scroll.
+    + "@media (max-width:380px){.dw{grid-template-columns:1fr;}}"
     + ".dw-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;"
     + "text-transform:uppercase;color:var(--muted);margin:0 0 8px;}"
     + ".dw-pad{border:1px solid var(--border);border-radius:10px;background:var(--surface);"
@@ -3897,11 +4068,25 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     + "transition:color .15s,border-color .15s,background .15s;}"
     + ".dw-btn:hover{color:var(--ink);border-color:var(--accent);background:var(--accent-soft);}"
     + ".dw-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
-    + ".dw-hint{font-size:.8125rem;color:var(--muted);margin:12px 0 0;line-height:1.5;}";
+    + ".dw-hint{font-size:.8125rem;color:var(--muted);margin:12px 0 0;line-height:1.5;}"
+    // The keys, shown to whoever is pressing them: on keyboard focus, and not to a
+    // reader who drew with a mouse. A screen reader has them as the pad's description
+    // either way. Capped at the pad's width, or the sentence would widen its column.
+    + ".dw-keys{display:none;max-width:168px;}"
+    + ".dw-pad:focus-visible~.dw-keys{display:block;}"
+    + ".dw-vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;"
+    + "overflow:hidden;clip-path:inset(50%);white-space:nowrap;}";
 
   var PAD = 24;        // the pad's own grid
   var PAD_PX = 168;    // its drawn size, 7 screen pixels per cell
   var TILE_PX = 108;
+  var BRUSH = 1.7;     // the brush's radius, in pad cells
+  //: How long the pad has to be still before the verdict is read out. Every pointer
+  //: event reclassifies, and a live region that spoke each one would be reading out
+  //: numbers faster than anyone can hear them.
+  var SPEAK_MS = 700;
+  //: The arrow keys, as one cell's step.
+  var MOVES = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 
   function mount(el) {
     P.injectStyle("spinn-draw-style", CSS);
@@ -3916,10 +4101,12 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     pad.width = PAD_PX; pad.height = PAD_PX;
     pad.style.width = PAD_PX + "px"; pad.style.height = PAD_PX + "px";
     pad.tabIndex = 0;
+    // An application because it behaves as one: it takes the arrow keys for itself,
+    // which a screen reader left in browse mode would otherwise keep.
     pad.setAttribute("role", "application");
-    pad.setAttribute("aria-label",
-      "Drawing pad. Draw a digit with the pointer, or use the buttons below to load "
-      + "a test digit.");
+    pad.setAttribute("aria-roledescription", "drawing pad");
+    pad.setAttribute("aria-label", "Draw a digit");
+    pad.setAttribute("aria-describedby", "dw-keys");
     padBox.appendChild(pad);
     var tools = P.el("div", "dw-tools");
     var clearBtn = P.el("button", "dw-btn", "Clear");
@@ -3929,6 +4116,11 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     tools.appendChild(clearBtn);
     tools.appendChild(loadBtn);
     padBox.appendChild(tools);
+    var keys = P.el("p", "dw-hint dw-keys",
+      "Arrow keys move the pen, a whole square at a time with Shift. Space puts it "
+      + "down or lifts it; Delete clears the pad.");
+    keys.id = "dw-keys";
+    padBox.appendChild(keys);
 
     var seenBox = P.el("div", "", '<p class="dw-k">What the array sees</p>');
     var seen = document.createElement("canvas");
@@ -3941,14 +4133,18 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     var outBox = P.el("div", "dw-out", '<p class="dw-k">The array says</p>');
     var guess = P.el("div", "dw-guess none", "—");
     var second = P.el("p", "dw-second", "");
-    second.setAttribute("role", "status");
-    second.setAttribute("aria-live", "polite");
     var bars = document.createElement("canvas");
     bars.setAttribute("role", "img");
     bars.className = "dw-bars";
+    // The verdict for a screen reader, spoken once the pad goes still. The visible
+    // line under the numeral changes with every dab, and is deliberately not live.
+    var status = P.el("p", "dw-vh");
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
     outBox.appendChild(guess);
     outBox.appendChild(second);
     outBox.appendChild(bars);
+    outBox.appendChild(status);
 
     grid.appendChild(padBox);
     grid.appendChild(seenBox);
@@ -3959,6 +4155,10 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     var small = new Float64Array(side * side);
     var logits = new Float64Array(model.cols);
     var drawing = false, testIdx = -1;
+    // The keyboard's pen: where it is, whether it is down, and whether it is drawn.
+    // It is drawn only while the pad has keyboard focus.
+    var pen = { x: PAD / 2 - 0.5, y: PAD / 2 - 0.5, down: false, shown: false };
+    var speakTimer = 0;
 
     function paintPad() {
       var c = V.ink(document.documentElement);
@@ -3984,6 +4184,21 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
         var p = Math.round((k / side) * PAD_PX) + 0.5;
         ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, PAD_PX); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(PAD_PX, p); ctx.stroke();
+      }
+      // The keyboard's pen: a ring the size of the brush, with a dot in it when down.
+      if (pen.shown && document.activeElement === pad) {
+        var px = pen.x * cell, py = pen.y * cell;
+        ctx.strokeStyle = c.accent;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(px, py, BRUSH * cell, 0, Math.PI * 2);
+        ctx.stroke();
+        if (pen.down) {
+          ctx.fillStyle = c.accent;
+          ctx.beginPath();
+          ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
 
@@ -4037,53 +4252,76 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
         : "No digit drawn yet.");
     }
 
-    function classify() {
-      var has = reduce();
+    /**
+     * Say `text` now: the answer to a key, not a running commentary. A verdict that
+     * is already waiting is left to follow it -- lifting the pen at the end of a
+     * stroke must not swallow what the stroke drew.
+     */
+    function say(text) {
+      status.textContent = text;
+    }
+
+    /** Classify the pad; with `speak`, read the verdict out once the pad is still. */
+    function classify(speak) {
+      var has = reduce(), spoken;
       if (has) {
         C.logitsOne(small, 0, mach.weights, model.gain, model.rows, model.cols, logits);
         var top = C.argmax(logits);
         var order = [];
         for (var j = 0; j < 10; j++) order.push(j);
         order.sort(function (a, b) { return logits[b] - logits[a]; });
+        var really = testIdx < 0 ? ""
+          : (model.labels[testIdx] === 8 ? "an " : "a ") + model.labels[testIdx];
         guess.textContent = String(top);
         guess.classList.remove("none");
         second.textContent = "runner-up " + order[1] + " · margin "
           + (logits[order[0]] - logits[order[1]]).toFixed(2)
-          + (testIdx >= 0 ? " · this one is really " + (model.labels[testIdx] === 8 ? "an " : "a ")
-            + model.labels[testIdx] : "");
+          + (really ? " · this one is really " + really : "");
+        spoken = "The array says " + top + ", runner-up " + order[1]
+          + (really ? ". This one is really " + really : "") + ".";
       } else {
         guess.textContent = "—";
         guess.classList.add("none");
         second.textContent = "Nothing on the pad yet.";
+        spoken = "Nothing on the pad yet.";
       }
       paintSeen();
       paintBars(has);
+      if (speak) {
+        window.clearTimeout(speakTimer);
+        speakTimer = window.setTimeout(function () { status.textContent = spoken; }, SPEAK_MS);
+      }
+    }
+
+    /** One dab of a soft round brush, centred at (x, y) in pad cells. */
+    function stamp(x, y) {
+      // Soft and round: a one-cell hard stamp on a 24-grid gives a stroke too thin
+      // to survive the box-average down to six.
+      for (var i = Math.floor(y - BRUSH); i <= Math.ceil(y + BRUSH); i++) {
+        for (var j = Math.floor(x - BRUSH); j <= Math.ceil(x + BRUSH); j++) {
+          if (i < 0 || j < 0 || i >= PAD || j >= PAD) continue;
+          var d = Math.sqrt((i + 0.5 - y) * (i + 0.5 - y) + (j + 0.5 - x) * (j + 0.5 - x));
+          if (d > BRUSH) continue;
+          var at = i * PAD + j;
+          cells[at] = Math.min(1, cells[at] + (1 - d / BRUSH) * 0.85);
+        }
+      }
+      testIdx = -1;
     }
 
     function stroke(ev) {
       var rect = pad.getBoundingClientRect();
-      var x = (ev.clientX - rect.left) / rect.width * PAD;
-      var y = (ev.clientY - rect.top) / rect.height * PAD;
-      // A soft round brush: a one-cell hard stamp on a 24-grid gives a stroke too
-      // thin to survive the box-average down to six.
-      var rad = 1.7;
-      for (var i = Math.floor(y - rad); i <= Math.ceil(y + rad); i++) {
-        for (var j = Math.floor(x - rad); j <= Math.ceil(x + rad); j++) {
-          if (i < 0 || j < 0 || i >= PAD || j >= PAD) continue;
-          var d = Math.sqrt((i + 0.5 - y) * (i + 0.5 - y) + (j + 0.5 - x) * (j + 0.5 - x));
-          if (d > rad) continue;
-          var add = 1 - d / rad;
-          var at = i * PAD + j;
-          cells[at] = Math.min(1, cells[at] + add * 0.85);
-        }
-      }
-      testIdx = -1;
+      stamp((ev.clientX - rect.left) / rect.width * PAD,
+        (ev.clientY - rect.top) / rect.height * PAD);
       paintPad();
-      classify();
+      classify(true);
     }
 
     pad.addEventListener("pointerdown", function (ev) {
       drawing = true;
+      // A pointer takes over from the keyboard: the keyboard's pen lifts and hides.
+      pen.shown = false;
+      pen.down = false;
       pad.setPointerCapture(ev.pointerId);
       stroke(ev);
       ev.preventDefault();
@@ -4095,19 +4333,61 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       pad.addEventListener(name, function () { drawing = false; });
     });
 
+    pad.addEventListener("keydown", function (ev) {
+      if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
+      var move = MOVES[ev.key], changed = false;
+      if (move) {
+        // With the pen down every cell passed over is dabbed, so a Shift move is
+        // still a line and not two dots a square apart.
+        for (var n = ev.shiftKey ? PAD / side : 1; n > 0; n--) {
+          pen.x = Math.max(0.5, Math.min(PAD - 0.5, pen.x + move[0]));
+          pen.y = Math.max(0.5, Math.min(PAD - 0.5, pen.y + move[1]));
+          if (pen.down) { stamp(pen.x, pen.y); changed = true; }
+        }
+      } else if (ev.key === " " || ev.key === "Enter") {
+        pen.down = !pen.down;
+        if (pen.down) { stamp(pen.x, pen.y); changed = true; }
+        say(pen.down ? "Pen down." : "Pen up.");
+      } else if (ev.key === "Escape" && pen.down) {
+        pen.down = false;
+        say("Pen up.");
+      } else if (ev.key === "Delete" || ev.key === "Backspace") {
+        cells.fill(0);
+        testIdx = -1;
+        changed = true;
+      } else {
+        return;
+      }
+      ev.preventDefault();
+      pen.shown = true;
+      paintPad();
+      // A pen moved while up changed nothing, and re-reading an unchanged verdict at
+      // every step would bury the one that did change.
+      if (changed) classify(true);
+    });
+    pad.addEventListener("focus", function () {
+      // Tabbed to, the pen shows at once; clicked, it waits for a key.
+      var keyed = false;
+      try { keyed = pad.matches(":focus-visible"); } catch (e) { keyed = false; }
+      if (keyed) { pen.shown = true; paintPad(); }
+    });
+    pad.addEventListener("blur", function () {
+      pen.down = false;
+      paintPad();
+    });
+
     function clear() {
       cells.fill(0);
       testIdx = -1;
       paintPad();
-      classify();
+      classify(true);
     }
     clearBtn.addEventListener("click", clear);
 
     var pick = C.rng(77);
     loadBtn.addEventListener("click", function () {
-      // Upsampling a frozen test digit onto the pad gives the keyboard-only reader
-      // a way to operate this widget, and everyone else a reference for how
-      // unforgiving six-by-six is once you have tried to draw one by hand.
+      // Upsampling a frozen test digit onto the pad gives every reader a reference
+      // for how unforgiving six-by-six is once you have tried to draw one by hand.
       testIdx = Math.floor(pick() * model.n);
       var base = testIdx * model.rows, per = PAD / side;
       for (var i = 0; i < PAD; i++) {
@@ -4117,7 +4397,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
         }
       }
       paintPad();
-      classify();
+      classify(true);
     });
 
     P.onWidthChange(el, function () { paintBars(reduce()); });
@@ -4211,12 +4491,28 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
 </script>
 <script>
 (function(){
+  // The saved theme was applied in <head>, before the first paint; see THEME_BOOT.
   var root=document.documentElement, btn=document.getElementById('themeToggle');
-  try{var saved=localStorage.getItem('spinn-theme'); if(saved){root.setAttribute('data-theme',saved);}}catch(e){}
-  function cur(){var a=root.getAttribute('data-theme'); if(a) return a;
-    return window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';}
+  var mq=window.matchMedia('(prefers-color-scheme:dark)');
+  function cur(){var a=root.getAttribute('data-theme'); if(a==='dark'||a==='light') return a;
+    return mq.matches?'dark':'light';}
+  // The button names what a press will do. "theme" on its own tells a screen reader
+  // neither the state the page is in nor the one it would be put in.
+  function name(){btn.setAttribute('aria-label','Switch to '+(cur()==='dark'?'light':'dark')+' theme');}
   btn.addEventListener('click',function(){var n=cur()==='dark'?'light':'dark';
-    root.setAttribute('data-theme',n); try{localStorage.setItem('spinn-theme',n);}catch(e){}});
+    root.setAttribute('data-theme',n); try{localStorage.setItem('spinn-theme',n);}catch(e){} name();});
+  if(mq.addEventListener) mq.addEventListener('change',name);
+  name();
+  // Paper is white. The stylesheet keeps the dark palettes off it, but a canvas is
+  // pixels, drawn in whichever theme was live -- so for the length of a print the
+  // page takes the light theme, every widget redraws through onThemeChange, and the
+  // reader's own choice is put back afterwards.
+  var held=null;
+  addEventListener('beforeprint',function(){held=root.getAttribute('data-theme')||'';
+    root.setAttribute('data-theme','light');});
+  addEventListener('afterprint',function(){if(held===null) return;
+    if(held){root.setAttribute('data-theme',held);}else{root.removeAttribute('data-theme');}
+    held=null;});
 })();
 (function(){
   var els=document.querySelectorAll('.reveal');

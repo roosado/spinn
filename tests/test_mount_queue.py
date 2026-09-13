@@ -96,6 +96,16 @@ def test_one_broken_widget_does_not_strand_the_rest(out):
     assert out["survivesThrow"] == ["bad", "good"]
 
 
+def test_a_broken_widget_says_so_where_it_would_have_been(out):
+    """The console is somewhere no reader looks, and an empty host under a caption
+    that says "drag this" reads as a page still loading. The host whose widget threw
+    carries a note naming the error; the one whose widget started carries nothing."""
+    bad = out["failureSaid"]["bad"]
+    assert [c["cls"] for c in bad] == ["pm-failed"]
+    assert "could not start" in bad[0]["text"] and "boom" in bad[0]["text"]
+    assert out["failureSaid"]["good"] == []
+
+
 def test_an_absent_container_is_skipped(out):
     """A page that carries only some widgets must not jam on the ones it lacks."""
     assert out["missingIdSkipped"] == ["real"]

@@ -35,7 +35,10 @@
     + "font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;"
     + "text-transform:uppercase;color:var(--muted);}"
     + ".xh-legend span{display:flex;align-items:center;gap:6px;}"
-    + ".xh-legend i{width:9px;height:9px;border-radius:2px;display:block;}"
+    // A key is its colour. High contrast would paint it out, and the canvas it keys
+    // keeps its colours, so the swatch keeps its own too.
+    + ".xh-legend i{width:9px;height:9px;border-radius:2px;display:block;"
+    + "forced-color-adjust:none;}"
     + ".xh-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px;}"
     + ".xh-btn{font-family:var(--mono);font-size:.75rem;letter-spacing:.1em;"
     + "text-transform:uppercase;background:transparent;color:var(--ink-dim);"
@@ -133,6 +136,10 @@
     var arrayBuf = document.createElement("canvas");
     var geom = null, layout = null, colours = null;
 
+    function clock() {
+      return typeof performance !== "undefined" ? performance.now() : Date.now();
+    }
+
     function measure() {
       var W = Math.max(280, Math.round(canvas.getBoundingClientRect().width || 560));
       var tile = W < 460 ? 72 : 96;
@@ -187,11 +194,11 @@
       label = model.labels[sample];
       seen++;
       if (winner === label) right++;
-      t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
+      t0 = clock();
       updateText();
     }
 
-    /** Announce only what the reader asked for; see the aria-live note above. */
+    /** Announce only what the reader asked for: a press, never the autoplay. */
     function announce(on) {
       textEl.setAttribute("aria-live", on ? "polite" : "off");
     }
@@ -235,7 +242,8 @@
       ctx.fillText("COLUMN CURRENT", geom.x, geom.y + geom.h + 14 + layout.barsH + 30);
     }
 
-    function frameNow(now) {
+    /** One frame of the machine as it stands at time `now`. Draws; changes nothing. */
+    function draw(now) {
       var ctx = P.fitTo(canvas, layout.W, layout.H).ctx;
       var el2 = reduce ? 1 : Math.min(1, (now - t0) / 170);
       var eg = reduce ? 1 : Math.max(0, Math.min(1, (now - t0 - 150) / 300));
@@ -250,13 +258,26 @@
       V.drawColumns(ctx, colours, geom, geom.y + geom.h + 14, layout.barsH,
         logits, winner, true, grow);
       annotate(ctx);
-
-      if (playing && now - t0 > HOLD_MS) advance();
-      if (!reduce) raf = window.requestAnimationFrame(frameNow);
     }
 
+    //: Whether the machine is on screen. Off it, the loop stops rather than redraw
+    //: a picture nobody can see sixty times a second, and it picks up when the
+    //: reader comes back -- with a new digit, the old one having outstayed its hold.
+    var onScreen = true;
+
+    function frameNow(now) {
+      raf = 0;
+      draw(now);
+      if (playing && now - t0 > HOLD_MS) advance();
+      if (!reduce && onScreen) raf = window.requestAnimationFrame(frameNow);
+    }
+
+    // The settled frame. It used to be one pass of the loop run at a late clock, and
+    // the loop advances whenever the hero is playing: under reduced motion with Play
+    // pressed, every tick stepped twice and drew the digit before the one the
+    // readout named. Drawing a frame advances nothing now.
     function still() {
-      frameNow(t0 + 10000);
+      draw(t0 + 10000);
     }
 
     function start() {
@@ -268,7 +289,9 @@
       colours = V.ink(document.documentElement);
       measure();
       paintArray();
-      if (reduce) still();
+      // Drawn now, not on the next frame: a resize has just cleared the canvas, and
+      // a page being printed gets no next frame at all.
+      if (reduce) still(); else draw(clock());
     }
 
     playBtn.addEventListener("click", function () {
@@ -282,7 +305,7 @@
       } else if (reduce && timer) {
         window.clearInterval(timer); timer = 0;
       }
-      if (playing) t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
+      if (playing) t0 = clock();
     });
     nextBtn.addEventListener("click", function () {
       announce(true);
@@ -292,6 +315,12 @@
 
     P.onWidthChange(el, relayout);
     P.onThemeChange(function () { relayout(); });
+    if (typeof window.IntersectionObserver === "function") {
+      new window.IntersectionObserver(function (entries) {
+        onScreen = entries[entries.length - 1].isIntersecting;
+        if (onScreen && !reduce) start();
+      }).observe(canvas);
+    }
 
     colours = V.ink(document.documentElement);
     announce(!playing);

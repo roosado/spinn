@@ -16,7 +16,7 @@
 @@TOPBAR@@
 <div class="topline"></div>
 
-<main class="wrap">
+<main class="wrap" id="main">
 
   <section class="machine">
     <div class="machine-say">
@@ -31,6 +31,7 @@
     </div>
     <div class="machine-do">
       <div id="heroMachine"></div>
+      <noscript><p class="nojs">The machine runs in your browser, on JavaScript, which is not running here. With it, this space holds the real array classifying frozen test digits; without it, every number the page reports is still in the text.</p></noscript>
     </div>
     <div class="machine-read" id="heroReadout"></div>
   </section>
@@ -111,7 +112,7 @@
 
     <div class="inst">
       <div class="inst-h">
-        <p class="inst-t">Instrument 01 &middot; one device</p>
+        <h3 class="inst-t">Instrument 01 &middot; one device</h3>
         <span class="inst-n">live &middot; 2,000 test digits per move</span>
       </div>
       <p class="inst-d">
@@ -122,6 +123,7 @@
         on every move. Click the device to step it through its own states.
       </p>
       <div id="deviceExplorer"></div>
+      <noscript><p class="nojs">This instrument runs on JavaScript, which is not running here. It steps one device through its states and rescores all 2,000 test digits at each.</p></noscript>
     </div>
   </section>
 
@@ -158,7 +160,7 @@
 
     <div class="inst">
       <div class="inst-h">
-        <p class="inst-t">Instrument 02 &middot; one column</p>
+        <h3 class="inst-t">Instrument 02 &middot; one column</h3>
         <span class="inst-n">real weights &middot; real test digit</span>
       </div>
       <p class="inst-d">
@@ -169,6 +171,7 @@
         exists, and the number at the bottom is the column's answer.
       </p>
       <div id="wireColumn"></div>
+      <noscript><p class="nojs">This instrument runs on JavaScript, which is not running here. It fills one column&rsquo;s wire, device by device, for a real test digit.</p></noscript>
     </div>
   </section>
 
@@ -212,7 +215,7 @@
 
     <div class="inst">
       <div class="inst-h">
-        <p class="inst-t">Instrument 03 &middot; your digit</p>
+        <h3 class="inst-t">Instrument 03 &middot; your digit</h3>
         <span class="inst-n">the same weights that scored 0.7345</span>
       </div>
       <p class="inst-d">
@@ -223,6 +226,7 @@
         squares explains more about that than a paragraph can.
       </p>
       <div id="drawPad"></div>
+      <noscript><p class="nojs">This instrument runs on JavaScript, which is not running here. It passes a digit you draw through the trained array.</p></noscript>
     </div>
   </section>
 
@@ -326,7 +330,7 @@
 
     <div class="inst">
       <div class="inst-h">
-        <p class="inst-t">Instrument 04 &middot; the bench</p>
+        <h3 class="inst-t">Instrument 04 &middot; the bench</h3>
         <span class="inst-n">all 2,000 digits, recomputed per move</span>
       </div>
       <p class="inst-d">
@@ -339,6 +343,7 @@
         of the sweeps were run.
       </p>
       <div id="errorBench"></div>
+      <noscript><p class="nojs">This instrument runs on JavaScript, which is not running here. It rebuilds the array under the three error sources and rescores all 2,000 test digits; the recorded brackets it is measured against are listed in the next section.</p></noscript>
     </div>
   </section>
 
@@ -360,7 +365,7 @@
 
     <div class="inst">
       <div class="inst-h">
-        <p class="inst-t">Instrument 05 &middot; the budget</p>
+        <h3 class="inst-t">Instrument 05 &middot; the budget</h3>
         <span class="inst-n">recorded &middot; base seed 20260908</span>
       </div>
       <p class="inst-d">
@@ -370,10 +375,18 @@
         none was measured. The honest statement is the bracket underneath each panel.
       </p>
       <div id="budgetLadder"></div>
+      <noscript>
+        <p class="nojs">The panels are drawn by JavaScript, which is not running here. The brackets they show:</p>
+        <ul class="nojs-list">
+          <li><b>Conductance variation</b> holds at &sigma; = 0.035 of the window and fails at 0.05 &mdash; 4.84 bits held, 4.32 failed.</li>
+          <li><b>Resolvable states</b> holds at 7 states and fails at 5 &mdash; 3.70 bits held, 3.17 failed.</li>
+          <li><b>IR drop</b> holds at 100&nbsp;&#937; per segment and fails at 300&nbsp;&#937; &mdash; not a bit depth: a systematic, not a spread.</li>
+        </ul>
+      </noscript>
     </div>
 
     <div class="prose col">
-      <p class="sub-h">Two things the panels cannot draw</p>
+      <h3 class="sub-h">Two things the panels cannot draw</h3>
       <p>
         <strong>IR drop is deliberately not converted to bits.</strong> It is a
         position-dependent systematic, not a spread on a stored value, so
@@ -440,7 +453,7 @@
     </div>
 
     <div class="prose col">
-      <p class="sub-h">What is designed, what is cited, and what is still a hole</p>
+      <h3 class="sub-h">What is designed, what is cited, and what is still a hole</h3>
       <p>
         <strong>The operating point is designed.</strong> The window and the drive are this
         project's own choice, held to one rule: they must be something a magnetic tunnel
@@ -575,14 +588,14 @@
   <div class="wrap">
     <div class="foot-grid">
       <div>
-        <h3>What this is</h3>
+        <h2>What this is</h2>
         <p>
           A spintronic crossbar simulator and its device-error model: the ideal design in
           Python, handed one way to an as-built error model in MATLAB.
         </p>
       </div>
       <div>
-        <h3>How numbers are treated</h3>
+        <h2>How numbers are treated</h2>
         <p>
           A measured value is cited, or marked <span class="q hole">UNSOURCED</span> and
           surfaced. A design value is this project's own, checked against what the device
@@ -590,7 +603,7 @@
         </p>
       </div>
       <div>
-        <h3>What runs here</h3>
+        <h2>What runs here</h2>
         <p>
           Every widget on this page evaluates the real trained weights over the real
           frozen test set, in your browser. Nothing is fetched; nothing is precomputed

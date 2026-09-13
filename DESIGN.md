@@ -300,6 +300,13 @@ ramp.
 8% amber wash with an amber hairline, never as ordinary body text. A number the project
 cannot cite must be visibly different from one it can.
 
+**The Paper Rule.** Print is always the light palette. Both dark blocks are scoped to
+`screen`, and for the length of a print the page script sets `data-theme="light"` so every
+canvas redraws through `onThemeChange` — a canvas is pixels in whichever theme was live, and
+dark-theme ink on white paper is pale grey on white. `afterprint` puts the reader's own
+choice back. Controls a sheet of paper cannot operate (the hero's, the bench's and the pad's
+tool rows, the toggle, the skip link) are left off it.
+
 ## Typography
 
 **Display Font:** Iowan Old Style (falling back through Palatino Linotype, Palatino, Book
@@ -362,10 +369,17 @@ a readout that has been made harder to read.
 **The Two-Voice Rule.** Serif claims, monospace measurements. There is no third voice; if a
 piece of text is neither a claim nor a measurement, it is body sans.
 
+**The Outline Rule.** Anything that titles what follows it is a heading element, whatever it
+looks like: the rank comes from the outline and the look from the class. Instrument titles are
+`<h3>` in the Label-title style, the budget's three panel names `<h4>`, the two sub-headings
+`<h3 class="sub-h">`, the footer's column heads `<h2>`. The instrument titles and sub-headings
+were paragraphs styled as headings, and heading navigation — how a screen reader skims —
+skipped all seven.
+
 ## Layout
 
 One centred column, `max-width: 1120px` with 24px gutters, and a hard reading measure of
-`--measure: 68ch` on prose (60ch for the standfirst, 64ch for instrument captions).
+`--measure: 60ch` on prose, which the standfirst and the instrument captions share.
 Instruments are allowed to break the measure and use the full 1120px; prose never does.
 
 The first viewport is a two-column band at ≥980px — the claim on the left at roughly 38%,
@@ -388,7 +402,8 @@ Instrument-internal grids collapse at their own breakpoints, close to the conten
 980px (hero), 860px (the three tolerance panels), 800px (the bench goes to one column),
 720px (device, draw, the four-cell spec strip), 640px (topbar padding, hero padding, the
 bench's three rails), 560px (the comparison record, the next-work list, and the column keys
-on a touch screen). Rhythm is a loose 4/8/14/20/26px scale; sections at 52px. Anchor
+on a touch screen), and 380px (the drawing pad stacks: its pad, tile and gap need 306px,
+and a 320px screen has 272). Rhythm is a loose 4/8/14/20/26px scale; sections at 52px. Anchor
 targets carry `scroll-margin-top: 78px` to clear the sticky topbar.
 
 On a narrow screen an instrument is ordered for the thumb that operates it. A finger covers
@@ -465,6 +480,9 @@ the theme mark is a 16-viewBox half-filled circle at 11px.
   five across the full width.
 - **Touch:** every other button keeps its drawing and gains an invisible 44px hit area
   through `::after` (the Hit-Area Rule, under Shapes).
+- **Device:** instrument 01's diagram is itself a `<button>`, drawn as the diagram — no
+  border, no ground — whose track rule goes teal on hover. Pressed, it steps the device to
+  its next state and says which in a polite status ("Wall at position 3 of 6.").
 
 ### Chips
 - **Hole chip** (`.q.hole`): the inline-code chip recoloured amber — amber ink, 8% amber
@@ -492,6 +510,12 @@ Used sparingly and only for detached objects.
 - **Touch:** the input's own box grows to 44px around the unchanged track; the label and
   value close up to meet it, and the focus ring hugs the box at 0 offset.
 - **Caret:** `caret-color: var(--accent)` on every input, button, select and textarea.
+- **Spoken value:** every range input carries `aria-valuetext` written from the same label
+  as its `<output>`, units spelled out and the bracket appended ("100 ohms, last that
+  holds"). The input's own value is a rung index, and without this a screen reader says "5".
+- **Forced colours:** track and handle are drawn from backgrounds, which Windows high
+  contrast replaces; there they are redrawn in `CanvasText` and `Highlight`. Keys that are
+  their colour — the legend swatches, the bench's track marks — opt out of the forcing.
 
 ### Navigation
 Monospace .75rem pills in a sticky, blurred topbar over an 82% page-ground mix with a
@@ -500,13 +524,25 @@ hairline bottom border. Links are muted and borderless at rest; hover tints them
 is monospace dim ink with a teal-ink wordmark and a descriptive tail that disappears below
 900px. The theme toggle sits at the right as a pill with a drawn SVG mark and the word
 "theme", and persists its choice to `localStorage` under `spinn-theme`.
+Its accessible name says what a press will do ("Switch to dark theme"). It needs a script,
+so without one it is not drawn; the saved theme is applied in `<head>`, before the first
+paint, which is also what marks the page as scripted. Ahead of the bar, the first focusable
+element is a **skip link** — "Skip to content", a mono label on `--surface` with a hairline
+and the focus ring — held above the viewport until it has focus.
 
 ### The Instrument Panel (signature)
 The page's structural unit. `.inst` is a 1px top rule and 20px of padding; `.inst-h` is a
 baseline-aligned row holding `.inst-t` (mono .75rem uppercase, teal ink, 600) at the left and
-`.inst-n` (mono muted) at the right; `.inst-d` is a dim-ink caption capped at 64ch; the
+`.inst-n` (mono muted) at the right; `.inst-d` is a dim-ink caption capped at 60ch; the
 instrument follows at full available width. Five of these carry the whole page. No panel has
 a background, a border box or a radius.
+
+An instrument is never a silent gap. Without a script, each host is followed by a
+`<noscript>` caption saying what would be there, and the budget's gives its recorded brackets
+as a ruled list, which a test holds to `data.js`. A widget that throws while mounting leaves
+a Caption in amber ink in its host, naming the error — amber being the page's mark for an
+absence. A written state never relies on colour: the device's accuracy says "below the pass
+mark of 0.6978" as well as turning amber.
 
 ### The Crossbar View (signature)
 A shared drawing vocabulary — `apps/web/xbar_view.js` — that all four array widgets call, so
@@ -523,11 +559,21 @@ monospace kicker-free label and a dim-ink sentence, separated from the standfirs
 hairline. It turns amber ink when the array gets the digit wrong. One widget owns both the
 numeral and the picture, so the two can never disagree.
 
+### The Drawing Pad
+A 168px `--surface` box at a 10px radius, its 24 cells ruled into the six the array sees. It
+takes a keyboard as well as a pointer: arrow keys move a pen a cell at a time, a whole ruled
+square with Shift; Space puts it down or lifts it; Delete clears. The pen is drawn — a teal ring
+the size of the brush, with a dot in it when down — only while the pad has keyboard focus, and
+the key hint shows only then as well; a screen reader has the hint as the pad's description.
+The verdict is spoken once the pad has been still for 700ms, because every dab reclassifies;
+the visible line under the numeral is not live.
+
 ## Do's and Don'ts
 
 ### Do:
 - **Do** put every colour in a CSS custom property in the four theme blocks (`:root`, the
-  `prefers-color-scheme:dark` media query, and the two `data-theme` overrides), and let both
+  `screen and (prefers-color-scheme:dark)` query, and the two `data-theme` overrides — both
+  dark blocks screen-only, under the Paper Rule), and let both
   CSS and canvas read it from there.
 - **Do** read canvas colours through `SpinnView.ink()` and redraw on `SpinnPlot.onThemeChange`.
   Two widgets grew private copies of that read and were consolidated; a private copy is a
@@ -539,7 +585,7 @@ numeral and the picture, so the two can never disagree.
 - **Do** size every small label at `.75rem` and rank it with tracking, case and colour.
 - **Do** give every interactive element a `:focus-visible` outline of `2px solid var(--accent)`.
 - **Do** honour `prefers-reduced-motion` by snapping every animated value to its end state
-  and leaving autoplay off.
+  and leaving autoplay off. A loop that is off screen stops drawing until it is back.
 - **Do** draw an uncited number as a hole (`.q.hole`) rather than as a value.
 - **Do** record both themes' values when a token is added. The palette is two full sets, and
   a token documented in one theme only is a token half the readers never had described.

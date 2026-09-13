@@ -30,6 +30,9 @@ function makeEnv(opts) {
   const el = (id) => ({
     id: id,
     classes: new Set(),
+    // What the scheduler writes into a host: nothing, unless its widget throws.
+    children: [],
+    appendChild(c) { el._all[id].children.push(c); return c; },
     classList: {
       add(c) { el._all[id].classes.add(c); },
       remove(c) { el._all[id].classes.delete(c); },
@@ -52,7 +55,9 @@ function makeEnv(opts) {
     readyState: o.readyState || "complete",
     visibilityState: o.hidden ? "hidden" : "visible",
     getElementById: (id) => el._all[id] || null,
-    createElement: () => ({ set textContent(v) {}, id: "" }),
+    // A plain record: the scheduler gives its style element an id and text, and
+    // the note it writes into a failed widget's host a class and text.
+    createElement: () => ({ id: "", className: "", textContent: "" }),
     head: { appendChild() {} },
     _styles: {},
     addEventListener(type, fn) { (doc._ev = doc._ev || {})[type] = fn; },
@@ -211,7 +216,8 @@ const out = {};
   out.deferredWithoutIo = order;
 }
 
-// 7. One widget throwing must not strand the ones behind it.
+// 7. One widget throwing must not strand the ones behind it -- and it must say
+//    so in its own host, where the reader was looking for it.
 {
   const env = makeEnv({ ids: ["bad", "good"] });
   const mount = load(env);
@@ -221,6 +227,9 @@ const out = {};
   env.paint();
   env.tick(10);
   out.survivesThrow = order;
+  const said = (id) => env.doc.getElementById(id).children
+    .map((c) => ({ cls: c.className, text: c.textContent }));
+  out.failureSaid = { bad: said("bad"), good: said("good") };
 }
 
 // 8. An id that is not on the page is skipped, not queued forever.

@@ -28,7 +28,14 @@
     + "@media (max-width:720px){.dv-grid{grid-template-columns:1fr;gap:20px;}}"
     + ".dv-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;"
     + "text-transform:uppercase;color:var(--muted);margin:0 0 10px;}"
-    + ".dv-stack{display:block;width:100%;max-width:250px;height:auto;}"
+    // The diagram is the button that steps it, so it stays drawn as a diagram: no
+    // border and no ground. On hover its track takes the teal a control's border
+    // takes, and its focus ring is every other control's.
+    + ".dv-stackwrap{display:block;width:100%;max-width:250px;margin:0;padding:0;border:0;"
+    + "background:none;color:inherit;font:inherit;cursor:pointer;border-radius:10px;}"
+    + ".dv-stackwrap:focus-visible{outline:2px solid var(--accent);outline-offset:4px;}"
+    + ".dv-stackwrap:hover .dv-track{stroke:var(--accent);}"
+    + ".dv-stack{display:block;width:100%;height:auto;}"
     + ".dv-note{font-size:.8125rem;color:var(--muted);margin:10px 0 0;line-height:1.5;}"
     + ".dv-lat{display:block;width:100%;}"
     + ".dv-rowlab{display:flex;justify-content:space-between;align-items:baseline;"
@@ -42,7 +49,10 @@
     + ".dv-out .v{display:block;font-family:var(--mono);font-size:clamp(1.25rem,2vw,1.42rem);font-weight:600;"
     + "color:var(--ink);font-variant-numeric:tabular-nums;}"
     + ".dv-out .v.warn{color:var(--accent-2-ink);}"
-    + ".dv-out .l{display:block;font-size:.8125rem;color:var(--muted);margin-top:2px;}";
+    + ".dv-out .l{display:block;font-size:.8125rem;color:var(--muted);margin-top:2px;}"
+    + ".dv-out .l.warn{color:var(--accent-2-ink);}"
+    + ".dv-vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;"
+    + "overflow:hidden;clip-path:inset(50%);white-space:nowrap;}";
 
   var MONO = 'ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace';
   //: The same stack for an SVG attribute, which is itself double-quoted. Pasted in
@@ -90,7 +100,7 @@
       // barrier
       + '<rect x="30" y="52" width="66" height="8" fill="var(--border)"/>'
       // free layer / track
-      + '<rect x="30" y="24" width="66" height="20" fill="var(--surface-2)" '
+      + '<rect class="dv-track" x="30" y="24" width="66" height="20" fill="var(--surface-2)" '
       + 'stroke="var(--border)"/>'
       + body
       // contacts
@@ -165,7 +175,12 @@
     var model = C.load(window.SpinnData);
 
     var grid = P.el("div", "dv-grid");
-    var left = P.el("div", "", '<p class="dv-k">One device</p><div class="dv-stackwrap"></div>'
+    // The device is a button because it does something: pressed, it steps to its
+    // next state. It was a div with a click handler, which a mouse could press and
+    // a keyboard could not reach.
+    var left = P.el("div", "", '<p class="dv-k">One device</p>'
+      + '<button type="button" class="dv-stackwrap" '
+      + 'aria-label="Step the device to its next state"></button>'
       + '<p class="dv-note"></p>');
     var right = P.el("div", "",
       '<div class="dv-rowlab"><span>What one device can hold</span><b class="dv-n"></b></div>'
@@ -180,11 +195,17 @@
       + '<input id="dv-states" type="range" min="0" max="7" step="1" value="7">'
       + '<output for="dv-states"></output>');
     var out = P.el("div", "dv-out",
-      '<div><span class="v acc"></span><span class="l">accuracy on the frozen test set</span></div>'
+      '<div><span class="v acc"></span><span class="l">accuracy on the frozen test set</span>'
+      + '<span class="l pass"></span></div>'
       + '<div><span class="v bits"></span><span class="l">effective bits per weight</span></div>'
       + '<div><span class="v pair"></span><span class="l">weights a pair can represent</span></div>');
+    // What a press, or a finished drag, changed -- for a reader who cannot see it.
+    var status = P.el("p", "dv-vh");
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
     ctl.appendChild(slider);
     ctl.appendChild(out);
+    ctl.appendChild(status);
 
     el.appendChild(grid);
 
@@ -198,7 +219,7 @@
     var canvas = right.querySelector(".dv-lat");
     var nEl = right.querySelector(".dv-n");
     var accEl = out.querySelector(".acc"), bitsEl = out.querySelector(".bits");
-    var pairEl = out.querySelector(".pair");
+    var pairEl = out.querySelector(".pair"), passEl = out.querySelector(".pass");
 
     var level = 1;
 
@@ -207,8 +228,12 @@
       level = Math.min(level, states - 1);
       var res = C.evaluate(model, C.machine(model, { states: states }));
       var bits = Math.log(2 * states - 1) / Math.LN2;
+      var below = res.accuracy < model.threshold;
 
       outEl.textContent = states + " states";
+      // The input's own value is a rung on the ladder, so without this a screen
+      // reader announces "5" for nine states.
+      input.setAttribute("aria-valuetext", states + " states");
       nEl.textContent = states + " levels";
       stackWrap.innerHTML = stack(level, states);
       note.innerHTML = states === 2
@@ -219,18 +244,29 @@
       lattice(canvas, states, level);
 
       accEl.textContent = res.accuracy.toFixed(4);
-      accEl.classList.toggle("warn", res.accuracy < model.threshold);
+      accEl.classList.toggle("warn", below);
+      // Written as well as coloured: nothing on this page is said by colour alone.
+      passEl.textContent = (below ? "below" : "clears") + " the pass mark of "
+        + model.threshold.toFixed(4);
+      passEl.classList.toggle("warn", below);
       bitsEl.textContent = bits.toFixed(2);
       pairEl.textContent = 2 * states - 1;
     }
 
     input.addEventListener("input", render);
-    // Clicking the device steps it through its own states, which is the fastest
+    // Read out once the reader has let go, not at every rung a drag passes over.
+    input.addEventListener("change", function () {
+      status.textContent = "Accuracy " + accEl.textContent + ", " + passEl.textContent + ".";
+    });
+    // Pressing the device steps it through its own states, which is the fastest
     // way to feel what "a state" is without reading a caption about it.
     stackWrap.addEventListener("click", function () {
       var states = LADDER[Number(input.value)];
       level = (level + 1) % states;
       render();
+      status.textContent = states === 2
+        ? "Free layer " + (level === 1 ? "parallel" : "antiparallel") + "."
+        : "Wall at position " + level + " of " + (states - 1) + ".";
     });
     P.onWidthChange(el, render);
     P.onThemeChange(render);

@@ -88,7 +88,7 @@
     // failed. Drawn beneath the handle, which covers them when it sits on one.
     + ".bn-track{position:relative;display:block;}"
     + ".bn-track input{position:relative;}"
-    + ".bn-mark{position:absolute;top:50%;width:2px;height:7px;margin:3px 0 0 -1px;"
+    + ".bn-mark{forced-color-adjust:none;position:absolute;top:50%;width:2px;height:7px;margin:3px 0 0 -1px;"
     + "pointer-events:none;}"
     + ".bn-mark.hold{background:var(--good);}"
     + ".bn-mark.fail{background:var(--bad);}";
@@ -461,14 +461,26 @@
       drawMeter(res, hl);
     }
 
+    /** A ladder label as a screen reader should say it: "Ω" is read as "omega", or not at all. */
+    function spoken(text) {
+      return text.replace(/(\d+(?:\.\d+)?) (k?)Ω/, function (m, n, k) {
+        return n + " " + (k ? "kil" : "") + (n === "1" ? "ohm" : "ohms");
+      });
+    }
+
     /** Each slider's value, and in words where it sits on that source's bracket. */
     function labels() {
       [[sIn, sigma, b.sigma], [qIn, states, b.states], [rIn, wire, b.wire]]
         .forEach(function (f) {
           var i = Number(f[0].value), v = f[1].values[i];
+          var where = v === f[2].lastHolding ? "last that holds"
+            : v === f[2].firstFailing ? "first that fails" : "";
           f[0].closest(".sp-field").querySelector("output").textContent = f[1].label(i)
-            + (v === f[2].lastHolding ? " · last that holds"
-              : v === f[2].firstFailing ? " · first that fails" : "");
+            + (where ? " · " + where : "");
+          // The input's own value is a rung index, so without this a screen reader
+          // announces "5" for sigma = 0.035.
+          f[0].setAttribute("aria-valuetext",
+            spoken(f[1].label(i)) + (where ? ", " + where : ""));
         });
     }
 

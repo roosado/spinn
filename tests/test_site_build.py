@@ -120,8 +120,9 @@ def test_the_contents_card_indexes_sections_and_nothing_else():
     for ident in labels:
         assert f'id="{ident}"' in body, f"the card indexes #{ident}, which is not in <main>"
     footer = html[html.index("<footer"):]
-    assert "<h3" in footer, "this test is only meaningful while the footer has headings"
-    assert not re.search(r'<h3[^>]*\sid="', footer), "a footer heading was given an id"
+    assert re.search(r"<h[23]\b", footer), (
+        "this test is only meaningful while the footer has headings")
+    assert not re.search(r'<h[23][^>]*\sid="', footer), "a footer heading was given an id"
 
 
 def test_a_heading_can_carry_its_own_contents_label_and_number():
@@ -310,3 +311,66 @@ def test_no_unsourced_number_is_presented_as_a_measurement():
     assert plain and len(plain) == len(marked), (
         "every UNSOURCED on the page must be marked as a hole"
     )
+
+
+# ------------------------------------------------------------------- hardening
+# What a reader gets who is not using a mouse, a script, or a screen at all. The
+# widgets' own behaviour is checked in a browser; these are the parts that live in
+# the markup and can drift out of it without anything else noticing.
+
+
+def test_the_skip_link_is_the_first_stop_and_lands_on_the_page():
+    """Its target is in the page body and the link is in the generator, so the two can
+    drift apart -- and a skip link to an id nothing carries does nothing, silently."""
+    html = page_html("index.html")
+    body = html[html.index("<body"):]
+    first = re.search(r"<(?:a|button|input|select|textarea)\b[^>]*>", body).group(0)
+    assert 'class="skip"' in first, f"the first focusable element is {first}"
+    target = re.search(r'class="skip" href="#([^"]+)"', body).group(1)
+    assert body.count(f'id="{target}"') == 1, f"the skip link's #{target} is not on the page"
+
+
+def test_instrument_titles_and_sub_headings_are_headings():
+    """Heading navigation is how a screen reader skims a page, and it skipped all
+    seven: they were paragraphs styled to look like headings. The look is kept."""
+    body = build_site.page_body("index")
+    for cls in ("inst-t", "sub-h"):
+        tags = re.findall(rf'<(\w+) class="{cls}"', body)
+        assert tags and set(tags) == {"h3"}, f".{cls} is carried by {sorted(set(tags))}"
+
+
+def test_every_instrument_says_what_is_missing_without_a_script():
+    """With scripts off, each host is an empty div under a caption that tells the
+    reader to drag or draw something. Each is followed by what would have been there."""
+    body = build_site.page_body("index")
+    for host in build_site.PAGE_BY_KEY["index"].widgets:
+        assert re.search(rf'<div id="{host}"></div>\s*<noscript>', body), (
+            f"#{host} has no fallback for a reader without scripts")
+
+
+def test_the_budget_fallback_states_the_recorded_brackets():
+    """The ladder is the one widget whose content is recorded rather than computed, so
+    without a script its brackets can still be given in words. In words they are a
+    second copy of numbers that live in data.js, and this is what keeps them one."""
+    body = build_site.page_body("index")
+    data = build_site.read_web_asset("data.js")
+    block = re.search(r'<div id="budgetLadder"></div>\s*<noscript>(.*?)</noscript>',
+                      body, re.S).group(1)
+    items = [build_site.strip_tags(li) for li in re.findall(r"<li>(.*?)</li>", block, re.S)]
+    assert len(items) == 3, "one bracket per error source"
+    for key, text in zip(("sigma", "states", "wire"), items):
+        hold, fail = re.search(
+            rf'"{key}":\{{"magnitudes".*?"lastHolding":([\d.]+),"firstFailing":([\d.]+)',
+            data).groups()
+        said = re.search(r"holds at\D*?([\d.]+).*?fails at\D*?([\d.]+)", text).groups()
+        assert tuple(map(float, said)) == (float(hold), float(fail)), (key, text)
+
+
+def test_the_saved_theme_is_applied_before_anything_paints():
+    """At the foot of the body it ran after the whole inline data set, so a reader whose
+    saved theme differed from their system's could see the other one first."""
+    html = page_html("index.html")
+    boot = build_site.THEME_BOOT
+    assert html.index(boot) < html.index("<style>") < html.index("<body")
+    art = page_html("_artifact_body.html")
+    assert art.index(boot) < art.index('<header class="topbar"')
