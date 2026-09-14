@@ -302,16 +302,32 @@
       testIdx = -1;
     }
 
+    //: Where the pointer's stroke was at its last event, in pad cells; null between
+    //: strokes.
+    var last = null;
+
     function stroke(ev) {
       var rect = pad.getBoundingClientRect();
-      stamp((ev.clientX - rect.left) / rect.width * PAD,
-        (ev.clientY - rect.top) / rect.height * PAD);
+      var x = (ev.clientX - rect.left) / rect.width * PAD;
+      var y = (ev.clientY - rect.top) / rect.height * PAD;
+      if (last) {
+        // Joined, half a cell at a time. A fast stroke delivers its pointer events
+        // cells apart, and a dab at each of them alone drew a row of dots where the
+        // hand drew a line.
+        var dx = x - last[0], dy = y - last[1];
+        var n = Math.ceil(Math.sqrt(dx * dx + dy * dy) / 0.5);
+        for (var k = 1; k <= n; k++) stamp(last[0] + dx * k / n, last[1] + dy * k / n);
+      } else {
+        stamp(x, y);
+      }
+      last = [x, y];
       paintPad();
       classify(true);
     }
 
     pad.addEventListener("pointerdown", function (ev) {
       drawing = true;
+      last = null;
       // A pointer takes over from the keyboard: the keyboard's pen lifts and hides.
       pen.shown = false;
       pen.down = false;

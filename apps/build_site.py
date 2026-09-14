@@ -176,17 +176,18 @@ html:not(.js) .theme-toggle{display:none;}
 @media (max-width:900px){.brand span.brand-tail{display:none;}}
 @media (max-width:640px){.topbar-nav a{padding:5px 8px;font-size:.75rem;}}
 
-/* sequential hand-off at the foot of every page */
+/* The sequential hand-off at the foot of every page. next_link() emits it once there
+   is a second page, and there is not one yet; it is kept, on the type ramp, for then. */
 .pagenext{display:block;text-decoration:none;background:var(--surface);
   border:1px solid var(--border);border-radius:12px;
   padding:19px 22px;margin:46px 0 6px;transition:background .15s,border-color .15s;}
 .pagenext:hover{background:var(--surface-2);border-color:var(--accent);}
 .pagenext:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
-.pagenext .k{display:block;font-family:var(--mono);font-size:.75rem;letter-spacing:.18em;
+.pagenext .k{display:block;font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;
   text-transform:uppercase;color:var(--muted);}
 .pagenext .t{display:block;font-family:var(--serif);font-weight:600;color:var(--ink);
-  font-size:clamp(1.12rem,2vw,1.38rem);line-height:1.2;margin:.32rem 0 .28rem;}
-.pagenext .b{display:block;color:var(--ink-dim);font-size:.94rem;max-width:64ch;}
+  font-size:clamp(1.25rem,2vw,1.42rem);line-height:1.2;margin:.32rem 0 .28rem;}
+.pagenext .b{display:block;color:var(--ink-dim);font-size:.9375rem;max-width:60ch;}
 
 /* In-page contents. One element, two presentations: a card in the flow of the page,
    and at >=1500px the same list pinned in the right margin. 1500 is where a 176 px
@@ -223,14 +224,15 @@ html:not(.js) .theme-toggle{display:none;}
    the nav wraps. */
 .phase-head h2[id],.phase-head h3[id],.band-h[id]{scroll-margin-top:78px;}
 
-/* A family of error sources, and what the family is. Used by a page that groups
-   its sections; everywhere else a section is a section. */
+/* A family of error sources, and what the family is. Used by a page that groups its
+   sections -- section_index() indexes an <h2 class="band-h"> -- and no page does yet;
+   everywhere else a section is a section. On the type ramp: the heading at the small
+   readout step, the only mono size between a label and a readout, and the note a
+   caption. Its kicker, .band-k, went the way of the page's other eyebrows. */
 .band{padding:44px 0 0;}
-.band-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;
-  color:var(--muted);margin:0 0 .3rem;}
-.band-h{font-family:var(--mono);font-size:1.02rem;font-weight:600;letter-spacing:.06em;
+.band-h{font-family:var(--mono);font-size:.95rem;font-weight:600;letter-spacing:.12em;
   text-transform:uppercase;color:var(--accent-ink);margin:0;}
-.band-b{color:var(--ink-dim);font-size:.95rem;margin:.4rem 0 0;max-width:58ch;}
+.band-b{color:var(--ink-dim);font-size:.9375rem;margin:.4rem 0 0;max-width:60ch;}
 
 .wrap{max-width:1120px;margin:0 auto;padding:0 24px;}
 .col{max-width:var(--measure);}
@@ -247,14 +249,6 @@ html:not(.js) .theme-toggle{display:none;}
 .machine-say .underbar{width:132px;height:3px;background:var(--rule-gradient);margin:20px 0 22px;border-radius:2px;}
 .standfirst{font-size:1.16rem;color:var(--ink-dim);max-width:60ch;}
 .standfirst b{color:var(--ink);font-weight:600;}
-
-.stat-strip{display:flex;flex-wrap:wrap;gap:14px;margin:34px 0 8px;}
-.stat{flex:1 1 150px;background:var(--surface);border:1px solid var(--border);
-  border-radius:12px;padding:15px 17px;}
-.stat .v{font-family:var(--mono);font-size:1.5rem;font-weight:600;color:var(--ink);
-  font-variant-numeric:tabular-nums;display:block;letter-spacing:-.01em;}
-.stat .v small{font-size:.9rem;color:var(--muted);font-weight:500;}
-.stat .l{font-size:.8rem;color:var(--muted);display:block;margin-top:3px;line-height:1.35;}
 
 /* phase sections */
 .phase{padding:52px 0;border-top:1px solid var(--border);}
@@ -295,34 +289,6 @@ math{font-size:1.06em;color:var(--ink);}
 a.link{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent);}
 a.link:hover{border-bottom-color:var(--accent);}
 a.link:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px;}
-
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:24px 0;}
-.stats .s{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 15px;}
-.stats .s .v{font-family:var(--mono);font-size:1.15rem;font-weight:600;color:var(--ink);
-  font-variant-numeric:tabular-nums;}
-.stats .s .l{font-size:.76rem;color:var(--muted);margin-top:2px;line-height:1.35;}
-
-/* figure plates -- always light, since the figures are light-background */
-.plate{background:#fff;border:1px solid var(--border);border-radius:12px;
-  padding:12px;margin:26px 0;overflow-x:auto;}
-.plate img{display:block;width:100%;height:auto;border-radius:6px;}
-.plate figcaption{font-family:var(--sans);font-size:.83rem;color:#5b6675;
-  margin-top:10px;padding:0 4px;line-height:1.5;}
-.plate figcaption .fign{font-family:var(--mono);color:var(--accent-ink);font-weight:600;
-  letter-spacing:.02em;margin-right:.5em;}
-.plate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));
-  gap:16px;margin:26px 0;}
-.plate-grid .plate{margin:0;}
-
-/* tables -- wide content scrolls inside its own box, never the page */
-.tbl-wrap{overflow-x:auto;margin:24px 0;-webkit-overflow-scrolling:touch;}
-.tbl{border-collapse:collapse;font-size:.92rem;min-width:min(100%,540px);}
-.tbl th,.tbl td{border-bottom:1px solid var(--border);padding:9px 14px 9px 0;
-  text-align:left;vertical-align:top;color:var(--ink-dim);}
-.tbl th{font-family:var(--mono);font-size:.75rem;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--muted);font-weight:600;white-space:nowrap;}
-.tbl td strong{color:var(--ink);font-weight:600;}
-.tbl tr:last-child td{border-bottom:0;}
 
 /* inline reference list, for the sections sourced from outside this project */
 .refs{list-style:none;padding:0;margin:1.6rem 0 0;max-width:var(--measure);font-size:.8125rem;

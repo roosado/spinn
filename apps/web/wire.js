@@ -2,8 +2,8 @@
  * wire.js -- one column, opened up, so the sum stops being a claim.
  *
  * "Kirchhoff's law does the arithmetic" is the sentence this project rests on, and
- * a sentence is a poor place for it. So: pick a column, pick a digit, and watch
- * the wire fill up. Thirty-six devices each pass a current set by their own
+ * a sentence is a poor place for it. So: open a column for a real digit and follow
+ * its wire down. Thirty-six devices each pass a current set by their own
  * conductance and the input driving them; they all empty into the same wire; the
  * wire carries the running total; the number at the bottom is the column's logit.
  *
@@ -98,7 +98,11 @@
       var t = Math.floor(r() * (k + 1)), tmp = order[k];
       order[k] = order[t]; order[t] = tmp;
     }
-    var at = 0, column = 0, sample = order[0];
+    var at = 0, sample = order[0], column = 0;
+    // The column shown is the one that wins, digit after digit, until the reader
+    // picks one of their own. It opened on column 0, which for most digits is a
+    // column that loses, and so said nothing about the answer on screen.
+    var follow = true;
 
     function draw() {
       var c = V.ink(document.documentElement);
@@ -212,6 +216,7 @@
     function describe() {
       mach.logits(sample, logits);
       var win = C.argmax(logits);
+      if (follow) column = win;
       var label = model.labels[sample];
       buttons.forEach(function (b, j) {
         b.setAttribute("aria-pressed", j === column ? "true" : "false");
@@ -226,7 +231,7 @@
         + label + ", reaching " + logits[column].toFixed(2) + ".");
     }
 
-    function pick(col) { column = col; describe(); draw(); }
+    function pick(col) { follow = false; column = col; describe(); draw(); }
 
     nextBtn.addEventListener("click", function () {
       at = (at + 1) % order.length;

@@ -374,3 +374,32 @@ def test_the_saved_theme_is_applied_before_anything_paints():
     assert html.index(boot) < html.index("<style>") < html.index("<body")
     art = page_html("_artifact_body.html")
     assert art.index(boot) < art.index('<header class="topbar"')
+
+
+def test_every_class_the_stylesheet_styles_is_emitted_somewhere():
+    """The general case of the headline test, and the guard the dead CSS needed.
+
+    A rule for a class nothing emits is not an error in CSS; it is a rule waiting for
+    the next edit to reuse it. photonn's stat tiles, stats grid, figure plates and
+    tables sat in this stylesheet from the trim that brought the generator across --
+    three of the four the card pattern this page refuses -- until a critique counted
+    them. A class passes when the page body, the generator outside its stylesheet, or
+    a widget module names it. That is loose on purpose: it catches a class nothing
+    names at all, not one named by accident. The exceptions are vocabulary a page may
+    write and none does yet, and each must still have a rule.
+    """
+    css = re.sub(r"/\*.*?\*/", "", build_site.CSS, flags=re.S)
+    classes = set(re.findall(r"\.([a-zA-Z][\w-]*)", css))
+    with open(build_site.__file__, encoding="utf-8") as fh:
+        generator = fh.read().replace(build_site.CSS, "")
+    widgets = "".join(build_site.read_web_asset(name)
+                      for name in sorted(os.listdir(build_site.WEB_DIR)) if name.endswith(".js"))
+    haystack = build_site.page_body("index") + generator + widgets
+    dormant = {
+        "band-b",                 # the note under a band heading; no page groups sections
+        "planned", "badge-next",  # a section not built yet (DESIGN.md, under Chips)
+    }
+    unused = sorted(c for c in classes - dormant
+                    if not re.search(rf"(?<![\w-]){re.escape(c)}(?![\w-])", haystack))
+    assert not unused, f"rules for classes nothing emits: {unused}"
+    assert dormant <= classes, "an exception outlived its rule; take it off the list"

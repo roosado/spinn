@@ -176,23 +176,6 @@
     return out;
   }
 
-  /** The site's ink, read from the CSS custom properties in force at `root`. */
-  function palette(root) {
-    const cs = (typeof getComputedStyle === "function")
-      ? getComputedStyle(root)
-      : { getPropertyValue: () => "" };
-    const get = (k, f) => (String(cs.getPropertyValue(k) || "").trim() || f);
-    return {
-      fg: get("--pe-fg", "#1b1f24"),
-      muted: get("--pe-muted", "#5a6472"),
-      panel: get("--pe-panel", "#f4f6f9"),
-      border: get("--pe-border", "#d7dde5"),
-      accent: get("--pe-accent", "#3b6ea5"),
-      ok: get("--pe-ok", "#3f8f4e"),
-      warn: get("--pe-warn", "#c14a3d"),
-    };
-  }
-
   // One visual language for optical intensity across the whole site: the 3D
   // stage, the filmstrip and the diffraction explorer all speak inferno.
   const INFERNO = [
@@ -315,7 +298,7 @@
   const API = {
     MAX_DPR, scale, resize, fit, fitTo,
     onWidthChange, onThemeChange,
-    palette, readVars, INFERNO, TWILIGHT, makeLUT, LUT_INTENSITY, LUT_PHASE, raster, rasterInto,
+    readVars, INFERNO, TWILIGHT, makeLUT, LUT_INTENSITY, LUT_PHASE, raster, rasterInto,
     injectStyle, el,
   };
 

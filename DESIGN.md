@@ -250,7 +250,7 @@ else is a neutral or a state.
   the page's mark for an absence. It fills negative cells and the negative half of a device
   track.
 - **Amber Ink** (`--accent-2-ink`, #9c5411 light / #f2994a dark): the italic word in the
-  headline, the `UNSOURCED` chip, a missed classification, an out-of-tolerance readout.
+  headline, the `UNSOURCED` chip, a missed classification, an instrument that could not start.
 
 ### Tertiary
 - **Pass Green** (`--good` / `--good-ink`): reserved for one meaning — a tolerance edge
@@ -258,7 +258,9 @@ else is a neutral or a state.
 - **Fail Rust** (`--bad`, #c14a34 / #e0705f): fill only — the failing bar on the accuracy
   meter, and the 2.9rem accuracy numeral, which is large enough to be exempt.
 - **Fail Rust Ink** (`--bad-ink`, #ba4530 / #e0705f): the same identity as type, at any size
-  below display: the finding callout's tag, a failing bench verdict, a failed tolerance edge.
+  below display: the finding callout's tag, a failing bench verdict, a failed tolerance edge, and instrument 01's accuracy
+  below the pass mark — the same failure the bench shows, so the same colour. It was
+  amber there until the polish pass; amber is the negative rail and an absence.
 - **The Spectral Rule** (`--rule-gradient`, five stops: #39d1a0 → #4fc6e6 → #f2c14e →
   #ef7d5a → #c05aa8): 3px across the top of the page and 132px under the headline. It is
   the platform's signature and appears exactly twice; it is never a background or a fill.
@@ -542,7 +544,7 @@ An instrument is never a silent gap. Without a script, each host is followed by 
 as a ruled list, which a test holds to `data.js`. A widget that throws while mounting leaves
 a Caption in amber ink in its host, naming the error — amber being the page's mark for an
 absence. A written state never relies on colour: the device's accuracy says "below the pass
-mark of 0.6978" as well as turning amber.
+mark of 0.6978" as well as turning rust.
 
 ### The Crossbar View (signature)
 A shared drawing vocabulary — `apps/web/xbar_view.js` — that all four array widgets call, so

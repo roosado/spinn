@@ -514,7 +514,12 @@
       recompute();
     });
     resetBtn.addEventListener("click", function () {
+      // Back to the bench as it opened: no error, and the weight view. It used to
+      // leave the rails showing, which was half of the opening state left behind.
       sIn.value = qIn.value = rIn.value = "0";
+      mode = "effective";
+      railBtn.textContent = "Show both rails";
+      railBtn.setAttribute("aria-pressed", "false");
       schedule();
     });
     railBtn.addEventListener("click", function () {

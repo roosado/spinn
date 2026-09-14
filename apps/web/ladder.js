@@ -33,6 +33,7 @@
     + ".ld-p canvas{display:block;width:100%;}"
     + ".ld-h{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;"
     + "text-transform:uppercase;color:var(--accent-ink);margin:0 0 2px;font-weight:600;}"
+    + ".ld-binds{color:var(--ink);}"
     + ".ld-s{font-size:.8125rem;color:var(--ink-dim);margin:0 0 12px;line-height:1.45;}"
     + ".ld-b{font-family:var(--mono);font-size:.8125rem;color:var(--muted);margin:10px 0 0;"
     + "line-height:1.6;}"
@@ -215,10 +216,20 @@
     var grid = P.el("div", "ld");
     var made = [];
 
-    PANELS.forEach(function (panel) {
+    // The source that binds is the one whose holding edge needs the most bits, and
+    // its panel says so. The section heading promised "one binds" and no panel said
+    // which. IR drop has no bit depth, so it is not in the running; the prose says
+    // why it does not bind at this size.
+    var need = PANELS.map(function (p) {
+      return p.bits ? p.bits(model.budget[p.key].lastHolding) : -Infinity;
+    });
+    var binding = need.indexOf(Math.max.apply(null, need));
+
+    PANELS.forEach(function (panel, i) {
       var entry = model.budget[panel.key];
       var box = P.el("div", "ld-p",
-        '<h4 class="ld-h">' + panel.head + "</h4>"
+        '<h4 class="ld-h">' + panel.head
+        + (i === binding ? ' <span class="ld-binds">&middot; binds</span>' : "") + "</h4>"
         + '<p class="ld-s">' + panel.sub + "</p>");
       var canvas = document.createElement("canvas");
       canvas.setAttribute("role", "img");

@@ -48,9 +48,11 @@
     + ".dv-out div{min-width:104px;}"
     + ".dv-out .v{display:block;font-family:var(--mono);font-size:clamp(1.25rem,2vw,1.42rem);font-weight:600;"
     + "color:var(--ink);font-variant-numeric:tabular-nums;}"
-    + ".dv-out .v.warn{color:var(--accent-2-ink);}"
+    // Below the pass mark is a tolerance failing, so it is rust, as on the bench and
+    // the ladder. It was amber, which is the negative rail and an absence.
+    + ".dv-out .v.fail{color:var(--bad-ink);}"
     + ".dv-out .l{display:block;font-size:.8125rem;color:var(--muted);margin-top:2px;}"
-    + ".dv-out .l.warn{color:var(--accent-2-ink);}"
+    + ".dv-out .l.fail{color:var(--bad-ink);}"
     + ".dv-vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;"
     + "overflow:hidden;clip-path:inset(50%);white-space:nowrap;}";
 
@@ -244,11 +246,11 @@
       lattice(canvas, states, level);
 
       accEl.textContent = res.accuracy.toFixed(4);
-      accEl.classList.toggle("warn", below);
+      accEl.classList.toggle("fail", below);
       // Written as well as coloured: nothing on this page is said by colour alone.
       passEl.textContent = (below ? "below" : "clears") + " the pass mark of "
         + model.threshold.toFixed(4);
-      passEl.classList.toggle("warn", below);
+      passEl.classList.toggle("fail", below);
       bitsEl.textContent = bits.toFixed(2);
       pairEl.textContent = 2 * states - 1;
     }
