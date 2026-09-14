@@ -14,10 +14,14 @@
  *
  * The settle
  * ----------
- * One authored motion moment, used here and nowhere else on the page: the drive
- * lines fill in down the array, then the column currents grow from zero on an
- * exponential ease-out, then the winning column brightens once. It is a sequence
- * with a meaning -- drive, sum, decide -- rather than an entrance.
+ * One authored motion moment, used here and nowhere else on the page, replayed for
+ * every digit: drive, sum, decide. The row voltages sweep along their wires from
+ * the driver into the array, left to right and every row at once (180 ms). The ten
+ * column currents grow from zero on an exponential ease-out (from 150 ms, for 360),
+ * every one in the muted colour of its sign. Then the winning column lights (from
+ * 510 ms, for 220) -- and only then does the readout name the digit, because an
+ * answer that arrives before the machine has computed it is a caption, not a
+ * result. A new digit every 1.4 s, the rate the surface brief set.
  *
  * Under `prefers-reduced-motion` there is no settle and no autoplay: the reader
  * gets a still machine on one digit and a button that steps to the next.
@@ -71,7 +75,32 @@
     // the standfirst, in the headline's column, on a wide screen.
     + "@media (max-width:980px){.xr{margin-top:0;}}";
 
-  var HOLD_MS = 1750;
+  //: The settle's beats, in ms from the moment a digit arrives; see the comment above.
+  var DRIVE_MS = 180, SUM_AT = 150, SUM_MS = 360, DECIDE_AT = 510, DECIDE_MS = 220;
+  var SETTLE_MS = DECIDE_AT + DECIDE_MS;
+  //: A new digit every 1.4 s, as the brief has it. This was 1750, with no reason
+  //: recorded beside it. The readout names each digit at 510 ms, so an answer stands
+  //: for most of a second before the next digit arrives.
+  var HOLD_MS = 1400;
+
+  function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+
+  /**
+   * How far each beat of the settle has got `t` ms after a digit arrives, each from
+   * 0 to 1. Pure, so the choreography can be checked without drawing a frame.
+   */
+  function settle(t) {
+    var d = clamp01(t / DRIVE_MS);
+    var s = clamp01((t - SUM_AT) / SUM_MS);
+    var k = clamp01((t - DECIDE_AT) / DECIDE_MS);
+    return {
+      drive: 1 - (1 - d) * (1 - d),                  // a front arriving
+      sum: s >= 1 ? 1 : 1 - Math.pow(2, -10 * s),    // exponential ease-out
+      decide: 1 - Math.pow(1 - k, 3),                // lights, and holds
+    };
+  }
+
+  var SETTLED = { drive: 1, sum: 1, decide: 1 };
 
   function mount(el, readoutEl) {
     P.injectStyle("spinn-hero-style", CSS);
@@ -132,6 +161,8 @@
     var winner = 0, label = 0, sample = 0;
     var playing = !reduce;
     var t0 = 0, raf = 0, timer = 0;
+    var named = true;          // the readout names the digit on screen
+    var drawnSettled = false;  // this digit's settled frame is already on the canvas
 
     var arrayBuf = document.createElement("canvas");
     var geom = null, layout = null, colours = null;
@@ -195,6 +226,16 @@
       seen++;
       if (winner === label) right++;
       t0 = clock();
+      drawnSettled = false;
+      // The readout waits for the settle's last beat; with no settle, there is
+      // nothing to wait for.
+      named = false;
+      if (reduce) name();
+    }
+
+    /** The settle has decided: the readout names what the machine now shows. */
+    function name() {
+      named = true;
       updateText();
     }
 
@@ -245,18 +286,16 @@
     /** One frame of the machine as it stands at time `now`. Draws; changes nothing. */
     function draw(now) {
       var ctx = P.fitTo(canvas, layout.W, layout.H).ctx;
-      var el2 = reduce ? 1 : Math.min(1, (now - t0) / 170);
-      var eg = reduce ? 1 : Math.max(0, Math.min(1, (now - t0 - 150) / 300));
-      var grow = 1 - Math.pow(1 - eg, 3);
+      var beat = reduce ? SETTLED : settle(now - t0);
       var px = pixels(sample);
 
       ctx.clearRect(0, 0, layout.W, layout.H);
       V.drawInput(ctx, colours, layout.tileX, layout.tileY, layout.tile, px, model.side);
       V.drawDrive(ctx, colours, layout.driveX, geom.x - layout.driveX - 14,
-        geom, px, Math.round(el2 * model.rows));
+        geom, px, beat.drive);
       ctx.drawImage(arrayBuf, geom.x, geom.y, geom.w, geom.h);
       V.drawColumns(ctx, colours, geom, geom.y + geom.h + 14, layout.barsH,
-        logits, winner, true, grow);
+        logits, winner, true, beat.sum, beat.decide);
       annotate(ctx);
     }
 
@@ -267,8 +306,15 @@
 
     function frameNow(now) {
       raf = 0;
-      draw(now);
-      if (playing && now - t0 > HOLD_MS) advance();
+      var t = now - t0;
+      // Only the settle moves. After it the frame is still until the next digit, so
+      // it is drawn once rather than on every frame of the hold.
+      if (t < SETTLE_MS || !drawnSettled) {
+        draw(now);
+        drawnSettled = t >= SETTLE_MS;
+      }
+      if (!named && t >= DECIDE_AT) name();
+      if (playing && t > HOLD_MS) advance();
       if (!reduce && onScreen) raf = window.requestAnimationFrame(frameNow);
     }
 
@@ -277,7 +323,7 @@
     // pressed, every tick stepped twice and drew the digit before the one the
     // readout named. Drawing a frame advances nothing now.
     function still() {
-      draw(t0 + 10000);
+      draw(t0 + SETTLE_MS);
     }
 
     function start() {
@@ -285,10 +331,18 @@
       if (!raf) raf = window.requestAnimationFrame(frameNow);
     }
 
-    function relayout() {
+    /**
+     * Re-measure and redraw at once. A resize carries the settle on from where it
+     * was; a theme change -- which is also how a print begins -- finishes it, so
+     * the frame redrawn is a decided one and the readout names what it shows.
+     */
+    function relayout(finish) {
       colours = V.ink(document.documentElement);
       measure();
       paintArray();
+      if (finish && !reduce && clock() - t0 < SETTLE_MS) t0 = clock() - SETTLE_MS;
+      if (finish && !named) name();
+      drawnSettled = false;
       // Drawn now, not on the next frame: a resize has just cleared the canvas, and
       // a page being printed gets no next frame at all.
       if (reduce) still(); else draw(clock());
@@ -310,11 +364,11 @@
     nextBtn.addEventListener("click", function () {
       announce(true);
       advance();
-      if (reduce) still();
+      if (reduce) still(); else start();
     });
 
-    P.onWidthChange(el, relayout);
-    P.onThemeChange(function () { relayout(); });
+    P.onWidthChange(el, function () { relayout(false); });
+    P.onThemeChange(function () { relayout(true); });
     if (typeof window.IntersectionObserver === "function") {
       new window.IntersectionObserver(function (entries) {
         onScreen = entries[entries.length - 1].isIntersecting;
@@ -330,5 +384,7 @@
     start();
   }
 
-  if (typeof window !== "undefined") window.SpinnHero = { mount: mount };
+  if (typeof window !== "undefined") {
+    window.SpinnHero = { mount: mount, settle: settle, SETTLE_MS: SETTLE_MS, HOLD_MS: HOLD_MS };
+  }
 })();

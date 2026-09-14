@@ -568,6 +568,18 @@ the key hint shows only then as well; a screen reader has the hint as the pad's 
 The verdict is spoken once the pad has been still for 700ms, because every dab reclassifies;
 the visible line under the numeral is not live.
 
+### The Settle (signature)
+The page's one authored motion, in the hero, replayed for every digit: drive, sum, decide.
+The row voltages sweep along their wires from the driver into the array, left to right and
+every row at once, over 180ms. From 150ms the ten column currents grow from zero on an
+exponential ease-out over 360ms, every column in the muted colour of its own sign. At 510ms
+the winner lights to the full accent over 220ms, its digit taking the accent ink and weight,
+and only then does the readout name the digit: an answer that arrives before the machine has
+computed it is a caption, not a result. A new digit every 1.4s. Once settled the frame is
+still and is not redrawn, and off screen the loop stops. A theme change, and so a print,
+finishes a settle in progress. Under reduced motion every value is at its end state, the
+readout names the digit at once, and nothing plays until asked.
+
 ## Do's and Don'ts
 
 ### Do:

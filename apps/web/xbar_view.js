@@ -175,10 +175,16 @@
    * These are the voltages. Drawing them against the array rather than beside it
    * is the point of the figure -- a reader should be able to see that a bright
    * pixel is a driven row, and that a driven row is what a column sums.
+   *
+   * `sweep`, from 0 to 1, is how far along its wire each voltage has reached. The
+   * settle brings them in from the driver towards the array, every row at once;
+   * the wires themselves are always drawn, and it is the voltage on them that
+   * arrives. It used to be `reveal`, a count of rows filled in top to bottom, which
+   * drew the drive as a list being read rather than as current being applied.
    */
-  function drawDrive(ctx, c, x, w, geom, v, reveal) {
+  function drawDrive(ctx, c, x, w, geom, v, sweep) {
     var rows = geom.rows, ch = geom.h / rows;
-    var shown = reveal === undefined ? rows : reveal;
+    var reach = w * (sweep === undefined ? 1 : Math.max(0, Math.min(1, sweep)));
     for (var i = 0; i < rows; i++) {
       var y = geom.y + i * ch + ch / 2;
       ctx.strokeStyle = c.border;
@@ -187,12 +193,12 @@
       ctx.moveTo(x, y);
       ctx.lineTo(x + w, y);
       ctx.stroke();
-      if (i >= shown || !(v[i] > 0)) continue;
+      if (reach <= 0 || !(v[i] > 0)) continue;
       ctx.strokeStyle = mix(c.border, c.ink, 0.25 + 0.75 * v[i]);
       ctx.lineWidth = Math.max(1, 2.4 * v[i]);
       ctx.beginPath();
       ctx.moveTo(x, y);
-      ctx.lineTo(x + w, y);
+      ctx.lineTo(x + reach, y);
       ctx.stroke();
     }
   }
@@ -204,10 +210,17 @@
    * the whole reason the pair exists: bars grow down for positive and up for
    * negative from a zero rule, and the winning column is the one that reached
    * furthest down.
+   *
+   * `lit`, from 0 to 1, is how far the winner has lit. Every column fills in the
+   * same muted colour of its own sign, and only then does the winner turn the full
+   * accent and its digit take the accent ink: the settle's last beat, the decision.
+   * Picked out while the sums were still arriving, it announced an answer the
+   * picture had not yet computed.
    */
-  function drawColumns(ctx, c, geom, y0, height, logits, winner, label, grow) {
+  function drawColumns(ctx, c, geom, y0, height, logits, winner, label, grow, lit) {
     var cols = geom.cols, cw = geom.w / cols;
     var g = grow === undefined ? 1 : grow;
+    var on = lit === undefined ? 1 : Math.max(0, Math.min(1, lit));
     var peak = 0, j;
     for (j = 0; j < cols; j++) peak = Math.max(peak, Math.abs(logits[j]));
     if (peak <= 0) peak = 1;
@@ -233,15 +246,19 @@
       var h = (logits[j] / peak) * (pos ? down : up) * g;
       var win = j === winner;
       // Sign is carried twice, by direction and by the page's own sign colours,
-      // so neither has to be read on its own.
-      ctx.fillStyle = win ? c.accent
-        : (pos ? mix(c.border, c.accent, 0.34) : mix(c.border, c.accent2, 0.34));
+      // so neither has to be read on its own. The winner lights from its sign's
+      // muted colour to the full accent as `lit` runs from 0 to 1.
+      var rest = pos ? mix(c.border, c.accent, 0.34) : mix(c.border, c.accent2, 0.34);
+      ctx.fillStyle = !win ? rest
+        : pos ? mix(c.border, c.accent, 0.34 + 0.66 * on)
+        : (on >= 0.5 ? c.accent : rest);
       if (h >= 0) ctx.fillRect(x, mid, cw - 1.5, h);
       else ctx.fillRect(x, mid + h, cw - 1.5, -h);
 
       if (label) {
-        ctx.fillStyle = win ? c.accentInk : c.muted;
-        ctx.font = font(win ? 600 : 0);
+        var named = win && on >= 0.5;
+        ctx.fillStyle = named ? c.accentInk : c.muted;
+        ctx.font = font(named ? 600 : 0);
         ctx.textAlign = "center";
         ctx.fillText(String(j), x + cw / 2 - 0.75, y0 + height + 13);
       }
