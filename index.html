@@ -107,17 +107,18 @@ html:not(.js) .theme-toggle{display:none;}
 @media (max-width:900px){.brand span.brand-tail{display:none;}}
 @media (max-width:640px){.topbar-nav a{padding:5px 8px;font-size:.75rem;}}
 
-/* sequential hand-off at the foot of every page */
+/* The sequential hand-off at the foot of every page. next_link() emits it once there
+   is a second page, and there is not one yet; it is kept, on the type ramp, for then. */
 .pagenext{display:block;text-decoration:none;background:var(--surface);
   border:1px solid var(--border);border-radius:12px;
   padding:19px 22px;margin:46px 0 6px;transition:background .15s,border-color .15s;}
 .pagenext:hover{background:var(--surface-2);border-color:var(--accent);}
 .pagenext:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
-.pagenext .k{display:block;font-family:var(--mono);font-size:.75rem;letter-spacing:.18em;
+.pagenext .k{display:block;font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;
   text-transform:uppercase;color:var(--muted);}
 .pagenext .t{display:block;font-family:var(--serif);font-weight:600;color:var(--ink);
-  font-size:clamp(1.12rem,2vw,1.38rem);line-height:1.2;margin:.32rem 0 .28rem;}
-.pagenext .b{display:block;color:var(--ink-dim);font-size:.94rem;max-width:64ch;}
+  font-size:clamp(1.25rem,2vw,1.42rem);line-height:1.2;margin:.32rem 0 .28rem;}
+.pagenext .b{display:block;color:var(--ink-dim);font-size:.9375rem;max-width:60ch;}
 
 /* In-page contents. One element, two presentations: a card in the flow of the page,
    and at >=1500px the same list pinned in the right margin. 1500 is where a 176 px
@@ -154,14 +155,15 @@ html:not(.js) .theme-toggle{display:none;}
    the nav wraps. */
 .phase-head h2[id],.phase-head h3[id],.band-h[id]{scroll-margin-top:78px;}
 
-/* A family of error sources, and what the family is. Used by a page that groups
-   its sections; everywhere else a section is a section. */
+/* A family of error sources, and what the family is. Used by a page that groups its
+   sections -- section_index() indexes an <h2 class="band-h"> -- and no page does yet;
+   everywhere else a section is a section. On the type ramp: the heading at the small
+   readout step, the only mono size between a label and a readout, and the note a
+   caption. Its kicker, .band-k, went the way of the page's other eyebrows. */
 .band{padding:44px 0 0;}
-.band-k{font-family:var(--mono);font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;
-  color:var(--muted);margin:0 0 .3rem;}
-.band-h{font-family:var(--mono);font-size:1.02rem;font-weight:600;letter-spacing:.06em;
+.band-h{font-family:var(--mono);font-size:.95rem;font-weight:600;letter-spacing:.12em;
   text-transform:uppercase;color:var(--accent-ink);margin:0;}
-.band-b{color:var(--ink-dim);font-size:.95rem;margin:.4rem 0 0;max-width:58ch;}
+.band-b{color:var(--ink-dim);font-size:.9375rem;margin:.4rem 0 0;max-width:60ch;}
 
 .wrap{max-width:1120px;margin:0 auto;padding:0 24px;}
 .col{max-width:var(--measure);}
@@ -178,14 +180,6 @@ html:not(.js) .theme-toggle{display:none;}
 .machine-say .underbar{width:132px;height:3px;background:var(--rule-gradient);margin:20px 0 22px;border-radius:2px;}
 .standfirst{font-size:1.16rem;color:var(--ink-dim);max-width:60ch;}
 .standfirst b{color:var(--ink);font-weight:600;}
-
-.stat-strip{display:flex;flex-wrap:wrap;gap:14px;margin:34px 0 8px;}
-.stat{flex:1 1 150px;background:var(--surface);border:1px solid var(--border);
-  border-radius:12px;padding:15px 17px;}
-.stat .v{font-family:var(--mono);font-size:1.5rem;font-weight:600;color:var(--ink);
-  font-variant-numeric:tabular-nums;display:block;letter-spacing:-.01em;}
-.stat .v small{font-size:.9rem;color:var(--muted);font-weight:500;}
-.stat .l{font-size:.8rem;color:var(--muted);display:block;margin-top:3px;line-height:1.35;}
 
 /* phase sections */
 .phase{padding:52px 0;border-top:1px solid var(--border);}
@@ -226,34 +220,6 @@ math{font-size:1.06em;color:var(--ink);}
 a.link{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent);}
 a.link:hover{border-bottom-color:var(--accent);}
 a.link:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px;}
-
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:24px 0;}
-.stats .s{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 15px;}
-.stats .s .v{font-family:var(--mono);font-size:1.15rem;font-weight:600;color:var(--ink);
-  font-variant-numeric:tabular-nums;}
-.stats .s .l{font-size:.76rem;color:var(--muted);margin-top:2px;line-height:1.35;}
-
-/* figure plates -- always light, since the figures are light-background */
-.plate{background:#fff;border:1px solid var(--border);border-radius:12px;
-  padding:12px;margin:26px 0;overflow-x:auto;}
-.plate img{display:block;width:100%;height:auto;border-radius:6px;}
-.plate figcaption{font-family:var(--sans);font-size:.83rem;color:#5b6675;
-  margin-top:10px;padding:0 4px;line-height:1.5;}
-.plate figcaption .fign{font-family:var(--mono);color:var(--accent-ink);font-weight:600;
-  letter-spacing:.02em;margin-right:.5em;}
-.plate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));
-  gap:16px;margin:26px 0;}
-.plate-grid .plate{margin:0;}
-
-/* tables -- wide content scrolls inside its own box, never the page */
-.tbl-wrap{overflow-x:auto;margin:24px 0;-webkit-overflow-scrolling:touch;}
-.tbl{border-collapse:collapse;font-size:.92rem;min-width:min(100%,540px);}
-.tbl th,.tbl td{border-bottom:1px solid var(--border);padding:9px 14px 9px 0;
-  text-align:left;vertical-align:top;color:var(--ink-dim);}
-.tbl th{font-family:var(--mono);font-size:.75rem;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--muted);font-weight:600;white-space:nowrap;}
-.tbl td strong{color:var(--ink);font-weight:600;}
-.tbl tr:last-child td{border-bottom:0;}
 
 /* inline reference list, for the sections sourced from outside this project */
 .refs{list-style:none;padding:0;margin:1.6rem 0 0;max-width:var(--measure);font-size:.8125rem;
@@ -659,9 +625,10 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
         <span class="inst-n">real weights &middot; real test digit</span>
       </div>
       <p class="inst-d">
-        Pick a column and watch it fill. On the left, what each of the 36 devices
-        contributes &mdash; signed, because a differential pair can subtract. On the
-        right, what the wire is actually carrying by the time it has passed that device.
+        It opens on the column that wins; pick any other and follow it down. On the
+        left, what each of the 36 devices contributes &mdash; signed, because a
+        differential pair can subtract. On the right, what the wire is actually
+        carrying by the time it has passed that device.
         There is no per-device current anywhere in the hardware; only the accumulation
         exists, and the number at the bottom is the column's answer.
       </p>
@@ -1292,23 +1259,6 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     return out;
   }
 
-  /** The site's ink, read from the CSS custom properties in force at `root`. */
-  function palette(root) {
-    const cs = (typeof getComputedStyle === "function")
-      ? getComputedStyle(root)
-      : { getPropertyValue: () => "" };
-    const get = (k, f) => (String(cs.getPropertyValue(k) || "").trim() || f);
-    return {
-      fg: get("--pe-fg", "#1b1f24"),
-      muted: get("--pe-muted", "#5a6472"),
-      panel: get("--pe-panel", "#f4f6f9"),
-      border: get("--pe-border", "#d7dde5"),
-      accent: get("--pe-accent", "#3b6ea5"),
-      ok: get("--pe-ok", "#3f8f4e"),
-      warn: get("--pe-warn", "#c14a3d"),
-    };
-  }
-
   // One visual language for optical intensity across the whole site: the 3D
   // stage, the filmstrip and the diffraction explorer all speak inferno.
   const INFERNO = [
@@ -1431,7 +1381,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
   const API = {
     MAX_DPR, scale, resize, fit, fitTo,
     onWidthChange, onThemeChange,
-    palette, readVars, INFERNO, TWILIGHT, makeLUT, LUT_INTENSITY, LUT_PHASE, raster, rasterInto,
+    readVars, INFERNO, TWILIGHT, makeLUT, LUT_INTENSITY, LUT_PHASE, raster, rasterInto,
     injectStyle, el,
   };
 
@@ -2802,9 +2752,11 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     + ".dv-out div{min-width:104px;}"
     + ".dv-out .v{display:block;font-family:var(--mono);font-size:clamp(1.25rem,2vw,1.42rem);font-weight:600;"
     + "color:var(--ink);font-variant-numeric:tabular-nums;}"
-    + ".dv-out .v.warn{color:var(--accent-2-ink);}"
+    // Below the pass mark is a tolerance failing, so it is rust, as on the bench and
+    // the ladder. It was amber, which is the negative rail and an absence.
+    + ".dv-out .v.fail{color:var(--bad-ink);}"
     + ".dv-out .l{display:block;font-size:.8125rem;color:var(--muted);margin-top:2px;}"
-    + ".dv-out .l.warn{color:var(--accent-2-ink);}"
+    + ".dv-out .l.fail{color:var(--bad-ink);}"
     + ".dv-vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;"
     + "overflow:hidden;clip-path:inset(50%);white-space:nowrap;}";
 
@@ -2998,11 +2950,11 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       lattice(canvas, states, level);
 
       accEl.textContent = res.accuracy.toFixed(4);
-      accEl.classList.toggle("warn", below);
+      accEl.classList.toggle("fail", below);
       // Written as well as coloured: nothing on this page is said by colour alone.
       passEl.textContent = (below ? "below" : "clears") + " the pass mark of "
         + model.threshold.toFixed(4);
-      passEl.classList.toggle("warn", below);
+      passEl.classList.toggle("fail", below);
       bitsEl.textContent = bits.toFixed(2);
       pairEl.textContent = 2 * states - 1;
     }
@@ -3036,8 +2988,8 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
  * wire.js -- one column, opened up, so the sum stops being a claim.
  *
  * "Kirchhoff's law does the arithmetic" is the sentence this project rests on, and
- * a sentence is a poor place for it. So: pick a column, pick a digit, and watch
- * the wire fill up. Thirty-six devices each pass a current set by their own
+ * a sentence is a poor place for it. So: open a column for a real digit and follow
+ * its wire down. Thirty-six devices each pass a current set by their own
  * conductance and the input driving them; they all empty into the same wire; the
  * wire carries the running total; the number at the bottom is the column's logit.
  *
@@ -3132,7 +3084,11 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       var t = Math.floor(r() * (k + 1)), tmp = order[k];
       order[k] = order[t]; order[t] = tmp;
     }
-    var at = 0, column = 0, sample = order[0];
+    var at = 0, sample = order[0], column = 0;
+    // The column shown is the one that wins, digit after digit, until the reader
+    // picks one of their own. It opened on column 0, which for most digits is a
+    // column that loses, and so said nothing about the answer on screen.
+    var follow = true;
 
     function draw() {
       var c = V.ink(document.documentElement);
@@ -3246,6 +3202,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     function describe() {
       mach.logits(sample, logits);
       var win = C.argmax(logits);
+      if (follow) column = win;
       var label = model.labels[sample];
       buttons.forEach(function (b, j) {
         b.setAttribute("aria-pressed", j === column ? "true" : "false");
@@ -3260,7 +3217,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
         + label + ", reaching " + logits[column].toFixed(2) + ".");
     }
 
-    function pick(col) { column = col; describe(); draw(); }
+    function pick(col) { follow = false; column = col; describe(); draw(); }
 
     nextBtn.addEventListener("click", function () {
       at = (at + 1) % order.length;
@@ -3796,7 +3753,12 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       recompute();
     });
     resetBtn.addEventListener("click", function () {
+      // Back to the bench as it opened: no error, and the weight view. It used to
+      // leave the rails showing, which was half of the opening state left behind.
       sIn.value = qIn.value = rIn.value = "0";
+      mode = "effective";
+      railBtn.textContent = "Show both rails";
+      railBtn.setAttribute("aria-pressed", "false");
       schedule();
     });
     railBtn.addEventListener("click", function () {
@@ -3857,6 +3819,7 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     + ".ld-p canvas{display:block;width:100%;}"
     + ".ld-h{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;"
     + "text-transform:uppercase;color:var(--accent-ink);margin:0 0 2px;font-weight:600;}"
+    + ".ld-binds{color:var(--ink);}"
     + ".ld-s{font-size:.8125rem;color:var(--ink-dim);margin:0 0 12px;line-height:1.45;}"
     + ".ld-b{font-family:var(--mono);font-size:.8125rem;color:var(--muted);margin:10px 0 0;"
     + "line-height:1.6;}"
@@ -4039,10 +4002,20 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
     var grid = P.el("div", "ld");
     var made = [];
 
-    PANELS.forEach(function (panel) {
+    // The source that binds is the one whose holding edge needs the most bits, and
+    // its panel says so. The section heading promised "one binds" and no panel said
+    // which. IR drop has no bit depth, so it is not in the running; the prose says
+    // why it does not bind at this size.
+    var need = PANELS.map(function (p) {
+      return p.bits ? p.bits(model.budget[p.key].lastHolding) : -Infinity;
+    });
+    var binding = need.indexOf(Math.max.apply(null, need));
+
+    PANELS.forEach(function (panel, i) {
       var entry = model.budget[panel.key];
       var box = P.el("div", "ld-p",
-        '<h4 class="ld-h">' + panel.head + "</h4>"
+        '<h4 class="ld-h">' + panel.head
+        + (i === binding ? ' <span class="ld-binds">&middot; binds</span>' : "") + "</h4>"
         + '<p class="ld-s">' + panel.sub + "</p>");
       var canvas = document.createElement("canvas");
       canvas.setAttribute("role", "img");
@@ -4382,16 +4355,32 @@ input,button,select,textarea{caret-color:var(--accent);font:inherit;}
       testIdx = -1;
     }
 
+    //: Where the pointer's stroke was at its last event, in pad cells; null between
+    //: strokes.
+    var last = null;
+
     function stroke(ev) {
       var rect = pad.getBoundingClientRect();
-      stamp((ev.clientX - rect.left) / rect.width * PAD,
-        (ev.clientY - rect.top) / rect.height * PAD);
+      var x = (ev.clientX - rect.left) / rect.width * PAD;
+      var y = (ev.clientY - rect.top) / rect.height * PAD;
+      if (last) {
+        // Joined, half a cell at a time. A fast stroke delivers its pointer events
+        // cells apart, and a dab at each of them alone drew a row of dots where the
+        // hand drew a line.
+        var dx = x - last[0], dy = y - last[1];
+        var n = Math.ceil(Math.sqrt(dx * dx + dy * dy) / 0.5);
+        for (var k = 1; k <= n; k++) stamp(last[0] + dx * k / n, last[1] + dy * k / n);
+      } else {
+        stamp(x, y);
+      }
+      last = [x, y];
       paintPad();
       classify(true);
     }
 
     pad.addEventListener("pointerdown", function (ev) {
       drawing = true;
+      last = null;
       // A pointer takes over from the keyboard: the keyboard's pen lifts and hides.
       pen.shown = false;
       pen.down = false;
