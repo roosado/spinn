@@ -1004,3 +1004,87 @@ fourteen-entry reference list in section 07. Tests **171 → 172**, no skips.
 Landed on `main` as `e4de1ff`. As the 2026-09-10 entry records, a commit to `main` alone
 changes nothing a visitor sees: the page goes live with
 `git subtree push --prefix site origin gh-pages`, a separate step not taken here.
+---
+
+## 2026-09-19 — the array-size sweep, declared first
+
+**Written before any sweep was run**, for the reason the pass mark was: choosing what
+counts as an edge after seeing the curve is how a tolerance study becomes an argument.
+This entry is committed before the driver produces a number for any size but the first.
+
+The row's IR-drop bracket — holds at 100 Ω per segment, fails at 300 Ω — is one point on a
+curve, because the drop grows with array size. The page's own next-steps list asks the
+sequel: at what size does published wiring stop sitting inside the edge, and do the wires
+or conductance variation bind first there?
+
+### What varies
+
+The array is 36×10 because the task is a 6×6 grid and there are ten classes. **Size here is
+the image grid `g`: rows = g², columns stay 10.** Only the column wire lengthens; the row
+wire stays ten cells. This is a sweep of one axis, and the write-up says so.
+
+| g | rows | devices (differential) |
+|---|---|---|
+| 6 | 36 | 720 — the row; must reproduce 0.7345 and 5.4271 exactly |
+| 8 | 64 | 1,280 |
+| 12 | 144 | 2,880 |
+| 18 | 324 | 6,480 |
+| 26 | 676 | 13,520 |
+
+Each size is **trained fresh** on the same 2,000 test digits, downsampled to its grid by
+photonn's own `encode_modes`. photonn scored only the 36-mode mesh, so the shared-task
+property holds at 6×6 alone; the other sizes are the same digits at another resolution and
+are spinn-internal. Nothing here is compared to a photonn row.
+
+### Declared
+
+| | |
+|---|---|
+| **Pass mark** | 95% of **that size's own ideal**, the rule the row declared, so no size is graded on another's curve |
+| **Seeds** | `baseSeed = 20260908` at every size; 20 realizations for the stochastic source, 3 for the deterministic ones — the row's protocol, unchanged |
+| **Training** | seed `20260908`, 60 epochs, batch 128, learning rate `0.5 · 36 / rows`. Step size in a softmax regression goes with `‖x‖²`, which grows with the pixel count; unscaled, 676 inputs would oscillate and the "ideal" would be an optimiser artefact. Exactly 0.5 at 6×6 |
+| **Source 3 ladder** | `2·10^(k/3)` Ω for k = −6…8: fifteen magnitudes, 0.02 Ω to 928 Ω, ×2.15 apart. It contains **2 Ω and 20 Ω exactly**, the per-cell wiring at 65 nm (Agrawal et al. 2019) and 7 nm (Victor et al. 2024) |
+| **Sources 1 and 2** | the row's own ladders, unchanged |
+| **Pitch** | fixed. A segment is resistance per length times the cell pitch, so its resistance does not depend on the array size |
+| **The row's own run** | untouched. `run_error_budget` gains an optional ladder argument whose default is today's, so no recorded number moves |
+
+### What "the size limit" means
+
+The **last swept size at which IR drop holds at 20 Ω, and the first at which it fails** —
+and the same for 2 Ω. A bracket in rows, never interpolated. If it holds or fails at all
+five sizes there is no edge: that is a property of the range, reported as "beyond the
+sweep", and extending the range is a separate decision.
+
+It is judged on **cited wiring only**. Wire resistance is cited, so IR drop can be judged
+against it. The device spread is `UNSOURCED`, so source 1 gets no verdict against the wire:
+its edge is reported at each size and nothing is compared to it. That is the rule against
+a margin on an uncited value, applied.
+
+### An expectation on record, not a thesis
+
+For a uniform array the first-order far-corner drop is `R·G·(N(N+1) + M(M+1))/2`, so a
+fixed drop fraction gives `R_edge ∝ 1/(G·N²)`. From the recorded 100 Ω at 36 rows that is
+about 32 Ω at 64 rows and 0.3 Ω at 676. If it held, 20 Ω would fail between 64 and 144
+rows and 2 Ω between 144 and 324. **The trained arrays are sparse and differential, so the
+measured exponent may differ**, and nothing here rests on it. The report gives
+`edge × rows²` at both ends of each bracket rather than a fitted exponent, so the reader
+can see how far it is from constant without any interpolation.
+
+### Two checks the sweep carries
+
+**The first-order model at each bracket.** Source 3 is first order and one pass overstates
+the drop, which can only make a tolerable design look failing. At each size's bracket the
+accuracy is also computed with the drop solved self-consistently. If both agree on
+holds/fails everywhere, the bracket stands; if any size differs, the solved bracket is the
+one carried and both are shown. This is used as a check only and is not swapped into the
+driver.
+
+**The window.** Under IR drop the accuracy depends on `R·G` alone: scaling every
+conductance by α and every wire resistance by 1/α leaves every drop, and so every
+argmax, unchanged. The report gives the edge as `R_edge × g_max` so a window other than
+this design's reads off the same curve. That holds at the fixed ratio of 3 only.
+
+### Not in this sweep
+
+A sweep over columns, or over tile size. Error sources 4–7. The delivered spread and the
+read time. A widget or page for the curve, and the `gh-pages` push.
