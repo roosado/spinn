@@ -20,6 +20,10 @@ data/
 # The numbers that matter are copied into docs/; the raw run output is not versioned.
 exports/
 
+# The array-size sweep's train splits: tens of MB at the larger grids, and
+# regenerable with tools/import_shared_task.py. The test splits are committed.
+tests/fixtures/shared_task_*_train.npz
+
 # Generated build artifact for Artifact publishing (index.html is the Pages copy)
 site/_artifact_body.html
 

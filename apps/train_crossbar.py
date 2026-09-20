@@ -34,10 +34,19 @@ else. A bias would be an extra row of devices driven at a fixed voltage; that is
 real design option, and it is not taken here because it is device count spent
 outside the thing being measured.
 
+**The grid.** ``--grid g`` trains a ``g*g`` by 10 array on the same 2,000 test digits
+at that resolution, for the array-size sweep (``docs/array_size.md``). Only 6 is the
+shared task the comparison table rests on. The learning rate scales as
+``0.5 * 36 / rows``: the step of a softmax regression goes with ``||x||^2``, which grows
+with the pixel count, so an unscaled 0.5 at 676 inputs oscillates and the "ideal"
+accuracy would be the optimiser's artefact -- the mistake the projected-descent
+version above already made once. At 6x6 it is exactly 0.5, so that array is unchanged.
+
 Run (from the repo root, in this repo's venv)::
 
     .venv/Scripts/python.exe -m apps.train_crossbar
     .venv/Scripts/python.exe -m apps.train_crossbar --quick
+    .venv/Scripts/python.exe -m apps.train_crossbar --grid 12
 """
 from __future__ import annotations
 
@@ -48,13 +57,28 @@ import numpy as np
 
 from spinn.crossbar import Crossbar, accuracy
 from spinn.export import SIGNED_SCHEMES, validate_handoff, write_handoff
-from spinn.task import N_CLASSES, load_shared_task, one_hot
+from spinn.task import N_CHANNELS, N_CLASSES, ROW_GRID, load_shared_task, one_hot
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXPORTS = os.path.join(REPO, "exports")
 
 #: Fixed and recorded, per project convention.
 SEED = 20260908
+
+#: The learning rate at the row's 36 inputs; see the module docstring for the scaling.
+BASE_LR = 0.5
+
+
+def learning_rate(rows: int) -> float:
+    """``0.5 * 36 / rows``: constant step in ``||x||^2``. Exactly ``0.5`` at 36 rows."""
+    return BASE_LR * N_CHANNELS / rows
+
+
+def output_dir(grid: int) -> str:
+    """Where a grid's handoff lands: the row's own in ``exports/``, the rest under it."""
+    if grid == ROW_GRID:
+        return EXPORTS
+    return os.path.join(EXPORTS, "size", f"g{grid:02d}")
 
 
 def softmax(z: np.ndarray) -> np.ndarray:
@@ -111,7 +135,12 @@ def fit_to_window(weights: np.ndarray) -> tuple[np.ndarray, float]:
 def parse_args():
     p = argparse.ArgumentParser(description="Train an ideal spintronic crossbar.")
     p.add_argument("--epochs", type=int, default=60)
-    p.add_argument("--lr", type=float, default=0.5)
+    p.add_argument("--lr", type=float, default=None,
+                   help="default 0.5 * 36 / rows, so exactly 0.5 at the row's 36 inputs")
+    p.add_argument("--grid", type=int, default=ROW_GRID,
+                   help="image grid g; rows = g*g. 6 is the shared task")
+    p.add_argument("--out-dir", default=None,
+                   help="default exports/ at grid 6, else exports/size/g<gg>/")
     p.add_argument("--batch", type=int, default=128)
     p.add_argument("--seed", type=int, default=SEED)
     p.add_argument("--scheme", default="differential", choices=("differential", "offset"))
@@ -124,8 +153,11 @@ def main():
     if args.quick:
         args.epochs = 5
 
-    task = load_shared_task()
+    task = load_shared_task(args.grid)
     cb = Crossbar(task.n_channels, N_CLASSES, scheme=args.scheme)
+    if args.lr is None:
+        args.lr = learning_rate(cb.n_inputs)
+    out_dir = args.out_dir or output_dir(args.grid)
 
     # The array's own encoding, used for training as well as evaluation, so there
     # is one preprocessing path rather than two that can drift.
@@ -136,15 +168,23 @@ def main():
     print(f"crossbar   {cb.n_inputs}x{cb.n_outputs}, {args.scheme}, "
           f"{cb.n_devices} devices, window ratio {cb.ratio:g}")
     print(f"task       train {task.train_images.shape}, test {task.test_images.shape}")
+    print(f"training   lr {args.lr:g}, {args.epochs} epochs, seed {args.seed}")
 
-    raw = None
+    raw, losses = None, []
     for epoch, loss, raw in train(
         x_train, y_train, epochs=args.epochs, lr=args.lr, batch=args.batch,
         seed=args.seed,
     ):
+        losses.append(loss)
         if epoch % 10 == 0 or epoch == args.epochs - 1:
             acc = accuracy(x_test @ raw, task.test_labels)
             print(f"  epoch {epoch:3d}  loss {loss:.4f}  test acc {acc:.4f}")
+
+    # The gate on the learning-rate rule: a loss still moving, or moving up, at the
+    # end says the descent did not settle and the accuracy below is the optimiser's.
+    tail = losses[-10:]
+    print(f"loss over the last {len(tail)} epochs: {tail[0]:.4f} -> {tail[-1]:.4f} "
+          f"(change {tail[-1] - tail[0]:+.4f}, worst step {max(np.diff(tail)):+.5f})")
 
     weights, gain = fit_to_window(raw)
     assert accuracy(x_test @ weights, task.test_labels) == accuracy(
@@ -163,15 +203,16 @@ def main():
     print(f"weights         [{weights.min():+.3f}, {weights.max():+.3f}], "
           f"{np.mean(np.abs(weights) > 0.999):.1%} at the window edge")
 
-    os.makedirs(EXPORTS, exist_ok=True)
-    out = os.path.join(EXPORTS, "crossbar_ideal.npz")
+    os.makedirs(out_dir, exist_ok=True)
+    out = os.path.join(out_dir, "crossbar_ideal.npz")
     np.savez_compressed(
         out, weights=weights, readout_gain=gain, seed=args.seed, scheme=args.scheme,
         ideal_accuracy=ideal, epochs=args.epochs, lr=args.lr, batch=args.batch,
+        grid=args.grid,
     )
     print(f"wrote {out}")
 
-    handoff = os.path.join(EXPORTS, "crossbar_handoff.h5")
+    handoff = os.path.join(out_dir, "crossbar_handoff.h5")
     write_handoff(
         handoff,
         model_type="crossbar",

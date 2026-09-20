@@ -17,7 +17,17 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from apps.train_crossbar import cross_entropy, fit_to_window, softmax, train
+import os
+
+from apps.train_crossbar import (
+    EXPORTS,
+    cross_entropy,
+    fit_to_window,
+    learning_rate,
+    output_dir,
+    softmax,
+    train,
+)
 from spinn.crossbar import Crossbar, accuracy
 from spinn.task import one_hot
 
@@ -113,3 +123,33 @@ def test_the_trained_map_is_what_the_array_computes():
     assert accuracy(cb.forward(images, fitted), np.argmax(y, axis=1)) == accuracy(
         x @ fitted, np.argmax(y, axis=1)
     )
+
+
+# -- the array-size sweep's training rule --------------------------------------
+
+
+def test_the_learning_rate_is_exactly_the_rows_own_at_36_inputs():
+    """0.5 * 36 / 36, so the 6x6 array trains as it always did.
+
+    Exact equality, not approx: the row's recorded weights must reproduce
+    bit for bit, and a rate that differed in the last place would not.
+    """
+    assert learning_rate(36) == 0.5
+
+
+def test_the_learning_rate_holds_the_step_in_the_input_norm_constant():
+    """The step of a softmax regression goes with ||x||^2, which goes with the rows.
+
+    Normalised inputs of ``n`` pixels have a squared norm that grows with ``n``,
+    so ``lr * rows`` is what stays fixed. Unscaled, 676 inputs would oscillate and
+    the ideal accuracy would be the optimiser's artefact.
+    """
+    for rows in (64, 144, 324, 676):
+        assert learning_rate(rows) * rows == pytest.approx(0.5 * 36)
+    assert learning_rate(676) < learning_rate(144) < learning_rate(36)
+
+
+def test_the_rows_own_handoff_stays_where_it_was_and_the_rest_go_under_size():
+    assert output_dir(6) == EXPORTS
+    assert output_dir(12) == os.path.join(EXPORTS, "size", "g12")
+    assert output_dir(8).endswith(os.path.join("size", "g08")), "zero-padded, so they sort"

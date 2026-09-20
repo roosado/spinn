@@ -12,7 +12,18 @@ from __future__ import annotations
 
 import numpy as np
 
-from spinn.task import N_CHANNELS, N_CLASSES, load_shared_task, one_hot
+import os
+
+import pytest
+
+from spinn.task import (
+    FIXTURES,
+    N_CHANNELS,
+    N_CLASSES,
+    ROW_GRID,
+    load_shared_task,
+    one_hot,
+)
 
 
 def test_the_task_loads_with_both_splits():
@@ -67,3 +78,69 @@ def test_one_hot_is_one_hot():
     assert y.shape == (3, N_CLASSES)
     assert np.array_equal(y.sum(axis=1), np.ones(3))
     assert y[1, 3] == 1.0 and y[2, 9] == 1.0
+
+
+# -- the other grids, for the array-size sweep ---------------------------------
+#
+# Only 6x6 is the shared task. The rest are the same 2,000 digits at another
+# resolution, and what makes that true is checked here rather than assumed.
+
+SWEEP_GRIDS = (8, 12, 18, 26)
+
+
+@pytest.mark.parametrize("grid", SWEEP_GRIDS)
+def test_another_grid_loads_its_test_split_without_the_train_split(grid):
+    """The train split is gitignored at the larger grids, so a test must not need it."""
+    task = load_shared_task(grid, train=False)
+    assert task.test_images.shape == (2000, grid, grid)
+    assert task.n_channels == grid * grid
+    assert task.train_images is None and task.train_labels is None
+
+
+@pytest.mark.parametrize("grid", SWEEP_GRIDS)
+def test_another_grid_is_unit_l2_and_non_negative(grid):
+    flat = load_shared_task(grid, train=False).test_images.reshape(2000, -1)
+    assert np.allclose(np.linalg.norm(flat, axis=1), 1.0)
+    assert (flat >= 0).all() and (flat.max(axis=1) > 0).all()
+
+
+@pytest.mark.parametrize("grid", SWEEP_GRIDS)
+def test_every_grid_is_the_same_two_thousand_digits(grid):
+    """The labels are the part that can be compared without a downsampler.
+
+    Bit-identical labels in the same order, at every grid, is what says these are
+    the same draw. The images differ by construction. That the recipe reproduces the
+    6x6 images exactly is checked where it is run, in
+    ``tools/import_shared_task.py``, which refuses to emit a grid otherwise.
+    """
+    row = load_shared_task(ROW_GRID, train=False)
+    other = load_shared_task(grid, train=False)
+    assert np.array_equal(row.test_labels, other.test_labels)
+
+
+@pytest.mark.parametrize("grid", SWEEP_GRIDS)
+def test_another_grid_states_its_own_provenance(grid):
+    source = load_shared_task(grid, train=False).source
+    assert f"modes={grid * grid}" in source
+    assert "subset_seed=0" in source
+
+
+def test_a_train_split_that_is_absent_says_how_to_regenerate_it(tmp_path, monkeypatch):
+    """Gitignored means it can be missing; the error has to be a fix, not a mystery."""
+    import spinn.task as task_module
+
+    monkeypatch.setattr(task_module, "FIXTURES", str(tmp_path))
+    with pytest.raises(FileNotFoundError, match="import_shared_task.py --grid 8"):
+        load_shared_task(8, train=False)
+
+
+def test_a_grid_that_does_not_match_its_file_is_refused(tmp_path, monkeypatch):
+    """A 12x12 file loaded as 8x8 would be a valid task at the wrong size, silently."""
+    import shutil
+    import spinn.task as task_module
+
+    src = os.path.join(FIXTURES, "shared_task_12x12_test.npz")
+    shutil.copy(src, tmp_path / "shared_task_8x8_test.npz")
+    monkeypatch.setattr(task_module, "FIXTURES", str(tmp_path))
+    with pytest.raises(ValueError, match="expected 8x8"):
+        load_shared_task(8, train=False)
