@@ -1088,3 +1088,119 @@ this design's reads off the same curve. That holds at the fixed ratio of 3 only.
 
 A sweep over columns, or over tile size. Error sources 4–7. The delivered spread and the
 read time. A widget or page for the curve, and the `gh-pages` push.
+---
+
+## 2026-09-19 — the array-size sweep, and a first-order model that was not the network
+
+The sweep the declaration above set up was run: five sizes, 36 to 676 rows, each trained
+fresh and measured with the row's own protocol. Results in `docs/array_size.md`; raw
+output in `exports/size/`, gitignored and regenerable. Tests **172 → 233**, no skips.
+
+**No number in the row moved.** The 6×6 point of the sweep reproduces the row's ideal
+(0.7345, `readout_gain` 5.4271, the same weights bit for bit) and both bit depths on
+sources 1 and 2 exactly, and a test asserts it.
+
+### What was measured
+
+| rows | ideal | σ holds → fails | states holds → fails | wire, first order (Ω) | wire, **solved** (Ω) |
+|---|---|---|---|---|---|
+| 36 | 0.7345 | 0.035 → 0.05 (4.84 bits) | 7 → 5 | 200 → 431 | **431 → 928** |
+| 64 | 0.8440 | 0.035 → 0.05 (4.84) | 7 → 5 | 92.8 → 200 | **200 → 431** |
+| 144 | 0.8975 | 0.05 → 0.075 (4.32) | 5 → 4 | 20 → 43.1 | **92.8 → 200** |
+| 324 | 0.9040 | 0.075 → 0.1 (3.74) | 4 → 3 | 4.31 → 9.28 | **20 → 43.1** |
+| 676 | 0.9070 | 0.1 → 0.15 (3.32) | 4 → 3 | 0.928 → 2 | **4.31 → 9.28** |
+
+**The size limit, on cited wiring, as declared.** On the solved network 7 nm wiring (20 Ω a
+cell) holds at 324 rows and fails at 676, and 65 nm wiring (2 Ω) holds at every size swept,
+so no edge was found for it inside the range. Conductance variation is the binding one of
+sources 1 and 2 at every size, as in the row. So for 7 nm wiring the binding source changes
+from the device to the wire somewhere between 324 and 676 rows — a bracket five sizes wide,
+not interpolated. The device spread is still `UNSOURCED`, so none of this is a margin.
+
+Read across sizes, the σ that holds loosens from 0.035 to 0.1 of the window while the wire
+edge tightens. They run in opposite directions and nothing here explains either.
+
+### The expectation on record was wrong, and by how much
+
+The declaration expected, from a uniform array's closed form, that 20 Ω would fail between
+64 and 144 rows and 2 Ω between 144 and 324. Measured on first order, the same model the
+expectation was derived for: 144 to 324 and 324 to 676, one grid step later each. Measured
+on the solved network: 324 to 676, and not within the range. From 144 rows up the solved
+edge times rows² is constant to within 9% at each end of the bracket, so `1/N²` holds
+there; below that the edge falls less steeply. The declaration said the exponent might
+differ and nothing rested on it.
+
+### First order is not a safe direction, it is a different model
+
+This is the finding the sweep was not designed to make. The source's own header said one
+pass overstates the drop, "the safe direction for a tolerance study". True, and not the
+whole story. Past a drop that is a modest fraction of the drive the first-order model lets
+a column node rise above the driver that feeds it and reverses a cell's current. It
+reached **0.0000 accuracy at 144, 324 and 676 rows and 0.0005 at 64**, below the 0.1 of
+chance, which is not a harder failure but an impossible one. The solved network's lowest accuracy anywhere
+on the ladder is 0.3215.
+
+At every size the solved edge sits 2.2× to 4.6× above first order's. At 6×6 first order
+puts it between 200 and 431 Ω and the solved network holds at 431 Ω, above the 300 Ω where
+the row records a failure. **The row's "fails at 300 Ω" is first order's, not the array's.**
+Its "holds at 100 Ω" is unaffected, and first order never held where the network failed at
+any of the 75 points measured. The row is unchanged, and now points at `docs/array_size.md`
+for this. Moving the row onto the solved network would change a recorded bracket, the
+budget JSON, the browser's pinned copy and the page's numbers: a decision, not a
+correction, and it is left open.
+
+### How the solved network is computed, and where the plan was wrong
+
+The declaration said the solved check would be made at each size's bracket, and the plan
+built it as an iteration of the first-order model to a fixed point. That was **wrong for
+the purpose**. It agreed with the network to four decimals wherever it converged, and did not converge
+at 20 Ω at 324 rows — the last magnitude that holds there — nor at 20 Ω at 676, because the
+iteration is only a contraction while the drop is a small fraction of the drive. It was
+written, tested against an independent nodal solve, and then removed rather than tuned.
+
+The network is linear, so the column currents are exactly `V · Geff`, where `Geff` is the
+conductance the array really presents: current into each amplifier per volt on each driver.
+It depends on the devices and the wire and not on the inputs, so `err.ir_drop_exact` finds
+it with one sparse solve per rail and applies it to every sample, in under a quarter of a
+second at 676 rows. The nodal matrix is symmetric, so it is read from the amplifier end:
+ten solves, not 676. A one-cell array gives `G / (1 + 2RG)`, the series resistance of a cell
+and its two segments; a direct nodal solve written out node by node in the test file agrees
+to 1e-9; and at 0.1 Ω first order and the network lose the same current to 0.1%, which is
+what ties the first-order geometry to the real one on a trained array.
+
+Because a bracket cannot be carried without the points either side of it, the solved check
+was widened from the bracket to the whole ladder. Both are recorded at all 15 magnitudes.
+`err.ir_drop` is first order still, and blocked over samples now: at 676 rows one array is
+over 100 MB and it held eight. Blocking changes no bit, tested against a copy of the
+function as it was, and the row's own recorded 0.7250 at 100 Ω and 0.6845 at 300 Ω are
+recomputed from the trained array on every run.
+
+**Only `R·G` matters**, and a test holds it: scale every conductance by α and every wire
+resistance by 1/α and every drop, first order or solved, is unchanged. The report gives the
+edge as `R·g_max` so a window other than this design's reads off the same curve, at the
+fixed ratio of 3.
+
+### What else changed, and one estimate that was off
+
+- **`tools/import_shared_task.py --grid g`** freezes the same 2,000 digits at another
+  resolution, and refuses to unless the recipe first reproduces the committed 6×6 test set
+  **bit for bit**, images and labels. It did. That check is what makes "same digits at every
+  size" a fact rather than an assumption.
+- **Only 6×6 is the shared task.** photonn scored only the 36-mode mesh, so the other grids
+  are spinn-internal and nothing is compared to a photonn row.
+- **The learning rate scales as `0.5 · 36 / rows`** (exactly 0.5 at 6×6). Every loss curve
+  falls steadily; at the larger grids it is still falling slowly at epoch 60, as it is at
+  6×6 — the row's protocol, not tuned per size.
+- **The plan overestimated the fixtures.** It said the four new train splits would be ~30 MB
+  and the test splits ~6 MB. They are 24 MB and 2.4 MB. The decision stands — the test
+  splits are committed, the train splits are gitignored and regenerable — but at that size
+  committing them is a live option, and it is left as one.
+- **The tests now include the recorded row**, when `exports/` exists: the IR-drop numbers
+  the row records are recomputed through `err.ir_drop` and must match.
+
+### Left open
+
+Whether the row's IR-drop source moves onto the solved network. The device spread and the
+read time. A sweep over columns or over tile size, which is a different study; the row wire
+never lengthened here. Error sources 4–7. The page is rebuilt with the sweep's headline in
+its last section; publishing it to `gh-pages` is a separate step not taken here.

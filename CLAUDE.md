@@ -52,13 +52,15 @@ spinn/
 spinn-hw/
 ├── +mc/              # sweep, pack, validate_config, error_sources + the crossbar driver
 ├── +model/           # program, encode, crossbar — the as-built forward pass
-├── +err/             # conductance_variation, quantize, ir_drop (+ inherited detector_noise)
+├── +err/             # conductance_variation, quantize, ir_drop, ir_drop_exact (+ inherited detector_noise)
 ├── +io/read_handoff.m  # the one MATLAB reader
-└── run_error_budget.m  # the sweep entry point; writes exports/error_budget.json
+├── run_error_budget.m  # the sweep entry point; writes exports/error_budget.json
+└── run_size_sweep.m    # the same budget at five array sizes, and the first-order check
 
 apps/
 ├── train_crossbar.py  # trains the ideal array; NumPy, no autograd
 ├── report_row.py      # the error budget -> docs/comparison_row.md
+├── report_size.py     # the size sweep -> docs/array_size.md
 ├── export_web_data.py # weights, test set and budget -> apps/web/data.js
 ├── build_site.py      # the site generator, its stylesheet, the widget registry
 ├── preview.py         # standalone shell for previewing one widget
@@ -75,7 +77,10 @@ tools/
 
 tests/                # pytest drives everything, including Node and MATLAB
 ├── crossbar_runner.js             # pins apps/web/crossbar.js to the recorded budget
-└── fixtures/shared_task_6x6.npz   # the frozen task, committed
+└── fixtures/
+    ├── shared_task_6x6.npz        # the frozen task, committed
+    ├── shared_task_{8,12,18,26}x*_test.npz   # the same 2,000 digits, committed
+    └── shared_task_*_train.npz    # gitignored, regenerable: tools/import_shared_task.py --grid g
 ```
 
 ### The model, and the row it produced
@@ -88,6 +93,14 @@ bits**; the full row and its brackets are in `docs/comparison_row.md`, and that 
 single statement of it — the hub refers to it rather than copying it. Delivered
 precision, energy per inference and latency are all `UNSOURCED`, so no margin is
 claimed and that column is omitted.
+
+**The array-size sweep is done** (`docs/array_size.md`, the single statement of it): grids
+6, 8, 12, 18 and 26, so 36 to 676 rows and ten columns throughout, each trained fresh on
+the same 2,000 digits. Only the column wire lengthens. On the **solved** network, cited
+7 nm wiring (20 Ω a cell) holds at 324 rows and fails at 676, and 65 nm wiring (2 Ω)
+holds at every size swept. **Only 6×6 is the shared task**; the other grids are
+spinn-internal. Its main finding is about the model: see the second decision under
+*Resolved*.
 
 `g_min`, `g_max` and `read_voltage` — 1 µS, 3 µS, 0.1 V — are a **design point**, not a
 measurement: a CoFeB/MgO junction with a 2 nm barrier (RA ≈ 3.4 kΩ·µm², TMR 200%, a
@@ -136,8 +149,8 @@ of which raise.
 
 ## Plan of work
 
-**All five plans are closed. Nothing in `plans/` is open**, and no sixth plan exists.
-The comparable core is complete and the row is reported.
+**Six plans are closed. Nothing in `plans/` is open.** The comparable core is complete
+and the row is reported; plan 06, the array-size sweep, was declared before it ran.
 
 | | | closed by | |
 |---|---|---|---|
@@ -146,15 +159,18 @@ The comparable core is complete and the row is reported.
 | 03 | the ideal crossbar | `9c4d9b5` | 0.7345 ideal, differential pairs |
 | 04 | the seam | `8b9543c` | closed handoff, `+model/crossbar`, `+err` 1–3, 120 tests |
 | 05 | the budget and the row | `3c97a6b`, `5646471` | conductance variation binds at 4.84 bits |
+| 06 | the array-size sweep | declared `89d1031` | 36 to 676 rows; first order is not the network |
 
 The plan files are archived in `plans/finished_plans/` (gitignored, like all of
 `plans/`), each stamped with the commit that closed it and otherwise unedited — they
-record what was believed before each piece was built, and three of the five were wrong
-about something that mattered. `docs/history.md` carries the published version.
+record what was believed before each piece was built, and four of the six were wrong
+about something that mattered — plan 06 built an iteration of the first-order model that
+stopped converging where it was needed, and replaced it with a direct solve.
+`docs/history.md` carries the published version.
 
-**Do not write a sixth plan from that archive.** The next work is named below instead:
-the two sourcing questions under *Open decisions*, and the items under *Deliberately
-deferred*.
+**Do not write a further plan from that archive.** The next work is named below instead:
+the open decisions, and the items under *Deliberately deferred*. Plan 06 was written on
+request from a *Deliberately deferred* item, which is the intended route.
 
 ---
 
@@ -187,10 +203,8 @@ deferred*.
 - The site pages beyond `index.html`, which now carries the whole argument and six
   live instruments. A page per error source, or a tolerance page like photonn's, is
   optional and unplanned.
-- An array-size sweep. IR drop grows with array size, so the row's number is one point on
-  a curve — but the size is fixed and stated first.
-- A self-consistent IR-drop solve. Source 3 is first-order and one pass overstates the
-  drop; iterating is the refinement if it turns out to bind.
+- A sweep over columns, or over tile size. The size sweep varied rows only, because the
+  ten columns are the ten classes; a layer split across tiles is a different study.
 - Error sources 4–7, and the keys that name them.
 
 ---
@@ -240,9 +254,37 @@ Do not assume an answer; ask.
    belongs to a sense amplifier this model deliberately excludes. Published MRAM reads
    (4–9 ns) and the commodity crossbar's settling (13–29 ns) are quoted for scale.
 
+3. **Whether the row's IR-drop source moves onto the solved network.** The size sweep
+   found that the first-order model behind the row overstates the drop by a factor that
+   matters: at 6×6 the solved network holds at 431 Ω, above the 300 Ω where the row records
+   a failure. The row is unchanged and points at `docs/array_size.md`. Moving it would
+   change the recorded bracket, `exports/error_budget.json`, the browser's pinned copy
+   (`apps/web/crossbar.js`) and the page's numbers — a decision, not a correction.
+
 ### Resolved
 
 Kept so a later session does not reopen a question already answered.
+
+- **The size sweep retrains per grid** (2026-09-19): 6, 8, 12, 18, 26, rows = g², columns
+  fixed at ten. Not a fixed 36×10 network padded into bigger arrays, which models an array
+  nobody would build. The learning rate scales as `0.5 · 36 / rows`, because the step of a
+  softmax regression goes with the pixel count. Each size's pass mark is 95% of its own
+  ideal. The size limit is judged on cited wiring only, because the device spread is
+  `UNSOURCED`: source 1 is reported at every size and compared to nothing.
+- **First order is not a safe direction, it is a different model** (2026-09-19). One pass
+  overstates the drop, and once the drop is a modest fraction of the drive it lets a column
+  node rise above its driver and reverses a cell's current — 0.0000 accuracy, below chance,
+  which no resistor network does. The solved network is `err.ir_drop_exact`: the array is
+  linear, so the currents are exactly `V · Geff`, found with one sparse solve per rail. An
+  iteration of the first-order model to a fixed point was built first and removed: it
+  agreed wherever it converged and did not converge at 20 Ω at 324 rows, the last
+  magnitude that holds there. `err.ir_drop` is first
+  order still: it is what the budget, the row and the browser's copy use.
+- **Accuracy under IR drop depends on `R·G` alone**, first order or solved, and a test
+  holds it. An edge in ohms is the same edge in `R·g_max`; a window `k` times more
+  conductive at the same ratio of 3 divides every ohm edge by `k`.
+- **The train splits of the new grids are not committed** (24 MB, regenerable); their test
+  splits (2.4 MB) are. Overridable: at that size committing them is live.
 
 - **The window is a design point, checked against the physics** (2026-09-11).
   1 µS / 3 µS / 0.1 V is a 2 nm CoFeB/MgO junction about 114 nm across, read through and

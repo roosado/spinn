@@ -545,22 +545,17 @@
         </span>
       </li>
       <li>
-        <b>Sweep the array size</b>
+        <b>Put the row on the solved network</b>
         <span>
-          IR drop grows with the array, so the number above is one point on a curve. At
-          36&times;10 published wiring sits five times inside the edge; the curve says at
-          what size it stops doing so, and whether the wires or conductance variation bind
-          first there.
-        </span>
-      </li>
-      <li>
-        <b>Solve IR drop self-consistently</b>
-        <span>
-          The present model is first order: the drops are computed from the currents the
-          ideal voltages would draw, so one pass overstates them. That is the safe
-          direction for a tolerance study and it is not the same as being right. Iterating
-          is the refinement, and it matters once a larger array brings this source near its
-          edge.
+          The array size has been swept, from 36 to 676 rows, and the result is in the
+          repository (<code>docs/array_size.md</code>). On the solved network 7&nbsp;nm
+          wiring, 20&nbsp;&#937; a cell, holds at 324 rows and fails at 676, and 65&nbsp;nm
+          wiring, 2&nbsp;&#937;, holds at every size swept. It also measured the model
+          behind the row: IR drop here is first order, one pass overstates the drop, and at
+          every size the solved network's edge sits 2.2 to 4.6 times higher. The row's
+          &ldquo;fails at 300&nbsp;&#937;&rdquo; is first order's, and the row is
+          unchanged. Moving it would change a recorded bracket, so it is a decision and not
+          a correction.
         </span>
       </li>
       <li>

@@ -109,17 +109,19 @@ and written beside — checked against cited device physics rather than copied f
 device. In it, published wiring resistances sit five times inside IR drop's edge.
 
 The array is 36×10 logical, 720 devices in differential pairs, and that size is fixed and
-stated because IR drop grows with it. `docs/history.md` is the full record, newest last.
+stated because IR drop grows with it. `docs/array_size.md` sweeps it, from 36 to 676 rows,
+and says where cited wiring stops holding. `docs/history.md` is the full record, newest last.
 
 The page at `site/index.html` carries all of it: what a weight physically is, the sum
 performed on a wire, the array classifying frozen digits and one you draw yourself, the
 three error sources taken apart on a live bench, the measured budget with its brackets,
 and the row.
 
-Not built, deliberately: error sources beyond the first three, an array-size sweep, a
-self-consistent IR-drop solve, and the spin-torque oscillator — which is complementary
-and stays out of the comparison table on purpose. `CLAUDE.md` says why for each, and the
-last section of the page states what each would take.
+Not built, deliberately: error sources beyond the first three and the spin-torque
+oscillator — which is complementary and stays out of the comparison table on purpose.
+`CLAUDE.md` says why for each, and the last section of the page states what each would
+take. Open, and a decision rather than work: whether the row's IR-drop source moves onto
+the solved network the size sweep used.
 
 ## How numbers are treated
 

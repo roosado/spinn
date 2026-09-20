@@ -44,7 +44,9 @@ Forcing it into the unit would be a category error. The statement that means
 something is the one in the table: at this array size the design tolerates
 100 Ω per wire segment and fails by 300 Ω.
 **That number is meaningless without the array size beside it**, which is why
-the size is fixed and reported.
+the size is fixed and reported. How it moves with the size — and how far the
+first-order model behind its failing side is from the network it approximates —
+is measured in `docs/array_size.md`. The failing side above is first order's.
 
 **It is equally conditional on the conductance window.** A wire drop is `R·I`,
 and `I` is set by the absolute conductance of the devices — so unlike sources 1
