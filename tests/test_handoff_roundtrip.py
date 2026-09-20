@@ -211,9 +211,13 @@ pytestmark_matlab = pytest.mark.skipif(
 def crossed(handoff_path):
     if matlab is None:
         pytest.skip("matlab not on PATH")
+    # The row's own trained array, when it is on disk (exports/ is gitignored): the
+    # IR-drop numbers the row records are recomputed from it.
+    recorded = os.path.join(os.path.dirname(HERE), "exports", "crossbar_handoff.h5")
+    extra = f", '{recorded.replace(os.sep, '/')}'" if os.path.exists(recorded) else ""
     return json_runner(
         matlab, "-batch",
-        f"cd('{HERE}'); handoff_runner('{handoff_path.replace(os.sep, '/')}')",
+        f"cd('{HERE}'); handoff_runner('{handoff_path.replace(os.sep, '/')}'{extra})",
         marker="<<<JSON>>>",
     )
 
@@ -335,6 +339,142 @@ def test_ir_drop_at_zero_resistance_is_exactly_the_ideal_sum(crossed):
 def test_ir_drop_degrades_at_a_large_wire_resistance(crossed):
     s = crossed["sources"]
     assert s["irDropAcc"] < s["ideal"]
+
+
+# -- IR drop, worked by hand ---------------------------------------------------
+#
+# A crossbar has exact small cases, so source 3 is checked against arithmetic that
+# shares no code with it, before anything is claimed about how it scales with size.
+
+
+@pytestmark_matlab
+def test_a_uniform_array_loses_what_the_closed_form_says(crossed):
+    """5x3, every cell 2 uS, every row at 0.1 V, 1 kOhm a segment.
+
+    The segment before column j carries the current of the ``M - k + 1`` cells from
+    k onward, so the row drop at column j is ``R v G * j(2M - j + 1)/2`` and the
+    column drop at row i is ``R v G * i(2N - i + 1)/2``. The far corner loses
+    ``R v G (N(N+1) + M(M+1))/2`` of the drive -- 4.2% here, so the case is not one
+    where the correction is negligible and the test passes for free.
+    """
+    d = crossed["irDrop"]
+    assert d["uniformDropFraction"] == pytest.approx(0.042)
+    assert d["uniformMaxRelErr"] < 1e-12
+
+
+@pytest.mark.parametrize("scaling", [4, 3])
+@pytestmark_matlab
+def test_only_the_product_of_wire_resistance_and_conductance_matters(crossed, scaling):
+    """Scale every conductance by alpha and every wire by 1/alpha: nothing changes.
+
+    This is what the row states in prose about the window -- that a decade either way
+    moves the edge -- and it is what licenses reporting an edge as ``R * g_max``. A
+    power of two is exact in floating point, so the currents are identical; three is
+    the same claim to rounding.
+    """
+    d = crossed["irDrop"]
+    assert d["accWithDrop"] < d["accIdeal"], "the drop must actually bite, or this is vacuous"
+    s = d["scaling"][f"alpha{scaling}"]
+    assert s["acc"] == d["accWithDrop"]
+    if scaling == 4:
+        assert s["currentsIdentical"]
+    assert s["maxScaledErr"] < 1e-12
+    assert s["exactMaxScaledErr"] < 1e-9, "the solved network is a function of R*G too"
+
+
+@pytestmark_matlab
+def test_one_cell_first_order_and_the_exact_network_differ_as_they_should(crossed):
+    """One cell is a series resistance: exactly ``v g / (1 + 2 R g)``.
+
+    First order computes the drop from the current the *ideal* voltage draws, so it
+    gives ``v g (1 - 2 R g)`` -- lower, which is the direction "overstates the drop"
+    means.
+    """
+    c = crossed["irDrop"]["oneCell"]
+    rg = c["r"] * c["g"]
+    assert c["first"] == pytest.approx(c["v"] * c["g"] * (1 - 2 * rg), rel=1e-12)
+    assert c["exact"] == pytest.approx(c["v"] * c["g"] / (1 + 2 * rg), rel=1e-12)
+    assert c["first"] < c["exact"]
+
+
+@pytestmark_matlab
+def test_the_exact_solve_matches_a_direct_nodal_solve(crossed):
+    """The independent oracle: Kirchhoff at every node, written out node by node.
+
+    The array has to lose a real fraction of its current, or agreement would only
+    mean both answers were close to the ideal.
+    """
+    d = crossed["irDrop"]
+    assert d["nodalCurrentLostFraction"] > 0.05
+    assert d["nodalMaxRelErr"] < 1e-9
+
+
+@pytestmark_matlab
+def test_the_first_order_geometry_is_the_networks_at_small_resistance(crossed):
+    """First order is the exact network's leading term, on a trained array.
+
+    At 0.1 ohm the second-order correction is a part in ten thousand, so the two
+    must lose the same current. If the first-order code had a driver or an amplifier
+    on the wrong edge it would still lose *a* current -- just not this one.
+    """
+    d = crossed["irDrop"]
+    assert d["geometryLossRatio"] == pytest.approx(1.0, abs=1e-3)
+    assert d["exactAtZeroIsIdeal"]
+
+
+@pytestmark_matlab
+def test_only_the_first_order_model_leaves_the_range_of_a_resistor_network(crossed):
+    """Past its range first order lets a column node rise above its driver.
+
+    That is what collapsed its accuracy to 0.0000, below the 0.1 of chance, at the
+    larger sizes: not a harder failure, an impossible one. A resistor network cannot
+    push a cell's current backwards for a non-negative drive.
+    """
+    d = crossed["irDrop"]
+    assert d["exactCurrentsNonNegativeAtHugeR"]
+    assert d["firstOrderGoesNegativeAtHugeR"]
+
+
+@pytestmark_matlab
+def test_first_order_overstates_the_drop(crossed):
+    """First order sits below the network's answer, which sits below the ideal.
+
+    The claim the source's own header makes -- that one pass is the safe direction
+    for a tolerance study -- as an inequality on every column of every sample.
+    """
+    assert crossed["irDrop"]["firstOrderBelowNetworkBelowIdeal"]
+
+
+@pytestmark_matlab
+def test_blocking_over_samples_changes_no_bit(crossed):
+    """The sweep reaches 676 rows, where one array is >100 MB; results must not move.
+
+    Compared against the function as it was before it was blocked, on a trained
+    array with a partial final block, and on a 676-row array.
+    """
+    d = crossed["irDrop"]
+    assert d["blockedEqualsUnblockedTrained"]
+    assert d["blockedEqualsUnblockedLarge"]
+
+
+@pytestmark_matlab
+def test_the_recorded_ir_drop_accuracies_survive_the_change(crossed):
+    """The row's own numbers, recomputed: 100 ohm holds at 0.7250, 300 fails at 0.6845.
+
+    Skipped without ``exports/``, which is gitignored. Where it exists this is the
+    check that changing ``err.ir_drop`` has not moved a published bracket.
+    """
+    r = crossed.get("recordedIr")
+    budget_path = os.path.join(os.path.dirname(HERE), "exports", "error_budget.json")
+    if r is None or not os.path.exists(budget_path):
+        pytest.skip("no recorded handoff or budget on disk; exports/ is gitignored")
+    import json
+
+    with open(budget_path, encoding="utf-8") as fh:
+        wire = json.load(fh)["wire_resistance_ohm"]
+    recorded = dict(zip(wire["magnitudes"], wire["accMean"]))
+    assert r["acc100"] == recorded[100.0]
+    assert r["acc300"] == recorded[300.0]
 
 
 # -- the driver --------------------------------------------------------------

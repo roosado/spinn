@@ -1,4 +1,4 @@
-function results = run_error_budget(handoffPath, outPath)
+function results = run_error_budget(handoffPath, outPath, options)
 %RUN_ERROR_BUDGET Sweep each as-built error source, then all of them together.
 %   RESULTS = RUN_ERROR_BUDGET(HANDOFFPATH, OUTPATH) loads the handoff, sweeps
 %   sources 1-3 independently over magnitude ladders, runs a joint configuration,
@@ -20,6 +20,10 @@ function results = run_error_budget(handoffPath, outPath)
     arguments
         handoffPath (1,1) string
         outPath (1,1) string = "exports/error_budget.json"
+        % Source 3's magnitudes, in ohms per segment. The default is the ladder the
+        % published row was measured on, so calling this without the option
+        % reproduces it exactly; run_size_sweep passes its own.
+        options.WireLadder (1,:) double = [1e1 1e2 3e2 1e3 3e3 1e4 3e4 1e5 3e5]
     end
 
     here = fileparts(mfilename('fullpath'));
@@ -74,7 +78,7 @@ function results = run_error_budget(handoffPath, outPath)
     % ~1/g_min ohms, and the drop starts to matter when the accumulated wire
     % resistance along a line approaches that. Published crossbar wiring is 2-20
     % ohms per cell (docs/history.md, 2026-09-11), at the bottom of this ladder.
-    mags3 = [1e1 1e2 3e2 1e3 3e3 1e4 3e4 1e5 3e5];
+    mags3 = options.WireLadder;
     results.wire_resistance_ohm = sweepOne(h, "wire_resistance_ohm", mags3, ...
                                            N_DETERMINISTIC, BASE_SEED, threshold);
 

@@ -1,7 +1,12 @@
-function handoff_runner(h5path)
+function handoff_runner(h5path, recordedPath)
 %HANDOFF_RUNNER Read a handoff written by Python and report what MATLAB makes of it.
 %   Driven by tests/test_handoff_roundtrip.py. Reports facts; the assertions live
 %   in Python.
+%
+%   RECORDEDPATH, optional, is the trained array the published row was measured on
+%   (exports/crossbar_handoff.h5, which is gitignored). When it exists the IR-drop
+%   numbers the row records are recomputed from it, so a change to err.ir_drop has to
+%   reproduce them rather than merely agree with itself.
 %
 %   The headline is `ideal.accuracy`. Python records the accuracy it measured as a
 %   root attribute, and MATLAB reconstructing the array from the file alone has to
@@ -42,6 +47,10 @@ function handoff_runner(h5path)
     out.validate = checkValidate();
     out.sources = checkSources(h);
     out.sweep = checkSweep(h);
+    out.irDrop = checkIrDrop(h);
+    if nargin >= 2 && isfile(recordedPath)
+        out.recordedIr = recordedIr(recordedPath);
+    end
 
     fprintf('<<<JSON>>>\n%s\n', jsonencode(out));
 end
@@ -199,4 +208,198 @@ function sw = checkSweep(h)
            (abs(n1) < (gmax - gmin) * 0.5) & (abs(n2) < (gmax - gmin) * 0.5);
     sw.drawIndependentOfBase = max(abs(n1(free) - n2(free))) < 1e-18;
     sw.drawComparedCount = sum(free(:));
+end
+
+
+function s = checkIrDrop(h)
+%CHECKIRDROP The wire network against cases that can be worked by hand, and the
+%   blocking and iteration added to err.ir_drop for the array-size sweep.
+
+    % 1. A uniform array, first order, in closed form.
+    %    Every cell G, every row driven at v: the segment before column j carries
+    %    (M-k+1) cells' worth of current for k = 1..j, and likewise down the column,
+    %        Veff(i,j) = v - R v G (rowDrop(j) + colDrop(i)),
+    %    with rowDrop(j) = j(2M-j+1)/2 and colDrop(i) = i(2N-i+1)/2. The far corner
+    %    (N, M) loses R v G (N(N+1) + M(M+1))/2. The column current is G * sum_i Veff.
+    N = 5; M = 3; g = 2e-6; v = 0.1; R = 1e3;
+    I = err.ir_drop(v * ones(1, N), g * ones(N, M), R, h);
+    j = 1:M; i = (1:N).';
+    rowDrop = j .* (2 * M - j + 1) / 2;
+    colDrop = i .* (2 * N - i + 1) / 2;
+    expected = g * (N * v - R * v * g * (N * rowDrop + sum(colDrop)));
+    s.uniformMaxRelErr = max(abs(I - expected) ./ expected);
+    s.uniformDropFraction = R * g * (N * (N + 1) + M * (M + 1)) / 2;
+
+    % 2. One cell, where the exact network is a series resistance:
+    %    I = v g / (1 + 2 R g) exactly, against v g (1 - 2 R g) at first order.
+    v1 = 0.1; g1 = 2e-6; R1 = 1e5;
+    s.oneCell.v = v1; s.oneCell.g = g1; s.oneCell.r = R1;
+    s.oneCell.first = err.ir_drop(v1, g1, R1, h);
+    s.oneCell.exact = err.ir_drop_exact(v1, g1, R1, h);
+
+    % 3. The exact solve against a direct nodal solve written out node by node in
+    %    this file, which shares no code with it. A 4-by-3 array with a large drop,
+    %    so the two are not agreeing on a case where the correction is negligible.
+    stream = RandStream('mt19937ar', 'Seed', 3);
+    Ns = 4; Ms = 3; Rs = 2e4;
+    Gs = 1e-6 + 2e-6 * rand(stream, Ns, Ms);
+    Vs = 0.1 * rand(stream, 3, Ns);
+    Iref = nodalSolve(Vs, Gs, Rs);
+    Iexact = err.ir_drop_exact(Vs, Gs, Rs, h);
+    Iideal = err.ir_drop(Vs, Gs, 0, h);
+    Ifirst = err.ir_drop(Vs, Gs, Rs, h);
+    s.nodalMaxRelErr = max(abs(Iexact(:) - Iref(:)) ./ abs(Iref(:)));
+    s.nodalCurrentLostFraction = max(1 - Iref(:) ./ Iideal(:));
+    % First order overstates the drop, so it sits below the network's answer, which
+    % sits below the ideal. Elementwise, because V and G are non-negative.
+    s.firstOrderBelowNetworkBelowIdeal = all(Ifirst(:) <= Iref(:)) && all(Iref(:) <= Iideal(:));
+
+    % 4. Accuracy under IR drop depends on R*G alone. Scale every conductance by
+    %    alpha and every wire resistance by 1/alpha and each drop, and so each
+    %    argmax, is unchanged. With alpha a power of two the scaling is exact, so
+    %    the currents must be identical; alpha = 3 is the same claim to rounding.
+    V = model.encode(h, h.test_set.images);
+    G0 = model.program(h);
+    Rw = 1e3;
+    base = err.ir_drop(V, G0, Rw, h);
+    baseExact = err.ir_drop_exact(V, G0, Rw, h);
+    s.accIdeal = model.crossbar(h).accuracy;
+    s.accWithDrop = model.crossbar(h, struct('currents', base)).accuracy;
+    for alpha = [4 3]
+        h2 = h;
+        h2.operating_point.g_min_s = alpha * h.operating_point.g_min_s;
+        h2.operating_point.g_max_s = alpha * h.operating_point.g_max_s;
+        G2 = model.program(h2);
+        I2 = err.ir_drop(V, G2, Rw / alpha, h2);
+        acc2 = model.crossbar(h2, struct('currents', I2)).accuracy;
+        key = sprintf('alpha%d', alpha);
+        s.scaling.(key).currentsIdentical = isequal(I2, alpha * base);
+        % Against the largest current, not elementwise: at this resistance the drop
+        % rivals the drive, so Veff is a difference of nearly equal numbers and an
+        % individual small current carries rounding the large ones do not.
+        s.scaling.(key).maxScaledErr = max(abs(I2(:) - alpha * base(:))) / max(abs(alpha * base(:)));
+        s.scaling.(key).acc = acc2;
+        % The exact network is a function of R*G too: its nodal matrix is the wires
+        % plus R*G, and Geff is read out as a conductance, so it scales with alpha.
+        Iex2 = err.ir_drop_exact(V, G2, Rw / alpha, h2);
+        s.scaling.(key).exactMaxScaledErr = ...
+            max(abs(Iex2(:) - alpha * baseExact(:))) / max(abs(alpha * baseExact(:)));
+    end
+
+    % 5. Blocks are invisible. The reference is err.ir_drop as it was before it was
+    %    blocked, kept here on purpose: it is what "bit-identical" is measured against.
+    Vpart = V(1:1234, :);                    % four full blocks and a partial one
+    s.blockedEqualsUnblockedTrained = isequal( ...
+        err.ir_drop(Vpart, G0, 300, h), referenceIrDrop(Vpart, G0, 300));
+    stream = RandStream('mt19937ar', 'Seed', 5);
+    Gb = 1e-6 + 2e-6 * rand(stream, 676, 10, 2);     % the largest size the sweep reaches
+    Vb = 0.1 * rand(stream, 600, 676);
+    s.blockedEqualsUnblockedLarge = isequal( ...
+        err.ir_drop(Vb, Gb, 2, h), referenceIrDrop(Vb, Gb, 2));
+
+    % 6. err.ir_drop is the first-order expansion of the exact network, so at a
+    %    resistance small enough that the second-order term is negligible the two must
+    %    lose the same current. This is what ties the first-order geometry -- where the
+    %    drivers and the amplifiers sit -- to the network's, on a trained array rather
+    %    than a toy one. The exact solve at zero resistance must be the ideal sum.
+    Rsmall = 0.1;
+    I0 = err.ir_drop(V, G0, 0, h);
+    I1 = err.ir_drop(V, G0, Rsmall, h);
+    Ix = err.ir_drop_exact(V, G0, Rsmall, h);
+    s.geometryLossRatio = sum(I0(:) - I1(:)) / sum(I0(:) - Ix(:));
+    s.exactAtZeroIsIdeal = isequal(err.ir_drop_exact(V, G0, 0, h), I0);
+
+    % 7. The exact model cannot do what first order does past its range: lift a
+    %    column node above the driver that feeds it. Every cell current stays
+    %    non-negative for non-negative drives, however large the wire resistance.
+    Ihuge = err.ir_drop_exact(V, G0, 1e5, h);
+    s.exactCurrentsNonNegativeAtHugeR = all(Ihuge(:) >= -1e-12 * max(Ihuge(:)));
+    s.firstOrderGoesNegativeAtHugeR = any(reshape(err.ir_drop(V, G0, 1e5, h), [], 1) < 0);
+end
+
+
+function r = recordedIr(path)
+%RECORDEDIR The row's own array at the two wire resistances it records.
+    hr = io.read_handoff(path);
+    V = model.encode(hr, hr.test_set.images);
+    G = model.program(hr);
+    r.ideal = model.crossbar(hr).accuracy;
+    for R = [100 300]
+        acc = model.crossbar(hr, struct('currents', err.ir_drop(V, G, R, hr))).accuracy;
+        r.(sprintf('acc%d', R)) = acc;
+    end
+end
+
+
+function I = nodalSolve(V, G, R)
+%NODALSOLVE The resistive network by a direct linear solve: the oracle.
+%   Unknowns are the voltage at every row-wire node and every column-wire node.
+%   Row drivers sit at the column-1 edge and the amplifier at the row-1 edge,
+%   holding its wire at ground, as in err.ir_drop. Kirchhoff's current law at each
+%   node, solved with backslash; no cumulative sums and no iteration, so it shares
+%   nothing with the function it checks.
+    [N, M] = size(G);
+    g = 1 / R;
+    nn = N * M;
+    rIdx = @(i, j) (j - 1) * N + i;
+    cIdx = @(i, j) nn + (j - 1) * N + i;
+    I = zeros(size(V, 1), M);
+    for k = 1:size(V, 1)
+        A = zeros(2 * nn);
+        b = zeros(2 * nn, 1);
+        for i = 1:N
+            for j = 1:M
+                r = rIdx(i, j);  c = cIdx(i, j);
+
+                % Row node: the segment behind it (to the driver, or the node
+                % before), the segment ahead if there is one, and the device.
+                A(r, r) = A(r, r) + g + G(i, j);
+                A(r, c) = A(r, c) - G(i, j);
+                if j == 1
+                    b(r) = b(r) + g * V(k, i);
+                else
+                    A(r, rIdx(i, j - 1)) = A(r, rIdx(i, j - 1)) - g;
+                end
+                if j < M
+                    A(r, r) = A(r, r) + g;
+                    A(r, rIdx(i, j + 1)) = A(r, rIdx(i, j + 1)) - g;
+                end
+
+                % Column node: the segment toward the amplifier (ground at i = 1),
+                % the segment away if there is one, and the device.
+                A(c, c) = A(c, c) + g + G(i, j);
+                A(c, r) = A(c, r) - G(i, j);
+                if i > 1
+                    A(c, cIdx(i - 1, j)) = A(c, cIdx(i - 1, j)) - g;
+                end
+                if i < N
+                    A(c, c) = A(c, c) + g;
+                    A(c, cIdx(i + 1, j)) = A(c, cIdx(i + 1, j)) - g;
+                end
+            end
+        end
+        x = A \ b;
+        for j = 1:M
+            I(k, j) = g * x(cIdx(1, j));       % the current into the amplifier
+        end
+    end
+end
+
+
+function I = referenceIrDrop(V, G, Rwire)
+%REFERENCEIRDROP err.ir_drop as it was before it was blocked, first order, whole batch.
+%   Deliberately a copy: it is the thing the blocked version is required to equal.
+    nDev = size(G, 3);
+    I = zeros(size(V, 1), size(G, 2), nDev);
+    Vd = permute(V, [2 3 1]);
+    for d = 1:nDev
+        Gd = G(:, :, d);
+        I0 = Vd .* Gd;
+        Irow = flip(cumsum(flip(I0, 2), 2), 2);
+        dropRow = Rwire * cumsum(Irow, 2);
+        Icol = flip(cumsum(flip(I0, 1), 1), 1);
+        dropCol = Rwire * cumsum(Icol, 1);
+        Veff = Vd - dropRow - dropCol;
+        I(:, :, d) = permute(sum(Veff .* Gd, 1), [3 2 1]);
+    end
 end
