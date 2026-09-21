@@ -527,18 +527,28 @@ Used sparingly and only for detached objects.
 ### The Size Bar (size page only)
 A second sticky band under the topbar, at `top: 44px` and a `z-index` below it — the topbar
 is how you leave the page, so nothing covers it. It is the page's one control and is *not* an
-instrument: no `.inst` rule, no panel, no title beyond the field's own label. Inside it, the
-design system's `.sp-field` with five rungs, the rung labels (`.sz-rungs`) spread under the
-track so five sizes read as five, and the chosen array's facts (`.sb-facts`) right-aligned
-opposite. Below 720px the two stack and the rung labels go — the `<output>` says the same
-thing in words. Without a script it keeps its place in the flow but stops being chrome:
-nothing sticky, no blurred ground, and the `<noscript>` inside it naming the five sizes is
-the whole of what it then says.
+instrument: no `.inst` rule, no panel, no title beyond the field's own label.
 
-Its value is a rung index, so `aria-valuetext` carries "12 by 12, 144 rows" as every other
-range input on the site does. Changing it rebuilds every instrument below, which is real work
-at 676 rows, so the instruments are told **when the handle settles** (90 ms) rather than on
-every rung it passes — the bar's own label still moves with the handle, because that is free.
+**Two rows, and nothing under the track.** The design system's `.sp-field` puts its
+`<output>` below the input; here the label and the value share one row *above* it
+(`.sz-head`) and the track closes the bar. That is the one place this component departs from
+the field spec, and the reason is that it is fixed over a page of eight instruments: every
+line the bar carries is a line subtracted from every screenful of the page underneath. It
+carried four — rung labels, the value, and two of array facts — at 133px, which covered
+enough of the viewport to make scrolling the page tiring. At 66px it is half that. The
+array's rows, devices, ideal and pass mark are in the instruments that use them, and the
+label and value sit beside each other rather than at opposite edges of 1100px, because
+spread apart they are two things to pair up instead of one caption for the track.
+
+Its value is a rung index, so `aria-valuetext` carries "12×12, 144 rows" — written from the
+same string the `<output>` prints, so the spoken value and the seen one cannot drift. Without
+a script the bar keeps its place in the flow but stops being chrome: nothing sticky, no
+blurred ground, and the `<noscript>` inside it naming the five sizes is the whole of what it
+then says.
+
+Changing it rebuilds every instrument below, which is real work at 676 rows, so the
+instruments are told **when the handle settles** (90 ms) rather than on every rung it passes
+— the bar's own value still moves with the handle, because that is free.
 
 ### The Starvation Map (size page only)
 The array as the wires present it: one pixel per cell, on an unsigned ramp from the page

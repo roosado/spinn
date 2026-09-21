@@ -10,10 +10,15 @@
  * the "Go larger" link lands on the machine they have just read, and the first move
  * larger is theirs.
  *
- * The bar is sticky under the topbar because six instruments is more than a screen
+ * The bar is sticky under the topbar because eight instruments is more than a screen
  * and a control you have to scroll back to is a control you stop using. It is not
  * an instrument and has no panel: the design system's `.sp-field` is the control,
  * and `.sizebar` is chrome.
+ *
+ * Being sticky is what makes it expensive. Every line it carries is subtracted from
+ * every screenful of the page below it, so it carries two: a label row with the
+ * chosen size in it, and the track. The array's rows, devices, ideal and pass mark
+ * used to sit here too and are in the instruments that use them.
  *
  * On the input's value being a rung index
  * ---------------------------------------
@@ -38,20 +43,18 @@
   // Everything the bar draws inside its own host. The chrome around it -- the
   // sticky band, its ground, the grid it sits in -- is the stylesheet's, because
   // that is markup the page body carries and this file never sees.
+  //
+  // Nothing sits below the track. This bar is fixed to the top of a page the reader
+  // scrolls through eight instruments of, so every line it carries is a line taken
+  // off every screenful of the page underneath -- it had four (rung labels, the
+  // value, and two of array facts) and now has none. The label row carries the
+  // value instead, which costs no height at all: the label was always there.
   var CSS = ""
     + ".sz-wrap{display:block;}"
-    // The rungs under the track, so five sizes are legible as five and the reader
-    // can see where the handle can stop. Hidden on a narrow bar, where the <output>
-    // says the same thing in words.
-    + ".sz-rungs{display:flex;justify-content:space-between;font-family:var(--mono);"
-    + "font-size:.75rem;color:var(--muted);margin-top:6px;"
-    + "font-variant-numeric:tabular-nums;}"
-    + ".sz-rungs span{cursor:default;}"
-    + ".sz-rungs span[aria-current]{color:var(--accent-ink);}"
-    + ".sb-facts{font-family:var(--mono);font-size:.75rem;color:var(--muted);"
-    + "text-align:right;font-variant-numeric:tabular-nums;line-height:1.5;}"
-    + ".sb-facts b{color:var(--ink-dim);font-weight:600;}"
-    + "@media (max-width:720px){.sb-facts{text-align:left;}.sz-rungs{display:none;}}";
+    // The value sits beside its own label, not at the far end of the bar. Spread to
+    // opposite edges of 1100px they are two separate things a reader has to pair up;
+    // together they read as one caption for the track below them.
+    + ".sz-head{display:flex;align-items:baseline;gap:4px 14px;flex-wrap:wrap;}";
 
   /** Every size the generated module carries, ascending. */
   function grids() {
@@ -121,18 +124,15 @@
     announce();
   }
 
-  /** "12 by 12, 144 rows" -- what the output prints and a screen reader says. */
+  /**
+   * "12x12, 144 rows" -- what the output prints and a screen reader says.
+   *
+   * The input's own value is a rung index, so without this a screen reader
+   * announces "2". It is the same string either way: one description, so the
+   * spoken value and the printed one cannot drift.
+   */
   function describe(g) {
-    return g + " by " + g + ", " + (g * g).toLocaleString("en-GB") + " rows";
-  }
-
-  function facts(g) {
-    var d = dataFor(g);
-    if (!d) return "";
-    return "<b>" + (g * g).toLocaleString("en-GB") + "</b> rows &middot; <b>"
-      + d.geometry.devices.toLocaleString("en-GB") + "</b> devices"
-      + "<br>ideal <b>" + d.idealAccuracy.toFixed(4) + "</b>"
-      + " &middot; pass mark " + d.threshold.toFixed(4);
+    return g + "\u00d7" + g + ", " + (g * g).toLocaleString("en-GB") + " rows";
   }
 
   function mount(el) {
@@ -150,36 +150,23 @@
     input.value = String(gs.indexOf(current) >= 0 ? gs.indexOf(current) : 0);
     input.id = "sizeRange";
     label.setAttribute("for", input.id);
+    // Above the track, beside its own label, rather than under it. Still an
+    // <output for> pointing at the input, which is what it is.
     var out = document.createElement("output");
     out.setAttribute("for", input.id);
 
-    var rungs = P.el("div", "sz-rungs");
-    var marks = gs.map(function (g) {
-      var s = P.el("span", "", g + "&times;" + g);
-      rungs.appendChild(s);
-      return s;
-    });
-
-    field.appendChild(label);
+    var head = P.el("div", "sz-head");
+    head.appendChild(label);
+    head.appendChild(out);
+    field.appendChild(head);
     field.appendChild(input);
-    field.appendChild(rungs);
-    field.appendChild(out);
-
-    var note = P.el("p", "sb-facts");
-    note.style.margin = "0";
 
     el.appendChild(field);
-    el.appendChild(note);
 
     function paint() {
       var g = gs[Number(input.value)];
       out.textContent = describe(g);
       input.setAttribute("aria-valuetext", describe(g));
-      note.innerHTML = facts(g);
-      for (var i = 0; i < marks.length; i++) {
-        if (gs[i] === g) marks[i].setAttribute("aria-current", "true");
-        else marks[i].removeAttribute("aria-current");
-      }
     }
 
     function change() {

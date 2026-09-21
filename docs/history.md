@@ -1359,7 +1359,31 @@ The browser pass was done over a local HTTP server rather than `file://`, becaus
 automation tool refuses `file://` URLs; the pages make no external request either way and
 a test asserts it.
 
+### After the first push: the size bar was too tall
+
+Published, and then read on a real screen: the sticky bar was **133 px**, which is a sixth
+of a laptop viewport held back from a page you scroll through eight instruments of. It
+carried four lines under its track — the five rung labels, the value, and two lines of the
+array's rows, devices, ideal and pass mark.
+
+All four are gone. The label and the value share one row *above* the track and the track
+closes the bar, which is **66 px**. That is the one place this component departs from the
+design system's field spec, which puts an `<output>` below its input, and the reason is
+that a fixed bar's height is charged to every screenful of the page underneath rather than
+paid once.
+
+The value itself was kept, moved rather than dropped: with the rung labels gone the track
+is unlabelled, and a thumb position alone does not say *26×26, 676 rows* on a ladder whose
+rungs are 6, 8, 12, 18 and 26. It is still an `<output>` pointing at the input, and
+`aria-valuetext` is still written from the same string, so what is spoken and what is seen
+cannot drift. The array facts now live only in the instruments that use them.
+
+`--sticky` was measured rather than guessed while it was open: 50 px of topbar plus 66 of
+bar plus the ~28 px of clearance the index leaves, so 144. It had been 134 for a bar that
+was taller than that, which means anchor jumps on this page had been landing under the
+chrome since it shipped.
+
 ### Still open
 
-Publishing to `gh-pages` is a separate step and has not been done — a commit to `main`
-shows a visitor nothing. Open decision 3 is unchanged.
+Publishing to `gh-pages` is a separate step — the first version of this page is live; this
+change is not, until it is pushed again. Open decision 3 is unchanged.
