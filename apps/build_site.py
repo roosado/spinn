@@ -1,15 +1,17 @@
 """Build the spinn site.
 
-One page today. The generator is sized for several, because that is where this is
-going and because the mechanisms that make several pages cheap -- navigation
-generated from :data:`PAGES`, an in-page index derived from the markup, link
-tokens resolved once at the end -- are the same mechanisms that make one page
-correct.
+Two pages. The mechanisms that make several pages cheap -- navigation generated from
+:data:`PAGES`, a sequential hand-off card, an in-page index derived from the markup,
+link tokens resolved once at the end -- were built while there was one, and the
+second page cost a tuple entry and a body file.
 
-  site/index.html            the page
-  site/_artifact_body.html   body-only variant for publishing as an Artifact,
-                             which supplies its own <head>/<body> and has no
-                             sibling files, so its links must be absolute
+  site/index.html            the argument: one 36x10 array, and how precisely it
+                             would have to be built
+  site/larger.html           the same instruments at five array sizes, 36 to 676
+                             rows, with the wire network solved as well as expanded
+  site/_artifact_body.html   body-only variant of the index for publishing as an
+                             Artifact, which supplies its own <head>/<body> and has
+                             no sibling files, so its links must be absolute
 
 Everything is inlined: the pages make no external requests, so they are CSP-safe,
 offline, theme-aware and openable from ``file://``.
@@ -56,10 +58,22 @@ class Page(NamedTuple):
     #: ``mount_queue.js`` deliberately skips a container it cannot find, so a
     #: mistyped id gives a page that silently lacks a widget and passes every test.
     widgets: tuple = ()
+    #: Modules this page inlines beyond the shared :data:`WIDGET_CORE`, in order.
+    #:
+    #: Per page rather than shared because ``size_data.js`` is 957 kB -- five trained
+    #: arrays and a 500-digit sample of the test set at each -- and the index needs
+    #: none of it. ``data.js`` stays in the core: it is 88 kB, and it is what every
+    #: widget's ``window.SpinnData`` default resolves to.
+    modules: tuple = ()
+    #: A class on ``<body>``, for a page that redefines something page-wide. The
+    #: size page's second sticky bar is the case: every offset that clears the
+    #: chrome has to clear both bars, and a custom property redefined here is how
+    #: the stylesheet and the scrollspy read one number rather than two.
+    body_class: str = ""
 
 
-#: Reading order. One page, so the topbar has one entry and the sequential
-#: hand-off has nowhere to go -- see :func:`_hand_off`.
+#: Reading order. The topbar is generated from this and so is the hand-off card at
+#: the foot of each page -- see :func:`_hand_off`.
 PAGES = (
     Page(
         "index", "index.html", "The machine",
@@ -70,6 +84,21 @@ PAGES = (
         "A weight is a magnetic state; the sum is performed by a wire.",
         widgets=("heroMachine", "deviceExplorer", "wireColumn",
                  "errorBench", "budgetLadder", "drawPad"),
+    ),
+    Page(
+        "larger", "larger.html", "Go larger",
+        "spinn &middot; the same machine, larger",
+        "The same machine, larger",
+        "The same six instruments at five array sizes, 36 to 676 rows, with the wire "
+        "network solved rather than expanded to first order.",
+        "Six instruments, five array sizes, and the wire solved rather than expanded.",
+        # The size bar is not an instrument; it is the control the instruments read,
+        # and it is a widget here because that is what declares a host, emits a
+        # <noscript> fallback and gets mounted -- all of which it needs.
+        widgets=("sizeBar", "sizeArray", "heroMachine", "deviceExplorer",
+                 "wireColumn", "errorBench", "budgetLadder", "drawPad"),
+        modules=("size_data.js", "size_page.js"),
+        body_class="sizepage",
     ),
 )
 
@@ -223,6 +252,47 @@ html:not(.js) .theme-toggle{display:none;}
 /* Anchor jumps have to clear the sticky topbar, which is 42-46 px and taller once
    the nav wraps. */
 .phase-head h2[id],.phase-head h3[id],.band-h[id]{scroll-margin-top:78px;}
+/* The size page puts a second sticky bar under the first, so everything that clears
+   one has to clear both. The page-script's scrollspy reads the same offset from a
+   custom property rather than carrying its own copy of this number. */
+:root{--sticky:78px;}
+body.sizepage{--sticky:134px;}
+body.sizepage [id]{scroll-margin-top:var(--sticky);}
+
+/* The size bar. One control, five rungs, and the page's whole argument is that the
+   instrument below it is the same instrument at each. It is sticky because six
+   instruments is more than a screen and a control you have to scroll back to is a
+   control you stop using. Under the topbar, never over it: the topbar is how you
+   leave the page. */
+.sizebar{position:sticky;top:44px;z-index:15;backdrop-filter:blur(8px);
+  background:color-mix(in srgb,var(--bg) 88%,transparent);
+  border-bottom:1px solid var(--border);}
+@supports not (background:color-mix(in srgb,red 50%,blue)){.sizebar{background:var(--bg);}}
+.sizebar-in{max-width:1120px;margin:0 auto;padding:10px 24px 12px;
+  display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:4px 24px;align-items:center;}
+.sizebar .sp-field label{margin-bottom:7px;}
+.sizebar .sp-field output{margin-top:6px;}
+/* Everything the bar draws *inside* its host -- the rung labels, the facts beside
+   them -- is styled by size_bar.js, which is the file that creates them. What stays
+   here is the chrome the page body carries. */
+@media (max-width:720px){
+  .sizebar-in{grid-template-columns:1fr;padding:8px 16px 10px;}
+  body.sizepage{--sticky:150px;}
+}
+/* Without a script the bar cannot move. It keeps its place in the flow, because the
+   <noscript> inside it is what tells the reader which sizes were swept -- but it
+   stops being chrome: nothing is sticky, and there is no ground to blur. */
+html:not(.js) .sizebar{position:static;background:none;backdrop-filter:none;border:0;}
+html:not(.js) .sizebar-in{padding-top:0;}
+
+/* The size page's masthead. The index's headline is a claim and gets the serif
+   treatment in .machine-say; this one is a label on a page of instruments, so it
+   takes the same type at a smaller step and stops. */
+.lg-head{padding:34px 0 4px;}
+.lg-head h1{font-family:var(--serif);font-weight:600;text-wrap:balance;
+  font-size:clamp(1.55rem,2.8vw,2.05rem);line-height:1.14;margin:0;}
+.lg-head .underbar{width:132px;height:3px;background:var(--rule-gradient);
+  margin:16px 0 18px;border-radius:2px;}
 
 /* A family of error sources, and what the family is. Used by a page that groups its
    sections -- section_index() indexes an <h2 class="band-h"> -- and no page does yet;
@@ -576,8 +646,9 @@ def _hand_off(key: str):
 
     PAGES is the reading order and drives both the topbar and this. photonn wraps
     the last page back to the first, which is right for a five-page reading order
-    and wrong for a one-page site: the card would invite the reader to go where
-    they already are. Until there is a second page, there is no hand-off.
+    and was wrong for a one-page site: the card would have invited the reader to go
+    where they already were. With two pages the wrap is what closes the loop, and
+    below two there is no hand-off at all.
     """
     keys = [p.key for p in PAGES]
     if len(keys) < 2:
@@ -817,8 +888,18 @@ class Widget(NamedTuple):
 
     host: str            # container id in the page body
     asset: str           # its module under apps/web
-    boot: str            # JavaScript that mounts it into the local ``el``
+    #: A JavaScript function expression ``(el, opts) -> instance``.
+    #:
+    #: Two callers, which is why it is an expression rather than a statement. On a
+    #: page with one array it is simply called. On the size page it is handed to
+    #: ``size_page.js``, which calls it with the chosen array's data and calls the
+    #: instance's ``destroy`` before calling it again -- so a widget that only ever
+    #: appears on the index still needs no second entry point.
+    mounter: str
     defer: bool = True   # hold until the reader is approaching it
+    #: Whether the size page rebuilds this one when the size changes. False for the
+    #: size control itself, which owns the size and must outlive a change to it.
+    resized: bool = True
 
 
 #: Declared in document order, which is also the order they are emitted.
@@ -826,16 +907,44 @@ WIDGETS = (
     # The hero is the one widget that must not defer: it is the first viewport, and
     # a widget waiting for the reader to approach it has already been walked past.
     Widget("heroMachine", "hero.js",
-           "window.SpinnHero.mount(el, document.getElementById('heroReadout'));",
+           "function (el, opts) { return window.SpinnHero.mount("
+           "el, document.getElementById('heroReadout'), opts); }",
            defer=False),
-    Widget("deviceExplorer", "device.js", "window.SpinnDevice.mount(el);"),
-    Widget("wireColumn", "wire.js", "window.SpinnWire.mount(el);"),
-    Widget("errorBench", "bench.js", "window.SpinnBench.mount(el);"),
-    Widget("budgetLadder", "ladder.js", "window.SpinnLadder.mount(el);"),
-    Widget("drawPad", "draw.js", "window.SpinnDraw.mount(el);"),
+    Widget("deviceExplorer", "device.js",
+           "function (el, opts) { return window.SpinnDevice.mount(el, opts); }"),
+    Widget("wireColumn", "wire.js",
+           "function (el, opts) { return window.SpinnWire.mount(el, opts); }"),
+    Widget("errorBench", "bench.js",
+           "function (el, opts) { return window.SpinnBench.mount(el, opts); }"),
+    Widget("budgetLadder", "ladder.js",
+           "function (el, opts) { return window.SpinnLadder.mount(el, opts); }"),
+    Widget("drawPad", "draw.js",
+           "function (el, opts) { return window.SpinnDraw.mount(el, opts); }"),
+    # The size page. The bar must not defer: every instrument below it reads the
+    # size it publishes, so a control that waited for the reader to approach it
+    # would be a control the page had already been laid out without. Nor is it
+    # rebuilt on a size change -- it is the thing that changed.
+    Widget("sizeBar", "size_bar.js",
+           "function (el) { return window.SpinnSizeBar.mount(el); }",
+           defer=False, resized=False),
+    Widget("sizeArray", "size.js",
+           "function (el, opts) { return window.SpinnSizeArray.mount(el, opts); }"),
 )
 
 WIDGET_BY_HOST = {w.host: w for w in WIDGETS}
+
+
+def widget_boot(page: Page, widget: Widget) -> str:
+    """The JavaScript that starts one widget on one page.
+
+    On a page with a single array the mounter is simply called. On the size page it
+    is handed to ``size_page.js``, which owns it: it supplies the chosen array and
+    rebuilds the instrument whenever the reader chooses another.
+    """
+    if any(w.host == "sizeBar" for w in (WIDGET_BY_HOST[h] for h in page.widgets)) \
+            and widget.resized:
+        return f"window.SpinnSizePage.own(el, {widget.mounter});"
+    return f"({widget.mounter})(el);"
 
 
 def widget_bundle(page: Page) -> str:
@@ -843,9 +952,10 @@ def widget_bundle(page: Page) -> str:
     if not page.widgets:
         return ""
     used = [WIDGET_BY_HOST[h] for h in page.widgets]
-    parts = [script_tags(*(list(WIDGET_CORE) + [w.asset for w in used]))]
+    assets = list(WIDGET_CORE) + list(page.modules) + [w.asset for w in used]
+    parts = [script_tags(*assets)]
     for w in used:
-        parts.append(mount_script(w.host, w.boot, defer=w.defer))
+        parts.append(mount_script(w.host, widget_boot(page, w), defer=w.defer))
     return "\n".join(parts) + "\n"
 
 
@@ -905,9 +1015,14 @@ PAGE_SCRIPT = r"""<script>
   links.forEach(function(a){var id=a.getAttribute('href').slice(1),el=document.getElementById(id);
     if(el){map[id]=a; order.push(el);}});
   if(!order.length) return;
+  // The offset a heading has to clear to count as the one being read: the sticky
+  // chrome above it, which is one bar on the index and two on the size page. Read
+  // off the same custom property the anchor jumps use, so the two cannot disagree.
+  var sticky=parseInt(getComputedStyle(document.body)
+    .getPropertyValue('--sticky'),10)||78;
   function mark(){
     var cur=order[0].id;
-    order.forEach(function(el){if(el.getBoundingClientRect().top<=90) cur=el.id;});
+    order.forEach(function(el){if(el.getBoundingClientRect().top<=sticky+12) cur=el.id;});
     for(var k in map){if(k===cur){map[k].setAttribute('aria-current','location');}
       else{map[k].removeAttribute('aria-current');}}
   }
@@ -949,7 +1064,8 @@ def _document(body: str, page: Page) -> str:
         f'<meta name="description" content="{page.desc}">\n'
         f"<title>{page.title}</title>\n"
         + THEME_BOOT
-        + "\n<style>\n" + CSS + "\n</style>\n</head>\n<body>\n"
+        + "\n<style>\n" + CSS + "\n</style>\n</head>\n"
+        + (f'<body class="{page.body_class}">\n' if page.body_class else "<body>\n")
         + body
         + "\n</body>\n</html>\n"
     )
@@ -986,13 +1102,18 @@ def _chrome(body: str, key: str) -> str:
 def render() -> dict:
     """Return ``{filename: html}`` for every file the site is made of."""
     out = {}
+    bodies = {}
 
-    body = _chrome(page_body("index"), "index")
-    out["index.html"] = _document(resolve_links(body), PAGE_BY_KEY["index"])
+    for page in PAGES:
+        bodies[page.key] = _chrome(page_body(page.key), page.key)
+        out[page.file] = _document(resolve_links(bodies[page.key]), page)
+
     # The Artifact is a standalone body with no sibling pages, so its links must be
-    # absolute and it supplies no <head> of its own.
+    # absolute and it supplies no <head> of its own. It stays the index alone: the
+    # size page is a megabyte of data and a page of sibling links, and neither
+    # travels into a single embedded body.
     out["_artifact_body.html"] = ("<style>\n" + CSS + "\n</style>\n" + THEME_BOOT + "\n"
-                                  + resolve_links(body, absolute=True))
+                                  + resolve_links(bodies["index"], absolute=True))
 
     return out
 

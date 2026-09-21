@@ -1204,3 +1204,162 @@ Whether the row's IR-drop source moves onto the solved network. The device sprea
 read time. A sweep over columns or over tile size, which is a different study; the row wire
 never lengthened here. Error sources 4–7. The page is rebuilt with the sweep's headline in
 its last section; publishing it to `gh-pages` is a separate step not taken here.
+
+---
+
+## 2026-09-21 — a second page, and the wire network solved in the browser
+
+Plan 07. The array-size sweep (2026-09-19) measured the machine from 36 to 676 rows and
+found two things a reader cannot get from a table: the wire starves the far corner of a
+large array, and the first-order model behind the row's IR-drop bracket is not the
+network. Neither was on the site. This put both there, as `site/larger.html` — the same
+six instruments at a size the reader chooses, plus one new one.
+
+### The plan was checked against the code before it was run
+
+The plan was written in a previous session and revised at the start of this one by reading
+the files it named. Eleven of its statements about the codebase were wrong or incomplete,
+and nine things it would hit were unnamed. The revision is in the plan file; the ones that
+changed the work:
+
+- **The solved model is not a second forward pass.** The array is linear, so the current
+  into amplifier *j* per volt on driver *i* is a fixed matrix `Geff`, and the decode
+  divides out the window — which makes `(Geff⁺ − Geff⁻)/span` *an effective-weight
+  matrix*. The solve therefore replaces `effective()`, and the existing fast path runs
+  unchanged over it. Three consequences: the forward pass costs nothing extra, every
+  widget that draws `mach.weights` now draws the array **as the wires present it**, and
+  `Geff/G` per cell — the starvation map — comes out of the same solve.
+- **"Exact, sample for sample" was impossible.** `test_web_crossbar.py` already documents
+  why: at coarse quantisation two column currents come out equal and the winner is decided
+  by summation order. At 500 digits one sample is 0.002, four times coarser than the main
+  page's tolerance. The pin is `Geff` at 1e-9 and accuracy to within one tie — and the tie
+  is spent exactly once, at 6×6 with five states, which a test counts.
+- **The remount leaks were bigger than the plan said.** `plot.js`'s two observers were
+  named; `hero.js`'s `setInterval`, its animation frame and its own `IntersectionObserver`
+  were not, nor `draw.js`'s `setTimeout` or `bench.js`'s queued frame. An interval left
+  running repaints a detached canvas for as long as the page is open.
+
+### What was built
+
+`apps/export_size_data.py` → `apps/web/size_data.js`, 957 kB: five trained arrays, a
+500-digit sample of the frozen test set at each grid, every recorded ladder, and the
+solved series beside the first-order one. `apps/web/size.js` is the new instrument — the
+starvation map, the two-model chart, a wire slider on the sweep's fifteen rungs, and the
+same digit at all five grids. `size_bar.js` owns the size and `size_page.js` rebuilds each
+instrument when it changes.
+
+`site/larger.html` is **1,295 kB** and `site/index.html` is **332 kB**, up from 304: the
+solver and the new stylesheet rules are inlined on both pages, and only the size page
+carries `size_data.js`.
+
+### The sample, and what it costs
+
+The page ships **500 digits per grid** — the first 50 of each class, the same 500 indices
+at every grid — not the full 2,000, which at five sizes would be megabytes. The choice was
+the user's, against a recommendation to ship the 2,000 at native 28×28 with an in-browser
+resampler; the plan records both.
+
+The cost is that a live number here and a recorded one are not over the same digits, so
+`run_size_sweep.m` now records **every ladder twice**, once over all 2,000 and once over
+those 500. The twins are not a second draw: `mc.sweep` partitions seeds by ladder index
+from the same `baseSeed` and `err.conductance_variation` draws per device rather than per
+sample, so re-running the same ladder in the same order with `.subset` set evaluates *the
+identical twenty perturbed arrays* on 500 digits. That is also the argument that nothing
+already recorded could move, and a diff of all five budgets against their backups confirms
+it: every previously recorded number is bit-identical, and the only new keys are `sample`
+and `exact.meanCellFraction`.
+
+**The pass mark is still 95% of the full ideal.** A verdict rests only on a recorded
+full-set number; a live one is labelled with its count. `mc.error_sources`'s comment on
+`subset` — "for speed only" — stopped being true and was updated in the same commit.
+
+### Three brackets at 6×6, all true
+
+The page had to say this or contradict the page a reader arrives from. At 36 rows:
+
+| | holds → fails |
+|---|---|
+| the index, first order on the row's nine-rung ladder | 100 → 300 Ω |
+| this page, first order on the sweep's fifteen-rung ladder | 200 → 431 Ω |
+| this page, the network solved | 431 → 928 Ω |
+
+Two of those are the *same model at two ladder resolutions*, which is a different thing
+from the two models. The instrument's caption says so on the 6×6 rung, and the index
+gained one paragraph pointing at the page. **The row is unchanged**, and open decision 3 —
+whether to move it onto the solved network — stays open: this page shows both and moves
+nothing.
+
+### What the browser had to learn
+
+`crossbar.js` gained the solved network: the same nodal system `err.ir_drop_exact` factors,
+but ordered by row, which makes it block-tridiagonal with 2×10 blocks and solvable by a
+block Thomas sweep instead of one factorisation of a 13,520-square matrix. It agrees with
+MATLAB to **2.8e-11 relative** over all 150 recorded cell fractions.
+
+Two rounds of profiling were needed and both were real. The first pass cost 286 ms per
+solve and 344 ms per first-order evaluation at 676 rows, against 26 ms for the same solve
+in Node — the difference was 676 `subarray` views per solve and a 54 kB scratch array
+allocated per rail per digit. Hoisting both took it to 191 ms and 224 ms. That is still
+~430 ms for a full repaint, which is fine once and unusable while dragging, so the size bar
+and the wire slider now tell their subscribers **when the handle settles** (90 ms) rather
+than once per frame. `P.debounce` is in `plot.js` with the reasoning.
+
+### What the browser pass found that the tests did not
+
+- **`.sz-facts` was defined twice** — by the generator for the size bar, and by `size.js`
+  for its readouts. The widget's `display:flex` won and the control's facts came apart,
+  with nothing failing because each rule was used by something. Two tests now forbid a
+  class being defined by both the generator and a widget, or by two widgets, excluding
+  at-rule blocks where this site's cross-cutting rules deliberately live; a third prunes
+  the shared-vocabulary exemption list. The second of them immediately caught
+  `.sz-rungs`, defined in both places for the same reason.
+- **`body_class` was never emitted.** The stylesheet had `body.sizepage{--sticky:134px}`,
+  the page had its second sticky bar, and `<body>` carried no class — so every anchor on
+  the page landed 56 px short. Nothing rendered wrongly; things simply landed in the wrong
+  place, which no assertion looked at. Two tests now do.
+- **The ladders printed raw floats.** `String(430.8869380063769)`. `V.ohms` is one
+  formatter for all three ladders, and the row's own rungs still read 10, 100, 300, 1k.
+- **`size.js` took its grid from the bar rather than from the data it was handed.** It
+  agreed with itself on the real page and disagreed anywhere else, which is what the
+  widget runner found.
+
+### MATLAB's `std` of three identical numbers is 1.4e-16
+
+The sample pass asserts that sources 2 and 3 recorded no spread, because that is what says
+one realisation can stand for three. It fired: `std([x x x])` comes back as 1.4e-16 at
+several magnitudes, since `(x+x+x)/3` is not bitwise `x` and each deviation from the mean
+is then one ulp rather than none. Arithmetic on a constant, not a realisation that
+differed — so the assertion carries a tolerance, and says why.
+
+### The draw pad
+
+Its 24-grid is box-averaged down to what the array sees, and a box average is an exact
+area average only when the boxes are whole cells. At 24 over 18 each target cell would take
+1.33 pad cells; at 24 over 26 the pad has *fewer* cells than the tile it fills. The plan
+proposed fractional area averaging; making the pad a **whole multiple of the side**
+instead — 24 up to 12, 36 at 18, 52 at 26 — keeps the averaging exact and leaves 6×6 on
+the 24 it has always had, which a test holds. The brush scales with the pad so the stroke
+stays the same width on screen.
+
+### Tests
+
+**233 → 357**, and the suite is 20 s. The new ones:
+
+- `tests/test_web_size.py`: the solver against 150 recorded cell fractions, both wire
+  models and the quantiser against their 500-digit twins at every size, a one-cell closed
+  form, a small array against a dense NumPy nodal solve built from the geometry in words,
+  and a runtime budget the runner asserts on itself.
+- `tests/test_web_widgets.py`: every widget mounted at every size against a counting
+  window and then destroyed, with the hero's interval path reached by pressing Play under
+  reduced motion. `tests/dom_stub.js` gained that window.
+- The site tests that assumed one page were generalised rather than deleted, as their own
+  docstrings asked.
+
+The browser pass was done over a local HTTP server rather than `file://`, because the
+automation tool refuses `file://` URLs; the pages make no external request either way and
+a test asserts it.
+
+### Still open
+
+Publishing to `gh-pages` is a separate step and has not been done — a commit to `main`
+shows a visitor nothing. Open decision 3 is unchanged.

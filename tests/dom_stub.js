@@ -345,14 +345,109 @@ function makeEnv(opts) {
     head: { appendChild(s) { if (s.id) styles[s.id] = s; return s; } },
   };
 
+  // Everything a widget can leave behind, counted.
+  //
+  // Until the size page there was nothing to count: a widget was mounted once and
+  // lived as long as the document, so an observer it never gave back cost nothing
+  // and no test could tell the difference. Now each one is mounted again on every
+  // size change, and "did `destroy` give everything back" is a question with a
+  // right answer -- which needs a window that remembers what it handed out.
+  //
+  // `live` is what a test asserts on. Every stub increments on creation and
+  // decrements on the matching disposal, so a leak is a number that does not
+  // return to where it started.
+  const live = { resize: 0, mutation: 0, intersection: 0, media: 0, interval: 0,
+                 frame: 0, winListener: 0, docListener: 0 };
+  const made = { resize: 0, mutation: 0, intersection: 0, media: 0, interval: 0,
+                 frame: 0 };
+
+  function tracker(kind) {
+    return class {
+      constructor(fn) { this.fn = fn; this.observing = false; }
+      observe() {
+        if (this.observing) return;
+        this.observing = true;
+        live[kind] += 1;
+        made[kind] += 1;
+      }
+      disconnect() {
+        if (!this.observing) return;
+        this.observing = false;
+        live[kind] -= 1;
+      }
+      takeRecords() { return []; }
+    };
+  }
+
+  const timers = new Map();
+  let nextTimer = 1;
+
   const win = {
     document: doc,
     devicePixelRatio: opts.dpr,
-    addEventListener() {},
-    removeEventListener() {},
-    // No ResizeObserver on purpose: the fallback path must work too.
+    addEventListener() { live.winListener += 1; },
+    removeEventListener() { live.winListener -= 1; },
+    // Opt in per runner: `plot.js` has a documented fallback for a browser with no
+    // ResizeObserver, and a stub that always supplied one would stop exercising it.
+    ResizeObserver: opts.observers ? tracker("resize") : undefined,
+    MutationObserver: opts.observers ? tracker("mutation") : undefined,
+    // The hero watches its own canvas with one of these, to stop animating when it
+    // is scrolled past. It is constructed inline and was never held, which is
+    // exactly the shape of leak this window exists to notice.
+    IntersectionObserver: opts.observers ? tracker("intersection") : undefined,
+    matchMedia: opts.observers
+      ? function (query) {
+        return {
+          // A runner asks for reduced motion when it wants the hero's *other*
+          // animation path: the one that steps between stills on an interval
+          // rather than animating on a frame.
+          matches: !!opts.reduceMotion && /reduced-motion/.test(String(query)),
+          addEventListener() { live.media += 1; made.media += 1; },
+          removeEventListener() { live.media -= 1; },
+        };
+      }
+      : undefined,
+    setInterval(fn, ms) {
+      const id = nextTimer++;
+      timers.set(id, { fn, ms, kind: "interval" });
+      live.interval += 1;
+      made.interval += 1;
+      return id;
+    },
+    clearInterval(id) { if (timers.delete(id)) live.interval -= 1; },
+    setTimeout(fn, ms) {
+      const id = nextTimer++;
+      timers.set(id, { fn, ms, kind: "timeout" });
+      return id;
+    },
+    clearTimeout(id) { timers.delete(id); },
+    requestAnimationFrame(fn) {
+      const id = nextTimer++;
+      timers.set(id, { fn, kind: "frame" });
+      live.frame += 1;
+      made.frame += 1;
+      return id;
+    },
+    cancelAnimationFrame(id) { if (timers.delete(id)) live.frame -= 1; },
+    //: What is still outstanding, and what was ever handed out. A runner reads
+    //: `live` before and after `destroy`; `made` is what says the widget used the
+    //: thing at all, so a disposer cannot pass by never having been needed.
+    _live: live,
+    _made: made,
+    _timers: timers,
   };
-  return { win, doc, makeEl, makeText, body };
+  if (!opts.observers) {
+    delete win.ResizeObserver;
+    delete win.MutationObserver;
+    delete win.IntersectionObserver;
+    delete win.matchMedia;
+  }
+  // MutationObserver is read off the global rather than off `window` by plot.js,
+  // which is what a browser does too.
+  if (opts.observers) win.MutationObserver.prototype.constructor = win.MutationObserver;
+  doc.addEventListener = function () { live.docListener += 1; };
+  doc.removeEventListener = function () { live.docListener -= 1; };
+  return { win, doc, makeEl, makeText, body, live, made };
 }
 
 /**

@@ -57,9 +57,28 @@
     + ".wr-btn:hover{color:var(--ink);border-color:var(--accent);background:var(--accent-soft);}"
     + ".wr-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}";
 
-  function mount(el) {
+  /**
+   * `opts.data` is the array to run over; the default is the index page's.
+   *
+   * Above `BAND_CAP` rows a drawn row is a *band* of devices rather than one: at
+   * 676 rows a bar each is six thousand pixels of canvas. A band's contribution is
+   * the sum of its devices' and the accumulation is exact at every band edge,
+   * because that is the quantity the panel is about -- but a band is not a device,
+   * and the caption under the panel says how many went into one.
+   */
+  //: Above this many rows, one drawn row is a band of devices. 72 rows at 11 px is
+  //: an 800 px panel, which is already tall; 676 would be six thousand.
+  var BAND_CAP = 72;
+
+  /** What the strip under the panel is: devices, or bands of them. */
+  function rowLegend(rows, bands) {
+    if (bands === rows) return rows + " devices, top to bottom";
+    return rows + " devices in " + bands + " bands, top to bottom";
+  }
+
+  function mount(el, opts) {
     P.injectStyle("spinn-wire-style", CSS);
-    var model = C.load(window.SpinnData);
+    var model = C.load((opts && opts.data) || window.SpinnData);
     var mach = C.machine(model, {});
     var logits = new Float64Array(model.cols);
 
@@ -116,8 +135,9 @@
       var W = Math.min(620, Math.max(280,
         Math.round(canvas.getBoundingClientRect().width || 620)));
       var rows = model.rows;
+      var bands = Math.min(rows, BAND_CAP);
       var rowH = W < 520 ? 9 : 11;
-      var top = 30, H = top + rows * rowH + 34;
+      var top = 30, H = top + bands * rowH + 34;
       var f = P.fitTo(canvas, W, H), ctx = f.ctx;
       ctx.clearRect(0, 0, W, H);
 
@@ -132,14 +152,27 @@
       var accMid = driveW + gap + contribW + gap + accW / 2;
 
       var base = sample * rows;
-      var contrib = new Float64Array(rows), cum = new Float64Array(rows);
-      var run = 0, peakC = 1e-12, peakA = 1e-12, i;
+      // Per band: the drive that fed it (a mean, so a band with one lit pixel in
+      // nine reads as faintly lit), the current its devices added (a sum, which is
+      // what the wire actually carries), and the running total at the band's last
+      // device -- exact, because the staircase is the physically real quantity and
+      // a band edge is a real place on the wire.
+      var drive = new Float64Array(bands);
+      var contrib = new Float64Array(bands), cum = new Float64Array(bands);
+      var count = new Float64Array(bands);
+      var run = 0, peakC = 1e-12, peakA = 1e-12, i, b;
       for (i = 0; i < rows; i++) {
-        contrib[i] = model.x[base + i] * mach.weights[i * model.cols + column] * model.gain;
-        run += contrib[i];
-        cum[i] = run;
-        peakC = Math.max(peakC, Math.abs(contrib[i]));
-        peakA = Math.max(peakA, Math.abs(run));
+        b = Math.floor(i * bands / rows);
+        run += model.x[base + i] * mach.weights[i * model.cols + column] * model.gain;
+        contrib[b] += model.x[base + i] * mach.weights[i * model.cols + column] * model.gain;
+        drive[b] += model.x[base + i];
+        count[b] += 1;
+        cum[b] = run;
+      }
+      for (b = 0; b < bands; b++) {
+        drive[b] /= count[b] || 1;
+        peakC = Math.max(peakC, Math.abs(contrib[b]));
+        peakA = Math.max(peakA, Math.abs(cum[b]));
       }
 
       ctx.font = V.font();
@@ -155,16 +188,16 @@
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(barMid + 0.5, top);
-      ctx.lineTo(barMid + 0.5, top + rows * rowH);
+      ctx.lineTo(barMid + 0.5, top + bands * rowH);
       ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(Math.round(accMid) + 0.5, top);
-      ctx.lineTo(Math.round(accMid) + 0.5, top + rows * rowH);
+      ctx.lineTo(Math.round(accMid) + 0.5, top + bands * rowH);
       ctx.stroke();
 
-      for (i = 0; i < rows; i++) {
+      for (i = 0; i < bands; i++) {
         var y = top + i * rowH;
-        var v = model.x[base + i];
+        var v = drive[i];
 
         if (v > 0) {
           ctx.fillStyle = V.mix(border, ink, 0.35 + 0.65 * v);
@@ -187,7 +220,7 @@
       ctx.strokeStyle = dim;
       ctx.lineWidth = 1.6;
       ctx.beginPath();
-      for (i = 0; i < rows; i++) {
+      for (i = 0; i < bands; i++) {
         var yy = top + i * rowH + rowH / 2;
         var xx = accMid + (cum[i] / peakA) * (accW / 2 - 4);
         if (i === 0) { ctx.moveTo(accMid, top); ctx.lineTo(xx, yy); }
@@ -195,8 +228,8 @@
       }
       ctx.stroke();
 
-      var finalX = accMid + (cum[rows - 1] / peakA) * (accW / 2 - 4);
-      var finalY = top + rows * rowH - rowH / 2;
+      var finalX = accMid + (cum[bands - 1] / peakA) * (accW / 2 - 4);
+      var finalY = top + bands * rowH - rowH / 2;
       ctx.fillStyle = accent;
       ctx.beginPath();
       ctx.arc(finalX, finalY, 3.6, 0, Math.PI * 2);
@@ -204,13 +237,13 @@
       ctx.fillStyle = c.accentInk;
       ctx.font = V.font(600);
       ctx.textAlign = finalX > accMid ? "left" : "right";
-      ctx.fillText(cum[rows - 1].toFixed(2),
-        finalX + (finalX > accMid ? 8 : -8), top + rows * rowH + 16);
+      ctx.fillText(cum[bands - 1].toFixed(2),
+        finalX + (finalX > accMid ? 8 : -8), top + bands * rowH + 16);
 
       ctx.font = V.font();
       ctx.fillStyle = muted;
       ctx.textAlign = "left";
-      ctx.fillText("36 devices, top to bottom", 0, top + rows * rowH + 16);
+      ctx.fillText(rowLegend(rows, bands), 0, top + bands * rowH + 16);
     }
 
     function describe() {
@@ -227,8 +260,13 @@
         + logits[win].toFixed(2) + "</b>, so that is the answer"
         + (win === label ? "." : ", and it is wrong.");
       canvas.setAttribute("aria-label",
-        "Column " + column + " accumulating current from 36 devices for a handwritten "
-        + label + ", reaching " + logits[column].toFixed(2) + ".");
+        "Column " + column + " accumulating current from " + model.rows
+        + " devices for a handwritten " + label + ", reaching "
+        + logits[column].toFixed(2) + "."
+        + (model.rows > BAND_CAP
+          ? " Drawn in " + Math.min(model.rows, BAND_CAP) + " bands of "
+            + Math.round(model.rows / BAND_CAP) + " devices each."
+          : ""));
     }
 
     function pick(col) { follow = false; column = col; describe(); draw(); }
@@ -240,10 +278,18 @@
       draw();
     });
 
-    P.onWidthChange(el, draw);
-    P.onThemeChange(draw);
+    var stopWidth = P.onWidthChange(el, draw);
+    var stopTheme = P.onThemeChange(draw);
     describe();
     draw();
+
+    return {
+      destroy: function () {
+        stopWidth();
+        stopTheme();
+        el.innerHTML = "";
+      },
+    };
   }
 
   if (typeof window !== "undefined") window.SpinnWire = { mount: mount };

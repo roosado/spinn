@@ -25,9 +25,17 @@ Size
 **Sparse, because the digits are.** Three quarters of the 72,000 pixels are zero,
 so a dense uint16 block spends 144 kB carrying mostly nothing. Per sample: a count,
 then one index byte and two value bytes per non-zero pixel. About 57 kB, ~76 kB
-once base64'd, against 192 kB for the dense form -- and exact either way. The
-decoder in ``apps/web/data_decode.js`` is the other half of this format; the two
-must be read together.
+once base64'd, against 192 kB for the dense form -- and exact either way.
+``unpackImages`` in ``apps/web/crossbar.js`` is the other half of this format; the
+two must be read together.
+
+**The widths are written down rather than assumed.** A 6x6 digit has 36 pixels and
+at most 36 non-zeros, so one byte addresses both -- but ``apps/export_size_data.py``
+packs the same format at 18x18 and 26x26, where an index runs to 675 and the fattest
+26x26 digit has 314 non-zero pixels. Both overflow a byte, and both overflow it
+*silently*: the block still decodes, into a different picture. So every block states
+``idxBytes`` and ``cntBytes`` and the decoder reads what it is told, rather than
+either side defaulting to the width that happened to be right here first.
 
 Regenerating
 ------------
@@ -72,25 +80,47 @@ def normalise(images: np.ndarray) -> np.ndarray:
     return v / np.where(peak > 0, peak, 1.0)
 
 
+def _width(largest: int) -> str:
+    """The narrowest unsigned type that holds ``largest``, as a NumPy code.
+
+    One byte or two. Nothing this format carries needs four: the widest grid swept
+    is 26x26, so an index runs to 675 and a count to 676.
+    """
+    if largest > 0xFFFF:
+        raise ValueError(f"{largest} does not fit the two bytes this format allows")
+    return "u1" if largest <= 0xFF else "u2"
+
+
 def pack_images(x: np.ndarray) -> dict:
     """Sparse-encode normalised images, one record per sample.
 
     Returns the three arrays the decoder needs, base64'd: a per-sample non-zero
-    count, the pixel index of each non-zero, and its quantised value.
+    count, the pixel index of each non-zero, and its quantised value -- with the
+    byte width of the first two stated, because at 18x18 and above they are two
+    bytes and a decoder that assumed one would produce a picture rather than an
+    error. See the module docstring.
     """
     q = np.rint(x * FULL).astype("u2")
     counts, idx, val = [], [], []
     for row in q:
         nz = np.nonzero(row)[0]
         counts.append(len(nz))
-        idx.append(nz.astype("u1"))
+        idx.append(nz)
         val.append(row[nz])
+    dim = int(q.shape[1])
+    # Widths from what the format can hold, not from what this batch happens to
+    # contain: a sample of digits whose fattest has 250 non-zeros would otherwise
+    # pack one byte wide and stop decoding when a fatter digit joins it.
+    icode = _width(max(dim - 1, 0))
+    ccode = _width(dim)
     return {
         "n": int(len(q)),
-        "dim": int(q.shape[1]),
+        "dim": dim,
         "full": FULL,
-        "counts": _b64(np.asarray(counts, dtype="u1")),
-        "idx": _b64(np.concatenate(idx) if idx else np.empty(0, "u1")),
+        "idxBytes": int(np.dtype(icode).itemsize),
+        "cntBytes": int(np.dtype(ccode).itemsize),
+        "counts": _b64(np.asarray(counts, dtype=ccode)),
+        "idx": _b64(np.concatenate(idx).astype(icode) if idx else np.empty(0, icode)),
         "val": _b64(np.concatenate(val) if val else np.empty(0, "u2")),
     }
 

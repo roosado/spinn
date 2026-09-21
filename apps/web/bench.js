@@ -80,6 +80,8 @@
     + "transition:color .15s,border-color .15s,background .15s;}"
     + ".bn-btn:hover{color:var(--ink);border-color:var(--accent);background:var(--accent-soft);}"
     + ".bn-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
+    + ".bn-two{display:block;margin-top:8px;color:var(--muted);}"
+    + ".bn-two b{color:var(--ink);font-weight:600;}"
     + ".bn-note{font-size:.8125rem;color:var(--muted);margin:20px 0 0;line-height:1.55;"
     + "border-top:1px solid var(--border);padding-top:12px;max-width:64ch;}"
     + ".bn-cap{font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;"
@@ -105,10 +107,27 @@
     };
   }
 
-  function mount(el) {
+  /**
+   * `opts.data` is the array to run over; the default is the index page's.
+   *
+   * Two things move with it and are easy to miss. The meter's scale follows the
+   * array's own ideal -- at 676 rows that is 0.9070 and a fixed 0.78 would put the
+   * pointer off the end of the bar. And the number of digits behind every figure
+   * here is `model.n`: the index carries all 2,000, and the size page carries a
+   * 500-digit sample of the same set, so the label says which rather than assuming.
+   */
+  function mount(el, opts) {
     P.injectStyle("spinn-bench-style", CSS);
-    var model = C.load(window.SpinnData);
+    var model = C.load((opts && opts.data) || window.SpinnData);
     var b = model.budget;
+    var digits = model.n.toLocaleString("en-GB");
+    // "all 2,000 frozen test digits" on the index; "a 500-digit sample of the frozen
+    // test set" on the size page, where a live number and a recorded one are not
+    // over the same digits and the page has to keep saying so.
+    var sampled = model.sample && model.sample.n === model.n;
+    var overWhat = sampled
+      ? "a " + digits + "-digit sample of the frozen set"
+      : "all " + digits + " frozen test digits";
 
     var sigma = ladderOf(b.sigma, "none", function (v) { return "σ = " + v; });
     var states = {
@@ -120,7 +139,7 @@
       },
     };
     var wire = ladderOf(b.wire, "ideal wires", function (v) {
-      return v >= 1000 ? (v / 1000) + " kΩ" : v + " Ω";
+      return V.ohms(v, true);
     });
 
     var rails = P.el("div", "bn-rails");
@@ -155,13 +174,14 @@
     arrayCanvas.setAttribute("role", "img");
     leftCol.appendChild(arrayCanvas);
     leftCol.appendChild(P.el("p", "bn-cap",
-      "360 differential pairs &middot; teal positive, amber negative"));
+      (model.rows * model.cols).toLocaleString("en-GB")
+      + " differential pairs &middot; teal positive, amber negative"));
 
     // The result in two pieces: the number and its meter, which hold still, and the
     // verdict, which reflows. A narrow screen puts them on either side of the sliders.
     var rightCol = P.el("div", "bn-result");
     var readout = P.el("div", "bn-read",
-      '<p class="bn-accl">Accuracy, all 2,000 frozen test digits</p>'
+      '<p class="bn-accl">Accuracy, ' + overWhat + "</p>"
       + '<div><span class="bn-acc"></span><span class="bn-delta"></span></div>');
     var meter = document.createElement("canvas");
     meter.setAttribute("role", "img");
@@ -186,14 +206,15 @@
 
     var note = P.el("p", "bn-note",
       "The array, the pointer on the meter and the per-digit bars are computed here, "
-      + "now, from the trained weights over the whole frozen test set; with one source "
-      + "switched on, the number above them is the recorded budget's. Two honest gaps "
+      + "now, from the trained weights over " + overWhat + "; with one source "
+      + "switched on, the number above them is the recorded budget's, measured over "
+      + "all 2,000. Two honest gaps "
       + "between the two: the conductance draw uses a "
       + "different random generator from MATLAB's, so one realisation here is not one "
       + "of the recorded realisations &mdash; re-roll a few times to see the spread. "
       + "And at coarse quantisation a few digits produce two exactly equal column "
       + "currents, where the winner is decided by the order the additions happened "
-      + "in; that moves the accuracy by one digit in two thousand.");
+      + "in; that moves the accuracy by one digit in " + digits + ".");
 
     // Markup order is reading order -- controls, then what they did -- whatever
     // order the grid draws them in.
@@ -210,7 +231,7 @@
     var accLabel = rightCol.querySelector(".bn-accl");
     var mode = "effective";
     var seed = 20260908;
-    var queued = false, current = null;
+    var queued = false, current = null, torn = false;
 
     function settings() {
       return {
@@ -231,7 +252,8 @@
         { x: 0, y: 0, w: W, h: H, rows: model.rows, cols: model.cols },
         { mode: mode, rails: current.mach.rails, weights: current.mach.weights });
       arrayCanvas.setAttribute("aria-label",
-        "The 36 by 10 weight array as built, at " + describeSettings() + ".");
+        "The " + model.rows + " by " + model.cols + " weight array as built, at "
+        + describeSettings() + ".");
     }
 
     function drawMeter(res, hl) {
@@ -241,7 +263,10 @@
       var ctx = P.fitTo(meter, W, H).ctx;
       ctx.clearRect(0, 0, W, H);
 
-      var lo = 0, hi = 0.78;
+      // The scale ends just above this array's own ideal rather than at the 0.78
+      // that suited a 36-row machine, so the pointer and the ideal mark stay on the
+      // bar at every size.
+      var lo = 0, hi = Math.max(0.5, Math.ceil((model.ideal + 0.045) * 20) / 20);
       var xOf = function (a) { return ((a - lo) / (hi - lo)) * W; };
 
       // The bar. Kept slim: it is a position on a scale, not a quantity worth a
@@ -386,8 +411,8 @@
           label: "Recorded, all three at their edges" };
       }
       return { value: res.accuracy, sd: 0, recorded: false,
-        label: on.length ? "Accuracy of this realisation"
-          : "Accuracy, all 2,000 frozen test digits" };
+        label: on.length ? "Accuracy of this realisation, over " + overWhat
+          : "Accuracy, " + overWhat };
     }
 
     /** "a", "a and b", "a, b and c". */
@@ -440,6 +465,31 @@
         + "against.";
     }
 
+    /**
+     * Both wire models at the rung the reader is on, where the data has both.
+     *
+     * The live number above is the **first-order** one, because that is what the
+     * recorded budget, the published row and this bench have always computed. The
+     * solved network is the same array with the same wires, solved rather than
+     * expanded, and it holds two to four rungs higher. Neither is shown without the
+     * other. Read from the recorded sweep rather than solved again here: both are
+     * over all 2,000 digits, and a second solve per frame at 676 rows is a third of
+     * a second the reader would feel.
+     */
+    function wireModels() {
+      var ex = b.exact, s = settings();
+      if (!ex || !s.wireOhm) return "";
+      var at = -1;
+      for (var i = 0; i < ex.magnitudes.length; i++) {
+        if (ex.magnitudes[i] === s.wireOhm) at = i;
+      }
+      if (at < 0) return "";
+      return '<span class="bn-two">Recorded at this resistance, over all 2,000: '
+        + "solved <b>" + ex.exactAcc[at].toFixed(4) + "</b> &middot; first order <b>"
+        + ex.firstOrderAcc[at].toFixed(4) + "</b>. The bench computes first order, "
+        + "which is the model the row was measured with.</span>";
+    }
+
     function recompute() {
       var mach = C.machine(model, settings());
       var res = C.evaluate(model, mach);
@@ -456,7 +506,7 @@
       deltaEl.textContent = (hl.sd > 0 ? "± " + hl.sd.toFixed(4) + " · " : "")
         + (hl.value >= model.ideal ? "+" : "−")
         + Math.abs(hl.value - model.ideal).toFixed(4) + " vs ideal";
-      verdict.innerHTML = verdictText(res, hl);
+      verdict.innerHTML = verdictText(res, hl) + wireModels();
       drawArray(res);
       drawMeter(res, hl);
     }
@@ -491,7 +541,10 @@
       // One evaluation per frame at most. A full pass over two thousand images is
       // about ten milliseconds without wire resistance and thirty with it, so a
       // drag stays responsive as long as it never queues two.
-      window.requestAnimationFrame(function () { queued = false; recompute(); });
+      window.requestAnimationFrame(function () {
+        queued = false;
+        if (!torn) recompute();
+      });
     }
 
     [sIn, qIn, rIn].forEach(function (input) {
@@ -529,15 +582,26 @@
       drawArray(current.res);
     });
 
-    P.onWidthChange(el, function () {
+    function repaint() {
       if (current) { drawArray(current.res); drawMeter(current.res, current.hl); }
-    });
-    P.onThemeChange(function () {
-      if (current) { drawArray(current.res); drawMeter(current.res, current.hl); }
-    });
+    }
+    var stopWidth = P.onWidthChange(el, repaint);
+    var stopTheme = P.onThemeChange(repaint);
 
     labels();
     recompute();
+
+    return {
+      destroy: function () {
+        stopWidth();
+        stopTheme();
+        // The queued frame holds `recompute`, which holds the model and both
+        // canvases. Left to run after a re-mount it draws into a detached element,
+        // which is invisible and not free.
+        torn = true;
+        el.innerHTML = "";
+      },
+    };
   }
 
   if (typeof window !== "undefined") window.SpinnBench = { mount: mount };

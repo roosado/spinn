@@ -63,14 +63,41 @@
       key: "wire", head: "3. IR drop",
       sub: "The wires are not ideal conductors, so a cell far from both edges is "
         + "starved. This one grows with array size.",
-      fmt: function (v) {
-        if (v >= 1000000) return (v / 1000000) + "M";
-        return v >= 1000 ? (v / 1000) + "k" : String(v);
-      },
+      // The row's ladder is round numbers and the size sweep's is 2*10^(k/3),
+      // whose rungs have seventeen significant figures. One formatter for both.
+      fmt: function (v) { return V.ohms(v); },
       bits: null,
       unit: "Ω per segment",
     },
   ];
+
+  /**
+   * The solved counterpart of a first-order ladder, where the data has one.
+   *
+   * Only source 3 has two models, and only the size page's module carries the
+   * solved one -- the index's `data.js` does not, because the recorded row and
+   * every number on that page are first order. So this returns null there, and the
+   * panel draws exactly what it drew before.
+   *
+   * The rungs are checked rather than assumed to line up: the two series are
+   * recorded on the same ladder by `run_size_sweep.m`, and a panel that drew one
+   * model's accuracy at another model's magnitudes would look perfectly reasonable.
+   */
+  function solvedSeries(model, entry, panel) {
+    if (panel.key !== "wire") return null;
+    var ex = model.budget && model.budget.exact;
+    if (!ex || ex.magnitudes.length !== entry.magnitudes.length) return null;
+    for (var i = 0; i < ex.magnitudes.length; i++) {
+      if (ex.magnitudes[i] !== entry.magnitudes[i]) return null;
+    }
+    return {
+      exactAcc: ex.exactAcc,
+      exactHolds: ex.exactAcc.map(function (a) { return a >= model.threshold; }),
+      lastHolding: ex.lastHolding,
+      firstFailing: ex.firstFailing,
+    };
+  }
+
 
   function drawPanel(canvas, model, entry, panel) {
     var c = V.ink(document.documentElement);
@@ -88,7 +115,10 @@
     // value: the sweep asks about decades, and spacing the marks evenly is the
     // picture of "these are the rungs we climbed", which is what happened.
     var xOf = function (i) { return padL + (n === 1 ? pw / 2 : (i / (n - 1)) * pw); };
-    var yLo = 0, yHi = 0.78;
+    // The top of the scale follows the array's own ideal rather than sitting at
+    // the 0.78 that suited a 36-row machine. At 676 rows the ideal is 0.9070 and a
+    // fixed 0.78 would draw the whole curve off the top of the panel.
+    var yLo = 0, yHi = Math.max(0.5, Math.ceil((model.ideal + 0.05) * 20) / 20);
     var yOf = function (a) { return padT + ph - ((a - yLo) / (yHi - yLo)) * ph; };
 
     // axes
@@ -103,9 +133,10 @@
     ctx.font = V.font();
     ctx.fillStyle = c.muted;
     ctx.textAlign = "right";
-    [0, 0.25, 0.5, 0.75].forEach(function (a) {
-      ctx.fillText(a.toFixed(2), padL - 6, yOf(a) + 3);
-    });
+    [0, 0.25, 0.5, 0.75, 1].filter(function (a) { return a <= yHi; })
+      .forEach(function (a) {
+        ctx.fillText(a.toFixed(2), padL - 6, yOf(a) + 3);
+      });
 
     // The pass mark, and the ideal it is 95% of. Both are labelled: unlabelled,
     // they are two horizontal rules four hundredths apart and a reader has no way
@@ -142,6 +173,25 @@
       ctx.fill();
     }
 
+    // Source 3, where the sweep recorded both models on the same rungs: the
+    // network solved, and the same network expanded to first order. Drawn together
+    // and never one without the other -- they disagree by a factor that matters,
+    // and the recorded row and the main page are the first-order one.
+    var solved = solvedSeries(model, entry, panel);
+    if (solved) {
+      ctx.strokeStyle = c.accent2;
+      ctx.lineWidth = 1.3;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      for (i = 0; i < n; i++) {
+        var fx = xOf(i), fy = yOf(mean[i]);
+        if (i === 0) ctx.moveTo(fx, fy); else ctx.lineTo(fx, fy);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      mean = solved.exactAcc;
+    }
+
     ctx.strokeStyle = c.ink;
     ctx.lineWidth = 1.4;
     ctx.beginPath();
@@ -151,9 +201,16 @@
     }
     ctx.stroke();
 
+    // The dots, the edge marks and the labels all follow the solid curve, so where
+    // both models are drawn they are the solved one's -- which is the model the
+    // bracket under the panel then quotes first.
+    var holdsAt = solved ? solved.exactHolds : entry.holds;
+    var lastHolding = solved ? solved.lastHolding : entry.lastHolding;
+    var firstFailing = solved ? solved.firstFailing : entry.firstFailing;
+
     for (i = 0; i < n; i++) {
-      var holds = entry.holds[i];
-      var isEdge = mags[i] === entry.lastHolding || mags[i] === entry.firstFailing;
+      var holds = holdsAt[i];
+      var isEdge = mags[i] === lastHolding || mags[i] === firstFailing;
       ctx.fillStyle = holds ? c.accent : c.accent2;
       ctx.beginPath();
       ctx.arc(xOf(i), yOf(mean[i]), isEdge ? 4.2 : 2.4, 0, Math.PI * 2);
@@ -186,7 +243,7 @@
       ctx.fillText(text, x, padT + ph + 15);
     }
 
-    var hold = mags.indexOf(entry.lastHolding), fail = mags.indexOf(entry.firstFailing);
+    var hold = mags.indexOf(lastHolding), fail = mags.indexOf(firstFailing);
     var holdText = panel.fmt(mags[hold]), failText = panel.fmt(mags[fail]);
     var gap = Math.abs(xOf(fail) - xOf(hold));
     var need = (ctx.measureText(holdText).width + ctx.measureText(failText).width) / 2 + 10;
@@ -206,13 +263,23 @@
     ctx.fillText(panel.unit + " →", padL, padT + ph + 25);
 
     canvas.setAttribute("aria-label", panel.head + ": accuracy holds at "
-      + entry.lastHolding + " and fails at " + entry.firstFailing + " "
-      + panel.unit + ".");
+      + lastHolding + " and fails at " + firstFailing + " " + panel.unit
+      + (solved
+        ? ", with the wire network solved. Expanded to first order the same array "
+          + "holds at " + entry.lastHolding + " and fails at " + entry.firstFailing + "."
+        : "."));
   }
 
-  function mount(el) {
+  /**
+   * `opts.data` is the generated module to run over; the default is the one the
+   * index page carries. The size page passes a different array on every change, so
+   * everything below reads the model rather than a constant, and `destroy` gives
+   * back the observers -- an instrument mounted five times leaves five of them
+   * otherwise, each holding a detached canvas.
+   */
+  function mount(el, opts) {
     P.injectStyle("spinn-ladder-style", CSS);
-    var model = C.load(window.SpinnData);
+    var model = C.load((opts && opts.data) || window.SpinnData);
     var grid = P.el("div", "ld");
     var made = [];
 
@@ -235,16 +302,23 @@
       canvas.setAttribute("role", "img");
       box.appendChild(canvas);
 
+      var solved = solvedSeries(model, entry, panel);
+      var quoted = solved || entry;
       var holdBits = panel.bits ? panel.bits(entry.lastHolding) : null;
       var failBits = panel.bits ? panel.bits(entry.firstFailing) : null;
       box.appendChild(P.el("p", "ld-b",
-        '<span class="hold">holds</span> at <b>' + panel.fmt(entry.lastHolding)
+        '<span class="hold">holds</span> at <b>' + panel.fmt(quoted.lastHolding)
         + "</b> &nbsp;·&nbsp; " + '<span class="fail">fails</span> at <b>'
-        + panel.fmt(entry.firstFailing) + "</b><br>"
+        + panel.fmt(quoted.firstFailing) + "</b><br>"
         + (panel.bits
           ? "= <b>" + holdBits.toFixed(2) + " bits</b> held, "
             + failBits.toFixed(2) + " failed"
-          : "not a bit depth &mdash; a systematic, not a spread")));
+          : solved
+            // Both, always: the solid curve is the network and the dashed one is
+            // the first-order expansion the recorded row was measured with.
+            ? "solved &mdash; first order holds at <b>" + panel.fmt(entry.lastHolding)
+              + "</b>, fails at <b>" + panel.fmt(entry.firstFailing) + "</b>"
+            : "not a bit depth &mdash; a systematic, not a spread")));
 
       grid.appendChild(box);
       made.push({ canvas: canvas, entry: entry, panel: panel });
@@ -255,9 +329,17 @@
     function redraw() {
       made.forEach(function (m) { drawPanel(m.canvas, model, m.entry, m.panel); });
     }
-    P.onWidthChange(el, redraw);
-    P.onThemeChange(redraw);
+    var stopWidth = P.onWidthChange(el, redraw);
+    var stopTheme = P.onThemeChange(redraw);
     redraw();
+
+    return {
+      destroy: function () {
+        stopWidth();
+        stopTheme();
+        el.innerHTML = "";
+      },
+    };
   }
 
   if (typeof window !== "undefined") window.SpinnLadder = { mount: mount };

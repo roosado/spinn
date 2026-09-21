@@ -116,6 +116,13 @@
    * Guarded on the measured width rather than firing on every observation
    * because `fn` sets the canvas height, which is itself a resize: an unguarded
    * observer would answer its own callback forever.
+   *
+   * **Returns a disposer.** It used to return nothing, which was correct while a
+   * widget was mounted once and lived as long as the page. The size page mounts
+   * each widget again on every size change, and an observer left behind holds its
+   * callback, its closure and the detached element it was watching -- five size
+   * changes, seven widgets, thirty-five of them. Calling the disposer is not
+   * optional there, and costs nothing here.
    */
   function onWidthChange(target, fn) {
     let last = -1;
@@ -126,10 +133,15 @@
       fn();
     };
     if (typeof window !== "undefined" && typeof window.ResizeObserver === "function") {
-      new window.ResizeObserver(check).observe(target);
-    } else if (typeof window !== "undefined") {
-      window.addEventListener("resize", check);
+      const ro = new window.ResizeObserver(check);
+      ro.observe(target);
+      return function () { ro.disconnect(); };
     }
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", check);
+      return function () { window.removeEventListener("resize", check); };
+    }
+    return function () {};
   }
 
   /**
@@ -143,16 +155,49 @@
    * toggle interaction is the other case, and only matchMedia sees that one.
    */
   function onThemeChange(fn) {
+    const undo = [];
     if (typeof document !== "undefined" && typeof MutationObserver !== "undefined"
         && document.documentElement) {
-      new MutationObserver(fn).observe(document.documentElement,
+      const mo = new MutationObserver(fn);
+      mo.observe(document.documentElement,
         { attributes: true, attributeFilter: ["data-theme"] });
+      undo.push(function () { mo.disconnect(); });
     }
     if (typeof window !== "undefined" && window.matchMedia) {
       const mq = window.matchMedia("(prefers-color-scheme:dark)");
-      if (mq.addEventListener) mq.addEventListener("change", fn);
-      else if (mq.addListener) mq.addListener(fn);
+      if (mq.addEventListener) {
+        mq.addEventListener("change", fn);
+        undo.push(function () { mq.removeEventListener("change", fn); });
+      } else if (mq.addListener) {
+        mq.addListener(fn);
+        undo.push(function () { mq.removeListener(fn); });
+      }
     }
+    // Both sources, so both are undone. Half a disposer is a leak with a test.
+    return function () { for (let i = 0; i < undo.length; i++) undo[i](); };
+  }
+
+  /**
+   * Call `fn` once the caller has been quiet for `ms`, and not before.
+   *
+   * A frame is the right unit for a widget whose recompute costs a few
+   * milliseconds, and the wrong one for the size page: at 676 rows one full
+   * recompute is a few hundred, so a slider dragged across its track queues one of
+   * those per rung and the page stops answering. A trailing debounce collapses the
+   * drag to the rung it ended on, which is the only one the reader asked about.
+   *
+   * The returned function carries `cancel`, because a widget that is torn down
+   * between the last input and the callback would otherwise draw into a host that
+   * is no longer on the page.
+   */
+  function debounce(fn, ms) {
+    let timer = 0;
+    const run = function () {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(function () { timer = 0; fn(); }, ms);
+    };
+    run.cancel = function () { if (timer) clearTimeout(timer); timer = 0; };
+    return run;
   }
 
   /* ----------------------------------------------------------------- colour */
@@ -297,7 +342,7 @@
 
   const API = {
     MAX_DPR, scale, resize, fit, fitTo,
-    onWidthChange, onThemeChange,
+    onWidthChange, onThemeChange, debounce,
     readVars, INFERNO, TWILIGHT, makeLUT, LUT_INTENSITY, LUT_PHASE, raster, rasterInto,
     injectStyle, el,
   };

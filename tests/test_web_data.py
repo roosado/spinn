@@ -77,6 +77,28 @@ def test_the_labels_survive_the_crossing(payload):
     assert np.array_equal(got, task["test_labels"].astype("u1"))
 
 
+def _sparse(block: dict):
+    """The three arrays of a sparse image block, read at the widths it states.
+
+    One byte each is right for a 6x6 digit and wrong from 18x18 upward, where an
+    index runs past 255 and so does the fattest digit's non-zero count. Reading the
+    stated width rather than assuming the one that happens to be right here is what
+    keeps this decoder and ``apps/export_size_data.py``'s blocks the same format.
+    """
+    counts = np.frombuffer(base64.b64decode(block["counts"]), dtype=f"<u{block['cntBytes']}")
+    idx = np.frombuffer(base64.b64decode(block["idx"]), dtype=f"<u{block['idxBytes']}")
+    val = np.frombuffer(base64.b64decode(block["val"]), dtype="<u2")
+    return counts, idx, val
+
+
+def test_the_image_block_states_the_widths_it_was_packed_at(payload):
+    """A 6x6 digit fits a byte twice over, and the block says so rather than
+    leaving the decoder to find out. See ``apps/export_web_data.pack_images``."""
+    block = payload["images"]
+    assert block["idxBytes"] == 1 and block["cntBytes"] == 1
+    assert block["dim"] == 36
+
+
 def test_the_sparse_images_round_trip_within_one_part_in_65535(payload):
     """The precision decision, asserted rather than asserted-about.
 
@@ -89,9 +111,7 @@ def test_the_sparse_images_round_trip_within_one_part_in_65535(payload):
     want = export_web_data.normalise(task["test_images"])
 
     block = payload["images"]
-    counts = np.frombuffer(base64.b64decode(block["counts"]), dtype="u1")
-    idx = np.frombuffer(base64.b64decode(block["idx"]), dtype="u1")
-    val = np.frombuffer(base64.b64decode(block["val"]), dtype="<u2")
+    counts, idx, val = _sparse(block)
 
     got = np.zeros((block["n"], block["dim"]), dtype="f8")
     at = 0
@@ -111,9 +131,7 @@ def test_an_ideal_forward_pass_over_the_shipped_data_gives_the_recorded_accuracy
     """
     task = np.load(TASK)
     block = payload["images"]
-    counts = np.frombuffer(base64.b64decode(block["counts"]), dtype="u1")
-    idx = np.frombuffer(base64.b64decode(block["idx"]), dtype="u1")
-    val = np.frombuffer(base64.b64decode(block["val"]), dtype="<u2")
+    counts, idx, val = _sparse(block)
     x = np.zeros((block["n"], block["dim"]), dtype="f8")
     at = 0
     for s, c in enumerate(int(v) for v in counts):

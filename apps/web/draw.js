@@ -70,10 +70,40 @@
     + ".dw-vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;"
     + "overflow:hidden;clip-path:inset(50%);white-space:nowrap;}";
 
-  var PAD = 24;        // the pad's own grid
-  var PAD_PX = 168;    // its drawn size, 7 screen pixels per cell
+  var PAD_PX = 168;    // the pad's drawn size, whatever grid is under it
   var TILE_PX = 108;
-  var BRUSH = 1.7;     // the brush's radius, in pad cells
+
+  /**
+   * The pad's own grid, for an array that sees `side` by `side`.
+   *
+   * **A whole multiple of `side`, always.** The pad is box-averaged down to what the
+   * array is wired for, and a box average is an exact area average only when the
+   * boxes are whole cells: at 24 over 18 each target cell would take 1.33 pad cells,
+   * which `Math.floor` turns into an uneven tiling, and at 24 over 26 the pad has
+   * fewer cells than the tile it fills. So the multiple is chosen and the averaging
+   * stays exact, rather than the grid staying fixed and the averaging going
+   * fractional to cope.
+   *
+   *   6 -> 24 (4 pad cells each)   12 -> 24 (2)   26 -> 52 (2)
+   *   8 -> 24 (3)                  18 -> 36 (2)
+   *
+   * 6x6 keeps the 24 it has always had, so the shared task's pad is unchanged --
+   * which `tests/test_web_draw.py` holds to the digit.
+   */
+  function padGrid(side) {
+    return side * Math.max(2, Math.round(24 / side));
+  }
+
+  /**
+   * The brush's radius in pad cells, so the stroke stays the same width on screen.
+   *
+   * 1.7 cells of a 24-grid is about twelve screen pixels. Left at 1.7 on a 52-grid
+   * it would be five, and a stroke that thin does not survive the average down to
+   * the array -- the reader would be drawing something the machine cannot see.
+   */
+  function brushFor(pad) {
+    return 1.7 * pad / 24;
+  }
   //: How long the pad has to be still before the verdict is read out. Every pointer
   //: event reclassifies, and a live region that spoke each one would be reading out
   //: numbers faster than anyone can hear them.
@@ -81,11 +111,19 @@
   //: The arrow keys, as one cell's step.
   var MOVES = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 
-  function mount(el) {
+  /**
+   * `opts.data` is the array to classify against; the default is the index page's.
+   *
+   * The pad's grid and its brush both follow `side` -- see `padGrid`. Everything
+   * else is already written in pad cells and needs no change.
+   */
+  function mount(el, opts) {
     P.injectStyle("spinn-draw-style", CSS);
-    var model = C.load(window.SpinnData);
+    var model = C.load((opts && opts.data) || window.SpinnData);
     var mach = C.machine(model, {});
     var side = model.side;
+    var PAD = padGrid(side);
+    var BRUSH = brushFor(PAD);
 
     var grid = P.el("div", "dw");
     var padBox = P.el("div", "", '<p class="dw-k">Draw a digit</p>');
@@ -119,9 +157,11 @@
     var seen = document.createElement("canvas");
     seen.className = "dw-seen";
     seen.setAttribute("role", "img");
-    seen.setAttribute("aria-label", "The drawing reduced to a 6 by 6 grid.");
+    seen.setAttribute("aria-label",
+      "The drawing reduced to a " + side + " by " + side + " grid.");
     seenBox.appendChild(seen);
-    seenBox.appendChild(P.el("p", "dw-hint", "36 pixels. That is the whole input."));
+    seenBox.appendChild(P.el("p", "dw-hint",
+      model.rows.toLocaleString("en-GB") + " pixels. That is the whole input."));
 
     var outBox = P.el("div", "dw-out", '<p class="dw-k">The array says</p>');
     var guess = P.el("div", "dw-guess none", "—");
@@ -195,7 +235,13 @@
       }
     }
 
-    /** Box-average the pad down to the six-by-six the crossbar is wired for. */
+    /**
+     * Box-average the pad down to the grid the crossbar is wired for.
+     *
+     * `per` is a whole number by construction -- see `padGrid` -- so each target
+     * cell takes exactly `per * per` pad cells and this is an exact area average
+     * rather than a nearest-neighbour pick wearing one's clothes.
+     */
     function reduce() {
       var per = PAD / side, i, j;
       for (i = 0; i < side * side; i++) small[i] = 0;
@@ -288,8 +334,8 @@
 
     /** One dab of a soft round brush, centred at (x, y) in pad cells. */
     function stamp(x, y) {
-      // Soft and round: a one-cell hard stamp on a 24-grid gives a stroke too thin
-      // to survive the box-average down to six.
+      // Soft and round: a one-cell hard stamp gives a stroke too thin to survive
+      // the box-average down to the array, at any of the grids.
       for (var i = Math.floor(y - BRUSH); i <= Math.ceil(y + BRUSH); i++) {
         for (var j = Math.floor(x - BRUSH); j <= Math.ceil(x + BRUSH); j++) {
           if (i < 0 || j < 0 || i >= PAD || j >= PAD) continue;
@@ -409,12 +455,29 @@
       classify(true);
     });
 
-    P.onWidthChange(el, function () { paintBars(reduce()); });
-    P.onThemeChange(function () { paintPad(); classify(); });
+    var stopWidth = P.onWidthChange(el, function () { paintBars(reduce()); });
+    var stopTheme = P.onThemeChange(function () { paintPad(); classify(); });
 
     paintPad();
     classify();
+
+    return {
+      destroy: function () {
+        // The pending announcement holds `status`, which is inside `el`; left to
+        // fire it writes into a node that has been thrown away.
+        window.clearTimeout(speakTimer);
+        stopWidth();
+        stopTheme();
+        el.innerHTML = "";
+      },
+    };
   }
 
   if (typeof window !== "undefined") window.SpinnDraw = { mount: mount };
+  // `padGrid` is exported for the one test that has to hold it: 6x6 must keep the
+  // 24 it has always had, or the shared task's pad silently stops being the pad
+  // every number on the index page was drawn with.
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { mount: mount, padGrid: padGrid, brushFor: brushFor };
+  }
 })();

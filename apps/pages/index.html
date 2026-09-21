@@ -411,6 +411,15 @@
         already failed.
       </p>
       <p>
+        <strong>That bracket is first order&rsquo;s, and the network solved holds
+        higher.</strong> The drop here is computed from the currents the ideal voltages
+        would draw, which overstates it; solving the same resistive network exactly puts
+        the edge at 431&nbsp;&#937; rather than between 100 and 300. Both are true of
+        different models, and the recorded row is this one.
+        <a href="@@HREF_larger@@">The same instruments at five array sizes</a> draw the
+        two together, from 36 rows to 676.
+      </p>
+      <p>
         <strong>Budgeting each source to its own edge leaves nothing over.</strong> All
         three at the last magnitude that individually held give
         <strong>0.6819 &plusmn; 0.0119</strong>, which is under the pass mark. The joint
@@ -547,8 +556,9 @@
       <li>
         <b>Put the row on the solved network</b>
         <span>
-          The array size has been swept, from 36 to 676 rows, and the result is in the
-          repository (<code>docs/array_size.md</code>). On the solved network 7&nbsp;nm
+          The array size has been swept, from 36 to 676 rows; the result is in the
+          repository (<code>docs/array_size.md</code>) and on
+          <a href="@@HREF_larger@@">its own page</a>. On the solved network 7&nbsp;nm
           wiring, 20&nbsp;&#937; a cell, holds at 324 rows and fails at 676, and 65&nbsp;nm
           wiring, 2&nbsp;&#937;, holds at every size swept. It also measured the model
           behind the row: IR drop here is first order, one pass overstates the drop, and at
@@ -577,6 +587,8 @@
       </li>
     </ul>
   </section>
+
+  @@NEXT@@
 
 </main>
 

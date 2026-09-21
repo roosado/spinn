@@ -172,9 +172,17 @@
     ctx.fillText("+1", pad + span, 96);
   }
 
-  function mount(el) {
+  /**
+   * `opts.data` is the generated module to run over; the default is the one the
+   * index page carries. The size page passes a different array on every change, so
+   * everything below reads the model rather than a constant, and `destroy` gives
+   * back the observers -- an instrument mounted five times leaves five of them
+   * otherwise, each holding a detached canvas.
+   */
+  function mount(el, opts) {
     P.injectStyle("spinn-device-style", CSS);
-    var model = C.load(window.SpinnData);
+    var model = C.load((opts && opts.data) || window.SpinnData);
+    var digits = model.n.toLocaleString("en-GB");
 
     var grid = P.el("div", "dv-grid");
     // The device is a button because it does something: pressed, it steps to its
@@ -197,7 +205,8 @@
       + '<input id="dv-states" type="range" min="0" max="7" step="1" value="7">'
       + '<output for="dv-states"></output>');
     var out = P.el("div", "dv-out",
-      '<div><span class="v acc"></span><span class="l">accuracy on the frozen test set</span>'
+      '<div><span class="v acc"></span><span class="l">accuracy on '
+      + digits + ' test digits</span>'
       + '<span class="l pass"></span></div>'
       + '<div><span class="v bits"></span><span class="l">effective bits per weight</span></div>'
       + '<div><span class="v pair"></span><span class="l">weights a pair can represent</span></div>');
@@ -270,9 +279,19 @@
         ? "Free layer " + (level === 1 ? "parallel" : "antiparallel") + "."
         : "Wall at position " + level + " of " + (states - 1) + ".";
     });
-    P.onWidthChange(el, render);
-    P.onThemeChange(render);
+    var stopWidth = P.onWidthChange(el, render);
+    var stopTheme = P.onThemeChange(render);
     render();
+
+    return {
+      destroy: function () {
+        stopWidth();
+        stopTheme();
+        // Every other listener here is on an element inside `el`, so emptying it
+        // takes them with the nodes they are on.
+        el.innerHTML = "";
+      },
+    };
   }
 
   if (typeof window !== "undefined") window.SpinnDevice = { mount: mount };

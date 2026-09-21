@@ -28,9 +28,13 @@ belongs in the device physics and the error model.
   something imports it.
 - MATLAB base, no toolboxes. Flag it if one becomes necessary. `-batch` startup is ~27 s
   cold and ~6.6 s warm, which is why the whole MATLAB suite is one invocation.
-- Node, for the two web runners.
-- Run the suite with `.venv/Scripts/python.exe -m pytest`. Build the page with
-  `python -m apps.build_site`.
+- Node, for the web runners (`crossbar`, `size`, `widget`, `plot`, `mount_queue`).
+- Run the suite with `.venv/Scripts/python.exe -m pytest`. Build the pages with
+  `python -m apps.build_site`; regenerate the data they inline with
+  `python -m apps.export_web_data` and `python -m apps.export_size_data`.
+- The site is **two pages**: `site/index.html` (the argument) and `site/larger.html`
+  (the same instruments at five array sizes). Both are committed. `larger.html` is 1.3 MB
+  because it inlines `size_data.js`; the index is 332 kB and carries none of it.
 - **The site is published from `gh-pages`, not from `main`.** Pages serves that branch's
   root, which is the *contents* of `site/`. Building and committing `site/index.html`
   updates the repo and not the live page; publishing is
@@ -58,18 +62,23 @@ spinn-hw/
 └── run_size_sweep.m    # the same budget at five array sizes, and the first-order check
 
 apps/
-├── train_crossbar.py  # trains the ideal array; NumPy, no autograd
-├── report_row.py      # the error budget -> docs/comparison_row.md
-├── report_size.py     # the size sweep -> docs/array_size.md
-├── export_web_data.py # weights, test set and budget -> apps/web/data.js
-├── build_site.py      # the site generator, its stylesheet, the widget registry
-├── preview.py         # standalone shell for previewing one widget
-├── pages/index.html   # page prose lives here, never in the generator
+├── train_crossbar.py   # trains the ideal array; NumPy, no autograd
+├── report_row.py       # the error budget -> docs/comparison_row.md
+├── report_size.py      # the size sweep -> docs/array_size.md
+├── export_web_data.py  # weights, test set and budget -> apps/web/data.js
+├── export_size_data.py # the five arrays + a 500-digit sample -> web/size_data.js
+├── build_site.py       # the site generator, its stylesheet, the widget registry
+├── preview.py          # standalone shell for previewing one widget
+├── pages/
+│   ├── index.html      # page prose lives here, never in the generator
+│   └── larger.html     # the size page: panel titles and captions, no prose
 └── web/
     ├── data.js        # generated; the trained array and the frozen test set
-    ├── crossbar.js    # the forward pass and the three error sources, in JS
+    ├── size_data.js   # generated; five arrays, 36 to 676 rows (957 kB)
+    ├── crossbar.js    # the forward pass, the three error sources, both wire models
     ├── xbar_view.js   # how a crossbar is drawn: ramps, array, drive, columns
     ├── hero.js  device.js  wire.js  bench.js  ladder.js  draw.js
+    ├── size.js  size_bar.js  size_page.js   # the size page
     └── mount_queue.js  plot.js      # inherited
 
 tools/
@@ -77,6 +86,8 @@ tools/
 
 tests/                # pytest drives everything, including Node and MATLAB
 ├── crossbar_runner.js             # pins apps/web/crossbar.js to the recorded budget
+├── size_runner.js                 # the same, at five sizes, plus the solved network
+├── widget_runner.js               # mounts every widget at every size, then destroys it
 └── fixtures/
     ├── shared_task_6x6.npz        # the frozen task, committed
     ├── shared_task_{8,12,18,26}x*_test.npz   # the same 2,000 digits, committed
@@ -94,7 +105,8 @@ single statement of it — the hub refers to it rather than copying it. Delivere
 precision, energy per inference and latency are all `UNSOURCED`, so no margin is
 claimed and that column is omitted.
 
-**The array-size sweep is done** (`docs/array_size.md`, the single statement of it): grids
+**The array-size sweep is done and is on the site** (`docs/array_size.md` is the single
+statement of it; `site/larger.html` shows it): grids
 6, 8, 12, 18 and 26, so 36 to 676 rows and ten columns throughout, each trained fresh on
 the same 2,000 digits. Only the column wire lengthens. On the **solved** network, cited
 7 nm wiring (20 Ω a cell) holds at 324 rows and fails at 676, and 65 nm wiring (2 Ω)
@@ -126,6 +138,22 @@ Treat the "photonn-specific line counts" recorded for the inherited files as a *
 bound**. They counted mentions of the word, not dependence: three files out of three
 turned out to be more coupled than recorded.
 
+### The widget contract
+
+Every widget is `mount(el, opts) -> {destroy()}`, with `opts.data` defaulting to
+`window.SpinnData` so the index is unaffected. The hero is `mount(el, readoutEl, opts)`,
+because its readout is a second host outside its container and the registry passes it by id.
+
+**`destroy` is not optional.** The size page rebuilds every instrument on every size
+change, so anything a mount takes has to come back: `plot.js`'s two observers return
+disposers, and the hero gives back an interval, an animation frame and its own
+`IntersectionObserver` as well. `tests/test_web_widgets.py` mounts each one against a
+window that counts what it hands out and fails on anything left behind.
+
+Rebuild-not-reconfigure is the choice: a `setData` would mean six widgets each growing a
+second entry point that has to put its own state somewhere consistent, and a size change
+that half-converted any of them would look like a rendering bug at one size only.
+
 ### Handoff contract
 
 Schema **0.1.0** — spinn's own, restarted rather than continuing photonn's 0.3.0.
@@ -149,8 +177,9 @@ of which raise.
 
 ## Plan of work
 
-**Six plans are closed. Nothing in `plans/` is open.** The comparable core is complete
-and the row is reported; plan 06, the array-size sweep, was declared before it ran.
+**Seven plans are closed. Nothing in `plans/` is open.** The comparable core is complete
+and the row is reported; plan 06, the array-size sweep, was declared before it ran, and
+plan 07 put it on the site.
 
 | | | closed by | |
 |---|---|---|---|
@@ -160,11 +189,14 @@ and the row is reported; plan 06, the array-size sweep, was declared before it r
 | 04 | the seam | `8b9543c` | closed handoff, `+model/crossbar`, `+err` 1–3, 120 tests |
 | 05 | the budget and the row | `3c97a6b`, `5646471` | conductance variation binds at 4.84 bits |
 | 06 | the array-size sweep | declared `89d1031` | 36 to 676 rows; first order is not the network |
+| 07 | go larger | the second page | six instruments at five sizes; the network solved in the browser |
 
 The plan files are archived in `plans/finished_plans/` (gitignored, like all of
 `plans/`), each stamped with the commit that closed it and otherwise unedited — they
-record what was believed before each piece was built, and four of the six were wrong
-about something that mattered — plan 06 built an iteration of the first-order model that
+record what was believed before each piece was built, and five of the seven were wrong
+about something that mattered — plan 07 was checked against the code before it ran and
+eleven of its statements about the codebase turned out to be wrong, which is recorded in
+the plan file rather than quietly fixed — plan 06 built an iteration of the first-order model that
 stopped converging where it was needed, and replaced it with a direct solve.
 `docs/history.md` carries the published version.
 
@@ -200,9 +232,9 @@ request from a *Deliberately deferred* item, which is the intended route.
 
 ### Deliberately deferred
 
-- The site pages beyond `index.html`, which now carries the whole argument and six
-  live instruments. A page per error source, or a tolerance page like photonn's, is
-  optional and unplanned.
+- Site pages beyond the two that exist. `index.html` carries the whole argument and six
+  live instruments; `larger.html` carries the same six plus one at five array sizes. A
+  page per error source, or a tolerance page like photonn's, is optional and unplanned.
 - A sweep over columns, or over tile size. The size sweep varied rows only, because the
   ten columns are the ten classes; a layer split across tiles is a different study.
 - Error sources 4–7, and the keys that name them.
@@ -258,8 +290,18 @@ Do not assume an answer; ask.
    found that the first-order model behind the row overstates the drop by a factor that
    matters: at 6×6 the solved network holds at 431 Ω, above the 300 Ω where the row records
    a failure. The row is unchanged and points at `docs/array_size.md`. Moving it would
-   change the recorded bracket, `exports/error_budget.json`, the browser's pinned copy
-   (`apps/web/crossbar.js`) and the page's numbers — a decision, not a correction.
+   change the recorded bracket, `exports/error_budget.json`, the browser's default wire
+   model (`apps/web/crossbar.js`) and the page's numbers — a decision, not a correction.
+
+   **`site/larger.html` does not settle this.** It draws both models at every size and
+   changes nothing the row rests on: `machine()`'s `wireModel` defaults to `"firstOrder"`,
+   which is what the index and the recorded budget are. Showing both makes the choice more
+   visible, not made.
+
+   Note the third number a reader can now meet: at 6×6 the row's nine-rung ladder brackets
+   first order at 100 → 300 Ω and the sweep's fifteen-rung ladder brackets *the same model*
+   at 200 → 431 Ω. One model, two ladder resolutions. The size page's caption says so on
+   the 6×6 rung; anything that changes either ladder has to keep saying it.
 
 ### Resolved
 

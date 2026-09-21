@@ -42,11 +42,34 @@
  * move. The slow path therefore reconstitutes real conductances and a real drive,
  * and the page states the dependence rather than hiding it behind a widget that
  * looks equally confident either way.
+ *
+ * ---------------------------------------------------------------------------
+ * Two wire models, and why the exact one is also fast
+ *
+ * `err.ir_drop` is first order: it computes the drops from the currents the
+ * *ideal* voltages would draw, which overstates them, and past a certain drop it
+ * lets a column node rise above its own driver and reverses a cell's current --
+ * an accuracy below chance, which no resistor network produces. `err.ir_drop_exact`
+ * solves the network instead. Both are here, because the recorded budget, the
+ * published row and the main page are all first order, and the "Go larger" page
+ * draws the two together.
+ *
+ * The solved model turns out not to be a second forward pass at all. The array is
+ * linear, so the current into amplifier j per volt on driver i is a fixed matrix
+ * `Geff`, and
+ *
+ *     logits = (V Geff+ - V Geff-) / (V_read span) . gain
+ *            = x . (Geff+ - Geff-)/span . gain
+ *
+ * which is the first equation in this header with `g+ - g-` replaced by
+ * `(Geff+ - Geff-)/span`. So the solve produces *an effective-weight matrix*, the
+ * fast path runs unchanged over it, and every widget that draws `mach.weights`
+ * draws the array as the wires present it rather than as it was programmed.
+ * `Geff / G` per cell -- how much of each device survives -- comes out of the same
+ * solve, and is what the starvation map on that page draws.
  */
 (function () {
   "use strict";
-
-  var ROWS = 36, COLS = 10;
 
   /* --------------------------------------------------------------- decoding */
 
@@ -60,54 +83,107 @@
   }
 
   /**
+   * Read a little-endian unsigned integer of `w` bytes at element `k`.
+   *
+   * Assembled by hand rather than through a Uint16Array view: a view needs its
+   * byte offset to be even, and a sparse stream gives no such promise.
+   */
+  function le(buf, k, w) {
+    return w === 1 ? buf[k] : (buf[k * 2] | (buf[k * 2 + 1] << 8));
+  }
+
+  /**
    * Expand the sparse image block written by apps/export_web_data.py.
    *
    * Three quarters of the pixels in a 6x6 MNIST digit are zero, so the file
-   * carries a per-sample count, one index byte per non-zero and two value bytes.
-   * The two halves of that format have to be read together; the exporter's
+   * carries a per-sample count, one or two index bytes per non-zero and two value
+   * bytes. The two halves of that format have to be read together; the exporter's
    * docstring is the other half of this comment.
+   *
+   * The widths are read, never assumed. At 6x6 both are one byte; at 18x18 and
+   * 26x26 an index runs past 255 and so does the fattest digit's non-zero count,
+   * and a decoder that assumed a byte would not fail -- it would return a
+   * different picture, classified with perfect confidence.
    */
   function unpackImages(block) {
     var counts = bytes(block.counts);
     var idx = bytes(block.idx);
     var raw = bytes(block.val);
     var n = block.n, dim = block.dim, full = block.full;
+    var iw = block.idxBytes, cw = block.cntBytes;
+    if (!(iw === 1 || iw === 2) || !(cw === 1 || cw === 2)) {
+      throw new Error("image block does not state its index and count widths");
+    }
     var x = new Float64Array(n * dim);
     var at = 0;
     for (var s = 0; s < n; s++) {
-      var c = counts[s], base = s * dim;
+      var c = le(counts, s, cw), base = s * dim;
       for (var k = 0; k < c; k++, at++) {
-        // Little-endian uint16, assembled by hand: a Uint16Array view would need
-        // the byte offset to be even, and a sparse stream gives no such promise.
-        x[base + idx[at]] = (raw[at * 2] | (raw[at * 2 + 1] << 8)) / full;
+        x[base + le(idx, at, iw)] = le(raw, at, 2) / full;
       }
     }
     return x;
   }
 
   /**
+   * The trained weights, however the module that carried them wrote them down.
+   *
+   * `data.js` writes 360 numbers as nested JSON arrays, which is legible and costs
+   * nothing at one size. `size_data.js` writes 12,440 as base64 float64, because
+   * legible JSON decimals for five arrays are 243 kB against 130 kB packed. Both
+   * forms are exact; neither is a default for the other, so which one is in hand is
+   * decided by looking rather than by guessing.
+   */
+  function weightsOf(data, rows, cols) {
+    var w = new Float64Array(rows * cols), i, j;
+    if (typeof data.weights === "string") {
+      var b = bytes(data.weights);
+      if (b.length !== rows * cols * 8) {
+        throw new Error("packed weights are " + b.length + " bytes, not "
+          + (rows * cols * 8) + " for a " + rows + "x" + cols + " array");
+      }
+      var view = new DataView(b.buffer, b.byteOffset, b.byteLength);
+      for (i = 0; i < rows * cols; i++) w[i] = view.getFloat64(i * 8, true);
+      return w;
+    }
+    for (i = 0; i < rows; i++) {
+      for (j = 0; j < cols; j++) w[i * cols + j] = data.weights[i][j];
+    }
+    return w;
+  }
+
+  /** Identity for the solved-network cache. One per loaded array, never reused. */
+  var nextModelId = 1;
+
+  /**
    * Turn the generated data module into everything the widgets read.
    *
    * `x` holds the L-infinity normalised inputs, which is what the row drivers
    * deliver once the read voltage is divided back out.
+   *
+   * `ideal` and `threshold` are the *recorded* numbers, measured over the whole
+   * frozen test set. On the size page the images below are a 500-digit sample of
+   * that set, so `n` is not the number those were measured over and the two must
+   * not be compared without saying so: `sample` carries the twin of every recorded
+   * ladder, computed on exactly the digits this model holds.
    */
   function load(data) {
     var g = data.geometry;
-    var w = new Float64Array(g.rows * g.cols);
-    for (var i = 0; i < g.rows; i++) {
-      for (var j = 0; j < g.cols; j++) w[i * g.cols + j] = data.weights[i][j];
-    }
     return {
+      id: nextModelId++,
       rows: g.rows, cols: g.cols, side: g.side, devices: g.devices,
       n: data.images.n,
       x: unpackImages(data.images),
       labels: bytes(data.labels),
-      weights: w,
+      weights: weightsOf(data, g.rows, g.cols),
       gain: data.readoutGain,
       ideal: data.idealAccuracy,
       threshold: data.threshold,
       op: data.operatingPoint,
       budget: data.budget,
+      sample: data.sample || null,
+      power: typeof data.power === "number" ? data.power : null,
+      grid: data.grid || g.side,
     };
   }
 
@@ -279,7 +355,8 @@
         A[i * cols + j] = acc;
       }
     }
-    return { G: G, A: A };
+    return { G: G, A: A,
+             rev: new Float64Array(rows * cols), colDrop: new Float64Array(cols) };
   }
 
   function irColumnCurrents(ctx, v, rows, cols, R, out) {
@@ -287,7 +364,12 @@
     var i, j, idx;
     // Reverse cumulative sum down each column of I0 = V * G, then a forward
     // cumulative sum of that: the drop delivered to row i of column j.
-    var rev = new Float64Array(rows * cols);
+    //
+    // The two scratch arrays belong to the context rather than to the call. This
+    // runs once per rail per digit -- two thousand times over the frozen set, and
+    // at 676 rows `rev` is 54 kB a time, which is fifty megabytes of garbage for
+    // one accuracy. Every entry of both is written before it is read below.
+    var rev = ctx.rev, colDrop = ctx.colDrop;
     for (j = 0; j < cols; j++) {
       var run = 0;
       for (i = rows - 1; i >= 0; i--) {
@@ -296,8 +378,7 @@
         rev[idx] = run;
       }
     }
-    for (j = 0; j < cols; j++) out[j] = 0;
-    var colDrop = new Float64Array(cols);
+    for (j = 0; j < cols; j++) { out[j] = 0; colDrop[j] = 0; }
     for (i = 0; i < rows; i++) {
       for (j = 0; j < cols; j++) {
         idx = i * cols + j;
@@ -309,15 +390,238 @@
     return out;
   }
 
+  /* -------------------------------------------------- the network, solved */
+
+  /**
+   * Dense LU with partial pivoting, in place on the `n` by `n` block at `at`.
+   *
+   * The offset rather than a `subarray` view because this runs once per row of the
+   * array: 676 views per solve, twice per machine, and allocating them costs more
+   * than the arithmetic they wrap. Swaps are written into `swap` at `sAt` in the
+   * order they were made, which is what `luSolve` replays onto a right-hand side.
+   */
+  function luFactor(a, at, n, swap, sAt) {
+    var i, j, k;
+    for (k = 0; k < n; k++) {
+      var best = k, mag = Math.abs(a[at + k * n + k]);
+      for (i = k + 1; i < n; i++) {
+        var m = Math.abs(a[at + i * n + k]);
+        if (m > mag) { mag = m; best = i; }
+      }
+      if (!(mag > 0)) throw new Error("the nodal matrix is singular at pivot " + k);
+      swap[sAt + k] = best;
+      if (best !== k) {
+        for (j = 0; j < n; j++) {
+          var t = a[at + k * n + j];
+          a[at + k * n + j] = a[at + best * n + j];
+          a[at + best * n + j] = t;
+        }
+      }
+      var d = a[at + k * n + k];
+      for (i = k + 1; i < n; i++) {
+        var f = a[at + i * n + k] / d;
+        a[at + i * n + k] = f;
+        if (f === 0) continue;
+        for (j = k + 1; j < n; j++) a[at + i * n + j] -= f * a[at + k * n + j];
+      }
+    }
+  }
+
+  /** Solve `LU x = b` in place. `b` is `n` by `nrhs`, row-major, at `bAt`. */
+  function luSolve(a, at, swap, sAt, n, b, bAt, nrhs) {
+    var i, j, k, f;
+    for (k = 0; k < n; k++) {
+      var p = swap[sAt + k];
+      if (p === k) continue;
+      for (j = 0; j < nrhs; j++) {
+        var t = b[bAt + k * nrhs + j];
+        b[bAt + k * nrhs + j] = b[bAt + p * nrhs + j];
+        b[bAt + p * nrhs + j] = t;
+      }
+    }
+    for (k = 0; k < n; k++) {
+      for (i = k + 1; i < n; i++) {
+        f = a[at + i * n + k];
+        if (f === 0) continue;
+        for (j = 0; j < nrhs; j++) b[bAt + i * nrhs + j] -= f * b[bAt + k * nrhs + j];
+      }
+    }
+    for (k = n - 1; k >= 0; k--) {
+      var d = a[at + k * n + k];
+      for (j = 0; j < nrhs; j++) b[bAt + k * nrhs + j] /= d;
+      for (i = 0; i < k; i++) {
+        f = a[at + i * n + k];
+        if (f === 0) continue;
+        for (j = 0; j < nrhs; j++) b[bAt + i * nrhs + j] -= f * b[bAt + k * nrhs + j];
+      }
+    }
+  }
+
+  /**
+   * Error source 3, solved: what the array actually multiplies by.
+   *
+   * The same network `err.ir_drop` expands to first order -- drivers at the
+   * column-1 edge, amplifiers at the row-1 edge, a segment of `R` between
+   * neighbouring cells both ways, each cell a conductance between its two wires.
+   * Written out, Kirchhoff at every node is a linear system in 2*rows*cols
+   * unknowns, and the current into amplifier j per volt on driver i is a fixed
+   * matrix `Geff`: it depends on the programmed conductances and on `R`, and not
+   * on the image. So it is solved once and applied to every digit.
+   *
+   * **Ordering the nodes by row makes the matrix block-tridiagonal.** A row wire
+   * couples cells within one row; a device couples the two wires of one cell; only
+   * a column wire reaches the next row. So each block is the 2*cols nodes of one
+   * row, the coupling to the next row is the identity on the column-wire half, and
+   * a block Thomas sweep solves it in `rows` steps of 20-by-20 arithmetic rather
+   * than one factorisation of a 13,520-square matrix.
+   *
+   * Everything is scaled so that a wire segment is 1 and a device is `R*G`, as
+   * `err.ir_drop_exact` does, which keeps every entry of order one however large
+   * the ratio of the two. A one-cell array gives `G / (1 + 2RG)`.
+   */
+  function effectiveConductance(g, rows, cols, gMin, span, R) {
+    var N = rows, M = cols, nb = 2 * M, i, j, k, at;
+    var G = new Float64Array(N * M);
+    for (i = 0; i < N * M; i++) G[i] = gMin + g[i] * span;
+
+    var lu = new Float64Array(N * nb * nb);     // the factored diagonal blocks
+    var swaps = new Int32Array(N * nb);
+    var C = new Float64Array(N * nb * M);       // the reduced right-hand sides
+    // [ D^-1 P | D^-1 C ] for the block just factored: the first half reduces the
+    // next block's diagonal, the second its right-hand side.
+    var X = new Float64Array(nb * 2 * M);
+    var B = new Float64Array(nb * nb);
+
+    for (i = 0; i < N; i++) {
+      B.fill(0);
+      for (j = 0; j < M; j++) {
+        var dev = R * G[i * M + j];
+        // The row wire: the segment behind (to the driver, or to column j-1), the
+        // one ahead where there is one, and the device across to the column wire.
+        B[j * nb + j] = 1 + (j < M - 1 ? 1 : 0) + dev;
+        if (j < M - 1) { B[j * nb + j + 1] = -1; B[(j + 1) * nb + j] = -1; }
+        B[j * nb + M + j] = -dev;
+        B[(M + j) * nb + j] = -dev;
+        // The column wire: the segment toward the amplifier, the one on to row i+1
+        // where there is one, and the same device.
+        B[(M + j) * nb + M + j] = 1 + (i < N - 1 ? 1 : 0) + dev;
+      }
+
+      var cAt = i * nb * M;
+      if (i === 0) {
+        // One unit of current at each amplifier's node. Geff is then read off the
+        // drivers' nodes: the matrix is symmetric, so ten solves from the output
+        // side give what `rows` solves from the input side would.
+        for (j = 0; j < M; j++) C[cAt + (M + j) * M + j] = 1;
+      } else {
+        // Eliminate the previous row. Its coupling to this one is the identity on
+        // the column-wire half, so the correction is exactly the column-wire block
+        // of the previous solve -- subtracted from this diagonal, added to this
+        // right-hand side.
+        for (j = 0; j < M; j++) {
+          for (k = 0; k < M; k++) {
+            B[(M + j) * nb + M + k] -= X[(M + j) * 2 * M + k];
+            C[cAt + (M + j) * M + k] = X[(M + j) * 2 * M + M + k];
+          }
+        }
+      }
+
+      var luAt = i * nb * nb;
+      lu.set(B, luAt);
+      luFactor(lu, luAt, nb, swaps, i * nb);
+
+      X.fill(0);
+      for (j = 0; j < M; j++) X[(M + j) * 2 * M + j] = 1;
+      for (at = 0; at < nb; at++) {
+        for (k = 0; k < M; k++) X[at * 2 * M + M + k] = C[cAt + at * M + k];
+      }
+      luSolve(lu, luAt, swaps, i * nb, nb, X, 0, 2 * M);
+    }
+
+    // Back substitution. Only the last block's solve is already in hand; each
+    // earlier row takes the column-wire half of the row below it.
+    var Geff = new Float64Array(N * M);
+    var Y = new Float64Array(nb * M), rhs = new Float64Array(nb * M);
+    for (at = 0; at < nb; at++) {
+      for (k = 0; k < M; k++) Y[at * M + k] = X[at * 2 * M + M + k];
+    }
+    for (k = 0; k < M; k++) Geff[(N - 1) * M + k] = Y[k] / R;
+
+    for (i = N - 2; i >= 0; i--) {
+      var cAt2 = i * nb * M, luAt2 = i * nb * nb;
+      rhs.set(C.subarray(cAt2, cAt2 + nb * M));
+      for (j = 0; j < M; j++) {
+        for (k = 0; k < M; k++) rhs[(M + j) * M + k] += Y[(M + j) * M + k];
+      }
+      luSolve(lu, luAt2, swaps, i * nb, nb, rhs, 0, M);
+      Y.set(rhs);
+      for (k = 0; k < M; k++) Geff[i * M + k] = Y[k] / R;
+    }
+    return { Geff: Geff, G: G };
+  }
+
+  /**
+   * The effective weights the solved network presents, and what each cell keeps.
+   *
+   * See the header: `(Geff+ - Geff-)/span` is an effective-weight matrix, so the
+   * result drops straight into the fast path. `frac` is `Geff/G` per cell per rail
+   * -- the fraction of its programmed conductance that survives the wires, which is
+   * what the starvation map draws and what `run_size_sweep.m` records the smallest
+   * and the mean of.
+   */
+  function solveWires(model, rails, R) {
+    var op = model.op, span = op.gMaxS - op.gMinS;
+    var p = effectiveConductance(rails.gp, model.rows, model.cols, op.gMinS, span, R);
+    var n = effectiveConductance(rails.gn, model.rows, model.cols, op.gMinS, span, R);
+    var len = model.rows * model.cols;
+    var w = new Float64Array(len);
+    var fracP = new Float64Array(len), fracN = new Float64Array(len);
+    var worst = Infinity, total = 0;
+    for (var i = 0; i < len; i++) {
+      w[i] = (p.Geff[i] - n.Geff[i]) / span;
+      fracP[i] = p.Geff[i] / p.G[i];
+      fracN[i] = n.Geff[i] / n.G[i];
+      if (fracP[i] < worst) worst = fracP[i];
+      if (fracN[i] < worst) worst = fracN[i];
+      total += fracP[i] + fracN[i];
+    }
+    return { weights: w, fracP: fracP, fracN: fracN,
+             worstFraction: worst, meanFraction: total / (2 * len) };
+  }
+
+  /**
+   * The last few solves, kept.
+   *
+   * A solve is ~11 million operations at 676 rows and `machine()` is rebuilt on
+   * every slider tick -- including the sigma and states sliders, which change the
+   * rails the solve is over. Cached on exactly what the rails are a function of, so
+   * a hit is the same answer and not a nearly-the-same one. Small, because each
+   * entry is three arrays the size of the array itself.
+   */
+  var SOLVE_CACHE = 8;
+  var solved = new Map();
+
+  function solveCached(model, rails, R, key) {
+    if (solved.has(key)) return solved.get(key);
+    var out = solveWires(model, rails, R);
+    solved.set(key, out);
+    while (solved.size > SOLVE_CACHE) solved.delete(solved.keys().next().value);
+    return out;
+  }
+
   /* -------------------------------------------------------------- evaluation */
 
   /**
    * Build a callable that turns one sample index into ten logits.
    *
-   * `opts`: `states`, `sigma`, `seed`, `wireOhm`. The returned object also carries
-   * the effective weights it is using, because every widget that evaluates also
-   * draws the array it evaluated with, and re-deriving them would be a second
-   * chance to disagree.
+   * `opts`: `states`, `sigma`, `seed`, `wireOhm`, `wireModel`. The returned object
+   * also carries the effective weights it is using, because every widget that
+   * evaluates also draws the array it evaluated with, and re-deriving them would be
+   * a second chance to disagree.
+   *
+   * `wireModel` is `"firstOrder"` by default, and the default is load bearing: it
+   * is the model the recorded budget, the published row and the main page's numbers
+   * are. `"solved"` is the network itself, which the size page draws beside it.
    */
   function machine(model, opts) {
     var o = opts || {};
@@ -328,9 +632,23 @@
 
     if (!(R > 0)) {
       return {
-        weights: w, rails: rails, wire: 0,
+        weights: w, rails: rails, wire: 0, wireModel: o.wireModel || "firstOrder",
         logits: function (s, out) {
           return logitsOne(model.x, s * rows, w, gain, rows, cols, out);
+        },
+      };
+    }
+
+    if (o.wireModel === "solved") {
+      // Keyed on everything the rails are a function of, plus the resistance.
+      var key = [model.id, R, o.states || 0, o.sigma || 0, o.seed || 1].join("|");
+      var sol = solveCached(model, rails, R, key);
+      return {
+        weights: sol.weights, rails: rails, wire: R, wireModel: "solved",
+        fracP: sol.fracP, fracN: sol.fracN,
+        worstFraction: sol.worstFraction, meanFraction: sol.meanFraction,
+        logits: function (s, out) {
+          return logitsOne(model.x, s * rows, sol.weights, gain, rows, cols, out);
         },
       };
     }
@@ -343,7 +661,7 @@
     var scale = vRead * span;
 
     return {
-      weights: w, rails: rails, wire: R,
+      weights: w, rails: rails, wire: R, wireModel: "firstOrder",
       logits: function (s, out) {
         var base = s * rows, k;
         for (k = 0; k < rows; k++) v[k] = vRead * model.x[base + k];
@@ -387,11 +705,11 @@
   }
 
   var API = {
-    ROWS: ROWS, COLS: COLS,
     load: load, unpackImages: unpackImages, bytes: bytes,
     roundHalfAway: roundHalfAway, quantise: quantise, program: program,
     vary: vary, effective: effective, rng: rng, normals: normals,
     logitsOne: logitsOne, argmax: argmax, machine: machine, evaluate: evaluate,
+    effectiveConductance: effectiveConductance, solveWires: solveWires,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = API;

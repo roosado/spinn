@@ -29,6 +29,11 @@ job is different and larger: to make a reader *see* the machine compute — a we
 magnetic state, a sum performed by a wire, a digit classified — and then see that
 machine degrade under real device error until it stops working.
 
+The site is two pages. The index is that argument, at one array. **Go larger** is the
+same instruments with the array size as a knob, 36 to 676 rows, where the reader can see
+the wire starve the far corner of a large array and watch the first-order model part
+company with the network it approximates.
+
 Success is a reader who can say what binds the design, at what precision, and why they
 should believe the number.
 
@@ -53,6 +58,11 @@ Read in a browser, often from the hub's comparison table, sometimes offline or f
 `file://`. Pages are built by `python -m apps.build_site` into `site/`, deploy to GitHub
 Pages, and make **no external requests** — no CDN, no webfont, no analytics. They must
 survive a strict CSP and open from a local file.
+
+Everything being inlined has a price, and the size page is where it is paid: it carries
+five trained arrays and a 500-digit sample of the test set at each grid, so it is 1.3 MB
+against the index's 332 kB. That is the cost of a page that computes rather than
+illustrates, and of one that fetches nothing to do it.
 
 The reader is scanning first and reading second: the contents card, the topbar and the
 section structure are load-bearing.

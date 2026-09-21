@@ -402,11 +402,16 @@ its gap clear the 1120px wrap on both sides without moving the content off centr
 
 Instrument-internal grids collapse at their own breakpoints, close to the content:
 980px (hero), 860px (the three tolerance panels), 800px (the bench goes to one column),
-720px (device, draw, the four-cell spec strip), 640px (topbar padding, hero padding, the
-bench's three rails), 560px (the comparison record, the next-work list, and the column keys
-on a touch screen), and 380px (the drawing pad stacks: its pad, tile and gap need 306px,
-and a 320px screen has 272). Rhythm is a loose 4/8/14/20/26px scale; sections at 52px. Anchor
-targets carry `scroll-margin-top: 78px` to clear the sticky topbar.
+720px (device, draw, the four-cell spec strip, the size bar), 640px (topbar padding, hero
+padding, the bench's three rails), 560px (the comparison record, the next-work list, and the
+column keys on a touch screen), and 380px (the drawing pad stacks: its pad, tile and gap need
+306px, and a 320px screen has 272). Rhythm is a loose 4/8/14/20/26px scale; sections at 52px.
+
+Anchor targets clear the sticky chrome by `var(--sticky)`, which is **78px on the index and
+134px on the size page** — one bar there, two here. It is defined on `:root` and redefined
+under `body.sizepage`, and the page script's scrollspy reads it off `document.body` rather
+than carrying its own copy. Three things depend on that one number and none of them can see
+the other two, so it is a property and not a literal.
 
 On a narrow screen an instrument is ordered for the thumb that operates it. A finger covers
 whatever is below the control it is dragging, so the bench puts its accuracy and meter
@@ -519,6 +524,36 @@ Used sparingly and only for detached objects.
   contrast replaces; there they are redrawn in `CanvasText` and `Highlight`. Keys that are
   their colour — the legend swatches, the bench's track marks — opt out of the forcing.
 
+### The Size Bar (size page only)
+A second sticky band under the topbar, at `top: 44px` and a `z-index` below it — the topbar
+is how you leave the page, so nothing covers it. It is the page's one control and is *not* an
+instrument: no `.inst` rule, no panel, no title beyond the field's own label. Inside it, the
+design system's `.sp-field` with five rungs, the rung labels (`.sz-rungs`) spread under the
+track so five sizes read as five, and the chosen array's facts (`.sb-facts`) right-aligned
+opposite. Below 720px the two stack and the rung labels go — the `<output>` says the same
+thing in words. Without a script it keeps its place in the flow but stops being chrome:
+nothing sticky, no blurred ground, and the `<noscript>` inside it naming the five sizes is
+the whole of what it then says.
+
+Its value is a rung index, so `aria-valuetext` carries "12 by 12, 144 rows" as every other
+range input on the site does. Changing it rebuilds every instrument below, which is real work
+at 676 rows, so the instruments are told **when the handle settles** (90 ms) rather than on
+every rung it passes — the bar's own label still moves with the handle, because that is free.
+
+### The Starvation Map (size page only)
+The array as the wires present it: one pixel per cell, on an unsigned ramp from the page
+ground to amber, drawn into an offscreen the size of the array and scaled up with smoothing
+off. Amber is the page's mark for an absence and this is an absence — the fraction of its
+programmed conductance a cell does *not* keep.
+
+Three decisions worth keeping. The ramp is **fixed** from keeping all of it to keeping none,
+never auto-scaled: an auto-scaled map would draw 2 Ω and 20 Ω identically and how different
+they are is the finding. The value drawn is the **worse of the two devices** at a cell, which
+makes the darkest pixel on the map the number the sweep records as the worst cell. And the
+gamma sits on the **loss** rather than on what survives, because at cited wiring the losses
+are fractions of a percent and a linear ramp draws a healthy array and a starving one as the
+same blank rectangle.
+
 ### Navigation
 Monospace .75rem pills in a sticky, blurred topbar over an 82% page-ground mix with a
 hairline bottom border. Links are muted and borderless at rest; hover tints them
@@ -536,8 +571,8 @@ and the focus ring — held above the viewport until it has focus.
 The page's structural unit. `.inst` is a 1px top rule and 20px of padding; `.inst-h` is a
 baseline-aligned row holding `.inst-t` (mono .75rem uppercase, teal ink, 600) at the left and
 `.inst-n` (mono muted) at the right; `.inst-d` is a dim-ink caption capped at 60ch; the
-instrument follows at full available width. Five of these carry the whole page. No panel has
-a background, a border box or a radius.
+instrument follows at full available width. Six of these carry the index and eight the size
+page. No panel has a background, a border box or a radius.
 
 An instrument is never a silent gap. Without a script, each host is followed by a
 `<noscript>` caption saying what would be there, and the budget's gives its recorded brackets

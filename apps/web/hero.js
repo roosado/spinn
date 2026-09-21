@@ -102,9 +102,24 @@
 
   var SETTLED = { drive: 1, sum: 1, decide: 1 };
 
-  function mount(el, readoutEl) {
+  /**
+   * `mount(el, readoutEl, opts)`.
+   *
+   * The third argument rather than the second, because the second is already the
+   * hero's other host -- the readout lives outside the widget's own container, in
+   * the first viewport's grid, and `apps/build_site.py` passes it by id. Moving it
+   * into `opts` would have meant editing a boot string that is matched as text by
+   * the site tests, for no gain.
+   *
+   * `destroy` has more to give back here than anywhere else on the site: this is
+   * the one widget that animates, so it holds an interval, a frame and an
+   * intersection observer as well as the usual two. An interval left running
+   * repaints a canvas that is no longer in the document, on a loop, for as long as
+   * the page is open.
+   */
+  function mount(el, readoutEl, opts) {
     P.injectStyle("spinn-hero-style", CSS);
-    var data = window.SpinnData;
+    var data = (opts && opts.data) || window.SpinnData;
     var model = C.load(data);
     var mach = C.machine(model, {});
     var reduce = window.matchMedia
@@ -131,7 +146,9 @@
     var legend = P.el("div", "xh-legend",
       '<span><i style="background:var(--accent)"></i>positive weight</span>'
       + '<span><i style="background:var(--accent-2)"></i>negative weight</span>'
-      + "<span>360 weights &middot; 720 devices, two per weight</span>"
+      + "<span>" + (model.rows * model.cols).toLocaleString("en-GB")
+      + " weights &middot; " + model.devices.toLocaleString("en-GB")
+      + " devices, two per weight</span>"
       + "<span>the most current wins</span>");
     wrap.appendChild(legend);
     el.appendChild(wrap);
@@ -252,11 +269,11 @@
         + "</b>, and the column that drew "
         + "the most current is <b>" + winner + "</b> &mdash; "
         + (hit ? "correct" : "wrong") + ". Over the whole frozen test set the ideal array "
-        + "gets <b>73.45%</b> right.";
+        + "gets <b>" + (100 * model.ideal).toFixed(2) + "%</b> right.";
       tally.textContent = right + " / " + seen + " correct so far";
       canvas.setAttribute("aria-label",
-        "A 36 by 10 crossbar classifying a handwritten " + label
-        + "; the winning column is " + winner + ".");
+        "A " + model.rows + " by " + model.cols + " crossbar classifying a handwritten "
+        + label + "; the winning column is " + winner + ".");
     }
 
     /** The three labels that turn a coloured grid into a mechanism. */
@@ -265,7 +282,8 @@
       ctx.fillStyle = colours.muted;
       ctx.textAlign = "left";
       ctx.fillText("DIGIT IN", layout.tileX, layout.tileY - 8);
-      ctx.fillText("36 VALUES", layout.tileX, layout.tileY + layout.tile + 16);
+      ctx.fillText(model.rows + " VALUES", layout.tileX,
+        layout.tileY + layout.tile + 16);
       ctx.save();
       // Rotated up the left edge of the array, where the drive lines enter it: the
       // rows are the input and the label has to sit on them to say so.
@@ -274,10 +292,10 @@
       ctx.translate(geom.x - 5, geom.y + geom.h);
       ctx.rotate(-Math.PI / 2);
       ctx.textAlign = "left";
-      ctx.fillText("36 ROWS DRIVEN", 0, 0);
+      ctx.fillText(model.rows + " ROWS DRIVEN", 0, 0);
       ctx.restore();
       ctx.textAlign = "right";
-      ctx.fillText("10 COLUMNS SUM", geom.x + geom.w, geom.y - 8);
+      ctx.fillText(model.cols + " COLUMNS SUM", geom.x + geom.w, geom.y - 8);
       // Below the column digits, which drawColumns puts 13px under the bar band.
       ctx.textAlign = "left";
       ctx.fillText("COLUMN CURRENT", geom.x, geom.y + geom.h + 14 + layout.barsH + 30);
@@ -367,13 +385,15 @@
       if (reduce) still(); else start();
     });
 
-    P.onWidthChange(el, function () { relayout(false); });
-    P.onThemeChange(function () { relayout(true); });
+    var stopWidth = P.onWidthChange(el, function () { relayout(false); });
+    var stopTheme = P.onThemeChange(function () { relayout(true); });
+    var io = null;
     if (typeof window.IntersectionObserver === "function") {
-      new window.IntersectionObserver(function (entries) {
+      io = new window.IntersectionObserver(function (entries) {
         onScreen = entries[entries.length - 1].isIntersecting;
         if (onScreen && !reduce) start();
-      }).observe(canvas);
+      });
+      io.observe(canvas);
     }
 
     colours = V.ink(document.documentElement);
@@ -382,6 +402,23 @@
     advance();
     paintArray();
     start();
+
+    return {
+      destroy: function () {
+        // The animation first: an interval and a frame both hold `draw`, which
+        // holds the canvas and the model, and neither stops because the element
+        // left the document.
+        if (timer) { window.clearInterval(timer); timer = 0; }
+        if (raf) { window.cancelAnimationFrame(raf); raf = 0; }
+        if (io) io.disconnect();
+        stopWidth();
+        stopTheme();
+        el.innerHTML = "";
+        // The readout is the hero's second host and is outside `el`, so emptying
+        // `el` does not reach it.
+        if (readoutEl) readoutEl.innerHTML = "";
+      },
+    };
   }
 
   if (typeof window !== "undefined") {

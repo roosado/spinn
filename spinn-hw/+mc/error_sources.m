@@ -45,7 +45,12 @@ function keys = error_sources(arch)
                 ... %    with array size, so the size belongs beside any number
                 ... %    derived from it.
                 "wire_resistance_ohm", ...
-                ... % shared: test-set subsetting, for speed only.
+                ... % shared: test-set subsetting. It began as a speed knob and is
+                ... % now also a *reported* quantity -- run_size_sweep records every
+                ... % ladder on a fixed 500-digit sample, because that is the set the
+                ... % site's "Go larger" page can afford to ship at five array sizes.
+                ... % A subset run is therefore a result someone reads, not only a
+                ... % faster way to get one.
                 "subset"];
         case "d2nn"
             keys = [shared, ...

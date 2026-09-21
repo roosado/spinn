@@ -265,6 +265,40 @@
     }
   }
 
+  /**
+   * A wire resistance, as a reader should see it.
+   *
+   * Three ladders reach for this and each had its own rule. The row's is round
+   * numbers -- 10, 100, 300, 1k -- and `String(v)` was fine for it. The size
+   * sweep's is `2 * 10^(k/3)`, whose rungs are 0.043088693800637665 and
+   * 430.8869380063769, and `String(v)` prints every digit of them.
+   *
+   * So: thousands as `k`, hundreds whole, and below that enough figures to tell
+   * two rungs apart and no more. `withUnit` adds the ohm sign, scaled -- "1 kΩ"
+   * rather than "1k Ω" -- for the places that are not already under one.
+   */
+  function ohms(v, withUnit) {
+    if (v == null || !isFinite(v)) return withUnit ? "no edge" : "—";
+    var text, unit = " Ω";
+    if (v >= 1000) {
+      text = trim((v / 1000).toFixed(1));
+      unit = " kΩ";
+    } else if (v >= 100) {
+      text = String(Math.round(v));
+    } else if (v >= 10) {
+      text = trim(v.toFixed(1));
+    } else {
+      text = trim(v.toPrecision(3));
+    }
+    return withUnit ? text + unit : text + (v >= 1000 ? "k" : "");
+  }
+
+  /** "2.00" -> "2", "43.10" -> "43.1", "0.0200" -> "0.02". Never "2." */
+  function trim(text) {
+    if (text.indexOf(".") < 0) return text;
+    return text.replace(/0+$/, "").replace(/\.$/, "");
+  }
+
   /* -------------------------------------------------------------------- DOM */
 
   /** A labelled readout: mono value over a small caption. Used by every widget. */
@@ -275,6 +309,7 @@
   var API = {
     VARS: VARS, ink: ink, rgb: rgb, mix: mix,
     weightColour: weightColour, railColour: railColour,
+    ohms: ohms,
     drawInput: drawInput, drawArray: drawArray, drawDrive: drawDrive,
     drawColumns: drawColumns, readout: readout, font: font, CANVAS_PX: CANVAS_PX,
   };

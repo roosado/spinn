@@ -1,0 +1,196 @@
+<!--
+  The second page: the same machine, at five sizes.
+
+  No prose. The index carries the argument; this carries the instruments, and
+  everything it says in words is a panel title, a one-line caption or the sentence
+  a reader gets when a script does not run. If something here needs a paragraph to
+  be understood, the paragraph belongs on the index.
+
+  Two numbers on this page can look like they contradict the index and do not:
+
+    the index says IR drop holds at 100 ohm and fails at 300, measured first order
+    on the row's nine-rung ladder;
+
+    this page says the same first-order model holds at 200 and fails at 431 on the
+    sweep's fifteen-rung ladder, and that the solved network holds at 431 and fails
+    at 928.
+
+  One model on two ladders, and then two models. The instrument's caption says so,
+  because a reader arriving from section 06 lands on the 6x6 rung first.
+-->
+@@TOPBAR@@
+<div class="topline"></div>
+
+<div class="sizebar">
+  <div class="sizebar-in">
+    <div id="sizeBar"></div>
+    <noscript><p class="nojs">The size control runs on JavaScript, which is not running here. The sizes swept are 6&times;6, 8&times;8, 12&times;12, 18&times;18 and 26&times;26 &mdash; 36 to 676 rows, ten columns throughout &mdash; and the brackets each one produced are in <code>docs/array_size.md</code>.</p></noscript>
+  </div>
+</div>
+
+<main class="wrap" id="main">
+
+  <header class="lg-head">
+    <h1>The same machine, larger</h1>
+    <div class="underbar"></div>
+    <p class="standfirst">
+      Five arrays, <b>36 to 676 rows</b>, each trained on the same 2,000 digits at its
+      own resolution. Only the column wire lengthens.
+    </p>
+  </header>
+
+  <div class="inst">
+    <div class="inst-h">
+      <h2 class="inst-t">The wire, at this size</h2>
+      <span class="inst-n">recorded &middot; both models &middot; base seed 20260908</span>
+    </div>
+    <p class="inst-d">
+      Left: what each cell keeps of the conductance it was programmed to, solved from
+      the real trained weights. Right: accuracy against wire resistance on the sweep&rsquo;s
+      fifteen rungs: <b>first order</b> and the <b>solved network</b>, which are
+      different models and disagree, with 2&nbsp;&#937; and 20&nbsp;&#937; marked as the
+      cited wiring at 65&nbsp;nm and 7&nbsp;nm.
+    </p>
+    <div id="sizeArray"></div>
+    <noscript>
+      <p class="nojs">This instrument is drawn by JavaScript, which is not running here. What it shows, from <code>docs/array_size.md</code>:</p>
+      <ul class="nojs-list">
+        <li><b>36 rows</b>: first order holds at 200&nbsp;&#937; and fails at 431; solved holds at 431 and fails at 928.</li>
+        <li><b>64 rows</b>: first order 92.8 &rarr; 200&nbsp;&#937;; solved 200 &rarr; 431.</li>
+        <li><b>144 rows</b>: first order 20 &rarr; 43.1&nbsp;&#937;; solved 92.8 &rarr; 200.</li>
+        <li><b>324 rows</b>: first order 4.31 &rarr; 9.28&nbsp;&#937;; solved 20 &rarr; 43.1.</li>
+        <li><b>676 rows</b>: first order 0.928 &rarr; 2&nbsp;&#937;; solved 4.31 &rarr; 9.28.</li>
+      </ul>
+      <p class="nojs">On the solved network, 20&nbsp;&#937; wiring holds to 324 rows and fails at 676; 2&nbsp;&#937; holds at every size swept.</p>
+    </noscript>
+  </div>
+
+  <div class="inst">
+    <div class="inst-h">
+      <h2 class="inst-t">The machine, at this size</h2>
+      <span class="inst-n">live &middot; the 500-digit sample</span>
+    </div>
+    <p class="inst-d">
+      The same first viewport the index opens on, driven by the array you chose. The
+      input tile is <span class="q">g&times;g</span>; the rows are the pixels; the ten
+      columns are the ten classes at every size.
+    </p>
+    <div id="heroMachine"></div>
+    <noscript><p class="nojs">The machine runs in your browser, on JavaScript, which is not running here. With it, this space holds the chosen array classifying frozen test digits.</p></noscript>
+    <div class="machine-read" id="heroReadout"></div>
+  </div>
+
+  <div class="inst">
+    <div class="inst-h">
+      <h2 class="inst-t">One device</h2>
+      <span class="inst-n">live &middot; size-independent</span>
+    </div>
+    <p class="inst-d">
+      How many states a device resolves, and what a <em>pair</em> of them can represent.
+      This is the one instrument the array size does not change &mdash; a device is a
+      device at every grid, which is why source 2&rsquo;s bracket barely moves.
+    </p>
+    <div id="deviceExplorer"></div>
+    <noscript><p class="nojs">This instrument runs on JavaScript, which is not running here. It steps one device through its resolvable states and reports what that costs.</p></noscript>
+  </div>
+
+  <div class="inst">
+    <div class="inst-h">
+      <h2 class="inst-t">One column&rsquo;s wire</h2>
+      <span class="inst-n">live &middot; banded above 72 rows</span>
+    </div>
+    <p class="inst-d">
+      One column filling, device by device, for a real test digit. Above 72 rows a drawn
+      row is a <b>band</b> of devices rather than one: the contribution is the band&rsquo;s
+      sum and the staircase is exact at every band edge, because that is a real place on
+      the wire.
+    </p>
+    <div id="wireColumn"></div>
+    <noscript><p class="nojs">This instrument runs on JavaScript, which is not running here. It fills one column&rsquo;s wire, device by device, for a real test digit.</p></noscript>
+  </div>
+
+  <div class="inst">
+    <div class="inst-h">
+      <h2 class="inst-t">The bench</h2>
+      <span class="inst-n">recorded first &middot; live over 500 digits</span>
+    </div>
+    <p class="inst-d">
+      Three error sources at once, on the ladders this size was swept on. The number
+      leading is the recorded one wherever the budget measured exactly this setting; the
+      array, the meter&rsquo;s pointer and the per-digit bars are computed here over the
+      sample. With the wire on, both models are quoted underneath.
+    </p>
+    <div id="errorBench"></div>
+    <noscript><p class="nojs">The bench runs on JavaScript, which is not running here. The recorded brackets for every size are in <code>docs/array_size.md</code>.</p></noscript>
+  </div>
+
+  <div class="inst">
+    <div class="inst-h">
+      <h2 class="inst-t">The measured budget</h2>
+      <span class="inst-n">recorded &middot; base seed 20260908</span>
+    </div>
+    <p class="inst-d">
+      What the sweep found at this size: three sources, three brackets, one pass mark at
+      95% of this array&rsquo;s own ideal. The IR-drop panel draws <b>both</b> wire models
+      &mdash; solid is the network solved, dashed is the first-order expansion the
+      recorded row was measured with.
+    </p>
+    <div id="budgetLadder"></div>
+    <noscript>
+      <p class="nojs">The panels are drawn by JavaScript, which is not running here. The brackets at every size, for all three sources, are tabulated in <code>docs/array_size.md</code>.</p>
+    </noscript>
+  </div>
+
+  <div class="inst">
+    <div class="inst-h">
+      <h2 class="inst-t">Your handwriting</h2>
+      <span class="inst-n">live &middot; the pad follows the grid</span>
+    </div>
+    <p class="inst-d">
+      Draw a digit and watch this array decide what it was. The pad&rsquo;s own grid is a
+      whole multiple of what the array sees, at every size, so what it shows you is an
+      exact area average and not a resampling artefact.
+    </p>
+    <div id="drawPad"></div>
+    <noscript><p class="nojs">The drawing pad runs on JavaScript, which is not running here. With it, you can draw a digit and watch the chosen array classify it.</p></noscript>
+  </div>
+
+  @@NEXT@@
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <h2>What varies</h2>
+        <p>
+          The image grid, so rows are <span class="q">g&sup2;</span> and the ten columns
+          stay the ten classes. The window, the drive, the cell pitch and the differential
+          pair are held fixed, so a wire segment is the same resistance at every size.
+        </p>
+      </div>
+      <div>
+        <h2>What is recorded, and what is live</h2>
+        <p>
+          A verdict comes from the recorded sweep over all 2,000 digits. The numbers that
+          move as you drag are computed here, over a <b>500-digit sample</b> of that set
+          &mdash; the same 500 at every size, and the same 500 MATLAB recorded a twin for.
+        </p>
+      </div>
+      <div>
+        <h2>Which grid is the shared task</h2>
+        <p>
+          Only 6&times;6. The others are the same digits at another resolution and are
+          internal to this repository; nothing here is compared to a photonn row.
+        </p>
+      </div>
+    </div>
+    <p class="colophon">
+      spinn &mdash; second platform in the physical-AI series. Built offline; this page
+      makes no external requests.
+    </p>
+  </div>
+</footer>
+
+@@PAGE_SCRIPT@@
