@@ -158,7 +158,10 @@ html:not(.js) .theme-toggle{display:none;}
    one has to clear both. The page-script's scrollspy reads the same offset from a
    custom property rather than carrying its own copy of this number. */
 :root{--sticky:78px;}
-body.sizepage{--sticky:134px;}
+/* Measured, not guessed: a 50px topbar plus the 66px size bar, and the same ~28px
+   of clearance the index leaves above a heading it jumps to. It was 134 when the
+   bar carried four lines under its track, which was already short of the chrome. */
+body.sizepage{--sticky:144px;}
 body.sizepage [id]{scroll-margin-top:var(--sticky);}
 
 /* The size bar. One control, five rungs, and the page's whole argument is that the
@@ -170,16 +173,19 @@ body.sizepage [id]{scroll-margin-top:var(--sticky);}
   background:color-mix(in srgb,var(--bg) 88%,transparent);
   border-bottom:1px solid var(--border);}
 @supports not (background:color-mix(in srgb,red 50%,blue)){.sizebar{background:var(--bg);}}
-.sizebar-in{max-width:1120px;margin:0 auto;padding:10px 24px 12px;
-  display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:4px 24px;align-items:center;}
-.sizebar .sp-field label{margin-bottom:7px;}
-.sizebar .sp-field output{margin-top:6px;}
-/* Everything the bar draws *inside* its host -- the rung labels, the facts beside
-   them -- is styled by size_bar.js, which is the file that creates them. What stays
-   here is the chrome the page body carries. */
+.sizebar-in{max-width:1120px;margin:0 auto;padding:9px 24px 11px;}
+/* The label and the value share one row above the track and nothing sits below it,
+   so the field's own vertical margins are collapsed here: this bar is fixed over a
+   page of eight instruments, and every line in it is a line off every screenful of
+   that page. What the bar draws *inside* its host is styled by size_bar.js, which
+   is the file that creates it. */
+.sizebar .sp-field label{margin-bottom:6px;}
+.sizebar .sp-field output{margin-top:0;}
 @media (max-width:720px){
-  .sizebar-in{grid-template-columns:1fr;padding:8px 16px 10px;}
-  body.sizepage{--sticky:150px;}
+  .sizebar-in{padding:7px 16px 9px;}
+  /* Narrow, both bars grow a line: the topbar's nav wraps and the size bar's value
+     drops under its label. */
+  body.sizepage{--sticky:176px;}
 }
 /* Without a script the bar cannot move. It keeps its place in the flow, because the
    <noscript> inside it is what tells the reader which sizes were swept -- but it
