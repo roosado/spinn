@@ -179,6 +179,14 @@ def render() -> str:
     w("from `exports/size/`, seeds from `baseSeed = 20260908` at every size, and assembled")
     w("by `apps/report_size.py`.")
     w("")
+    # The page is a second presentation of this table, not a second source for it.
+    # Said here so a reader who lands on the document knows the interactive form
+    # exists, and so that the document stays the thing the page points back to.
+    w("The site shows the same sweep with the size as a control, and draws both wire")
+    w("models together: **[Go larger](https://roosado.github.io/spinn/larger.html)**.")
+    w("Every number there is one of these; nothing on it is computed from anything this")
+    w("document does not record.")
+    w("")
     w("**What varies.** The image grid `g`: rows are `g×g` and the ten columns are the ten")
     w("classes, so **only the column wire lengthens** — the row wire stays ten cells. It is")
     w("one axis. Each size is trained fresh on the same 2,000 test digits at that")

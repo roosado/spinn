@@ -424,9 +424,10 @@ it corrupts comes last, because it is looked at rather than operated.
 **This system has no shadows at all.** Not one `box-shadow` is declared anywhere in the
 stylesheet or in any widget. Depth is entirely tonal and linear: a 1px `--border` hairline,
 and at most one step of surface tone (`--surface` above the page, `--surface-2` recessed
-below it). The only non-flat treatment in the page is the topbar's `backdrop-filter:
-blur(8px)` over an 82% mix of the page ground, which exists so text scrolling underneath a
-sticky bar stays readable — not to lift it.
+below it). The only non-flat treatment on either page is a sticky bar's
+`backdrop-filter: blur(8px)` over a mix of the page ground — 82% on the topbar, 88% on the
+size page's size bar, which sits under it — and it exists so text scrolling beneath a fixed
+bar stays readable, not to lift the bar off the page.
 
 ### Named Rules
 **The No-Shadow Rule.** Nothing on this page casts one. An element that needs to separate

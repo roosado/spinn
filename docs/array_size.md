@@ -6,6 +6,11 @@ size is the axis instead of a footnote. Produced by `spinn-hw/run_size_sweep.m`
 from `exports/size/`, seeds from `baseSeed = 20260908` at every size, and assembled
 by `apps/report_size.py`.
 
+The site shows the same sweep with the size as a control, and draws both wire
+models together: **[Go larger](https://roosado.github.io/spinn/larger.html)**.
+Every number there is one of these; nothing on it is computed from anything this
+document does not record.
+
 **What varies.** The image grid `g`: rows are `g×g` and the ten columns are the ten
 classes, so **only the column wire lengthens** — the row wire stays ten cells. It is
 one axis. Each size is trained fresh on the same 2,000 test digits at that

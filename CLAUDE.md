@@ -36,9 +36,11 @@ belongs in the device physics and the error model.
   (the same instruments at five array sizes). Both are committed. `larger.html` is 1.3 MB
   because it inlines `size_data.js`; the index is 332 kB and carries none of it.
 - **The site is published from `gh-pages`, not from `main`.** Pages serves that branch's
-  root, which is the *contents* of `site/`. Building and committing `site/index.html`
-  updates the repo and not the live page; publishing is
-  `git subtree push --prefix site origin gh-pages`. This was set up on 2026-09-10, after
+  root, which is the *contents* of `site/`. Building and committing the pages updates the
+  repo and not the live site; publishing is
+  `git subtree push --prefix site origin gh-pages`, and it reads `site/` from whatever
+  branch it runs on — so **push the source first, then publish**, or the live page can end
+  up ahead of anything on the remote (2026-09-21). This was set up on 2026-09-10, after
   a push to `main` left the live URL serving a Jekyll rendering of `README.md` — which is
   what the root of `main` resolves to, since it has no `index.html`.
 
@@ -189,7 +191,7 @@ plan 07 put it on the site.
 | 04 | the seam | `8b9543c` | closed handoff, `+model/crossbar`, `+err` 1–3, 120 tests |
 | 05 | the budget and the row | `3c97a6b`, `5646471` | conductance variation binds at 4.84 bits |
 | 06 | the array-size sweep | declared `89d1031` | 36 to 676 rows; first order is not the network |
-| 07 | go larger | the second page | six instruments at five sizes; the network solved in the browser |
+| 07 | go larger | `d6dd93f`, `add8156` | six instruments at five sizes; the network solved in the browser |
 
 The plan files are archived in `plans/finished_plans/` (gitignored, like all of
 `plans/`), each stamped with the commit that closed it and otherwise unedited — they

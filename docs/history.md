@@ -1383,7 +1383,20 @@ bar plus the ~28 px of clearance the index leaves, so 144. It had been 134 for a
 was taller than that, which means anchor jumps on this page had been landing under the
 chrome since it shipped.
 
+### Published
+
+`d6dd93f` and `add8156` on `main`, and the site published from them with
+`git subtree push --prefix site origin gh-pages`. The second page is live, the index's new
+paragraph and both links with it.
+
+Worth recording because it was briefly not true: the site was published to `gh-pages` while
+the source commit still sat on a local branch that had not been merged or pushed. For about
+an hour the live page existed and the code that generated it did not exist anywhere but one
+working tree. The publish step reads `site/` from whatever branch it is run on and neither
+knows nor cares whether that branch is on the remote — so **push the source first, then
+publish**, in that order.
+
 ### Still open
 
-Publishing to `gh-pages` is a separate step — the first version of this page is live; this
-change is not, until it is pushed again. Open decision 3 is unchanged.
+Open decision 3 is unchanged: this page draws both wire models and moves nothing the row
+rests on. Error sources 4–7, the delivered spread and the read time are where they were.
