@@ -10,11 +10,19 @@ function G = program(handoff, weights, states)
 %   weight: two rails for a differential pair, one for an offset. Both schemes
 %   present the same shape downstream, so nothing after this has to branch.
 %
-%   Under quantisation the pair is (max(k,0), max(-k,0)) for integer level k, which
-%   is the representation drawing the least current. Centring the pair instead
-%   would keep both devices further from their extremes; that is a real
-%   alternative, not taken here, because the low-current choice is also the one
-%   whose zero weight is two devices in the same state.
+%   A pair is (max(w,0), max(-w,0)) of the span -- one rail carries the weight and
+%   the other is off -- with w the integer level k over states-1 when quantised and
+%   the weight itself when not. So the continuous pair is the limit of the quantised
+%   one. It draws the least current a weight allows, and its zero is two devices
+%   off, which matters because the measured spread of this device class is
+%   proportional to conductance (Doevenspeck et al. 2020). Until 2026-10-04 the
+%   continuous pair was centred, (1 +/- w)/2, while the quantised one was not; the
+%   effective weights were identical, so no accuracy showed it, and every source
+%   that sees the rails did. docs/history.md has the account.
+%
+%   The handoff carries weights and not rails, so this convention is not checked
+%   by the round trip's accuracy: tests/test_handoff_roundtrip.py pins this G to
+%   Python's rails directly.
 %
 %   Mirrors spinn/crossbar.py:Crossbar.program, including its rounding convention:
 %   both sides round half away from zero. MATLAB's round already does; NumPy's
@@ -31,8 +39,8 @@ function G = program(handoff, weights, states)
 
     if isempty(states) || states <= 0
         if handoff.scheme == "differential"
-            G = cat(3, gmin + (1 + w) / 2 * span, ...
-                       gmin + (1 - w) / 2 * span);
+            G = cat(3, gmin + max(w, 0) * span, ...
+                       gmin + max(-w, 0) * span);
         else
             G = gmin + (1 + w) / 2 * span;
         end

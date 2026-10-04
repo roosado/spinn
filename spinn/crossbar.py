@@ -115,7 +115,7 @@ class Crossbar:
     ===========================  ====================  ====================
     devices per weight           two                   one
     signed range from the window ``+/-(g_max-g_min)``  ``+/-(g_max-g_min)/2``
-    a zero weight is             two equal states      one mid-scale state
+    a zero weight is             two devices off       one mid-scale state
     conductance-variation draws  two, independent      one
     the column pedestal          cancels in hardware   subtracted downstream
     ===========================  ====================  ====================
@@ -222,12 +222,24 @@ class Crossbar:
         leading axis is the device index within one weight, so both schemes present
         the same shape to everything downstream, including the handoff.
 
-        Under quantisation the pair is chosen as ``(max(k, 0), max(-k, 0))`` for the
-        integer level ``k``, which is the representation that draws the least
-        current. Centring the pair instead would keep both devices further from
-        their extremes; that is a real alternative and is not taken here, because
-        the low-current choice is also the one whose zero weight is two devices in
-        the same state.
+        **A pair is ``(max(w, 0), max(-w, 0))`` of the span: one rail carries the
+        weight and the other is off.** Quantised, ``w`` is the integer level ``k``
+        over ``states - 1``; continuous, it is the weight itself, so the continuous
+        pair is the limit of the quantised one rather than a second convention.
+
+        It is the representation drawing the least current a weight allows, and its
+        zero is two devices off. That second property is what decided it. The spread
+        imec measured on this device class is proportional to conductance (area
+        variation, Doevenspeck et al. 2020), and two thirds of the trained weights
+        are within 0.2 of zero; a pair centred on the window holds them at twice
+        the conductance, and so twice the spread, of a pair that is off. imec's own
+        pair stores zero this way.
+
+        Until 2026-10-04 the continuous pair *was* centred -- ``(1 +/- w) / 2`` --
+        while the quantised one was not. Under the uniform spread the row was first
+        measured with, that was a detail; under a proportional one it is not, and
+        no accuracy shows the difference, because the effective weights are
+        identical. ``docs/history.md`` has the account.
         """
         w = np.clip(np.asarray(weights, dtype="f8"), -1.0, 1.0)
         if w.shape != (self.n_inputs, self.n_outputs):
@@ -237,8 +249,8 @@ class Crossbar:
         if self.states is None:
             if self.scheme == "differential":
                 return np.stack([
-                    self.g_min + (1.0 + w) / 2.0 * self.span,
-                    self.g_min + (1.0 - w) / 2.0 * self.span,
+                    self.g_min + np.maximum(w, 0.0) * self.span,
+                    self.g_min + np.maximum(-w, 0.0) * self.span,
                 ])
             return (self.g_min + (1.0 + w) / 2.0 * self.span)[None]
 

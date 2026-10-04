@@ -1547,3 +1547,106 @@ approximate.
 A redesign of the window. Error sources 4–7. The read time. A widget for the new source:
 the browser's copy of the physics does not get it, because nothing on either page draws
 it. The `gh-pages` push.
+---
+
+## 2026-10-04 — a delivered spread, and a margin that is undetermined
+
+Plan 08, run as declared above. The row has a delivered precision for the first time,
+and the margin against it is **undetermined** at the design window: the measured spread
+straddles this array's edge. That was the expectation on record.
+
+### The margin, at three window ratios
+
+Area variation, 20 realizations, the declared ladder with both ends of the delivered
+bracket on it. 36×10.
+
+| ratio | holds at → fails at | at σ/μ = 0.031 | at 0.063 | verdict |
+|---|---|---|---|---|
+| 3, the design | 0.05 (0.7046) → 0.063 (0.6929) | 0.7211 | 0.6929 | undetermined |
+| 2.03, imec 2021 | 0.035 (0.7012) → 0.05 (0.6653) | 0.7045 | 0.6348 | undetermined |
+| 1.85, imec 2020 at RA 5k | 0.02 (0.7141) → 0.031 (0.6952) | 0.6952 | 0.6048 | fails, short by up to 0.63 bits |
+
+Against the declaration: ratio 3 came out as expected, rung for rung. At 2.03 the
+browser copy had 0.035 failing (0.694) and MATLAB has it holding (0.7012), so the edge
+sits one rung higher than expected; the verdict is the same. At 1.85 the better end fails
+by 0.0026, as expected. The variants reproduced the ideal, 0.7345, and the gain,
+5.4271, with weights identical to the row's.
+
+### What the encoding moved
+
+Storing zero as two devices off left every ideal unchanged at every size, and source 2
+bit-identical, because the quantised path already did it.
+
+| | before | after |
+|---|---|---|
+| source 1, uniform σ, at 36 rows | holds 0.035 (0.7003), fails 0.05 (0.6671) | holds 0.035 (0.7087), fails 0.05 (0.6799): still **4.84 bits** |
+| source 1 at 64 rows | 0.035 → 0.05 | **0.05 → 0.075** |
+| source 1 at 144 rows | 0.05 → 0.075 | **0.075 → 0.1** |
+| IR drop, the row (first order, nine rungs) | holds 100 Ω, fails 300 | holds **300 Ω**, fails **1 kΩ** |
+| IR drop, solved, at 36 rows | 431 → 928 Ω | holds at **928**, the top of the ladder |
+| IR drop, solved, at 64 rows | 200 → 431 Ω | 431 → 928 |
+| first order at 2 Ω | holds at 324 rows, fails at 676 | holds at every size |
+| the joint run | 0.6819 ± 0.0119 | 0.6709 ± 0.0120, still under the pass mark |
+| array read power, 36 rows | 1.577 µW | **0.988 µW** |
+
+The expectation said source 1 would move "a little". At the row's own size it did not
+move a rung, but it did loosen by one rung at 64 and 144 rows. The cause is the clamp:
+more devices now sit at g_min, where a programming error can only push one way, so less
+of the spread survives. That is source 1's model behaving as written, and it is why the
+measured form gets its own source.
+
+Cited wiring's verdict did not change: on the solved network, 20 Ω holds at 324 rows and
+fails at 676, and 2 Ω holds everywhere.
+
+### What the plan did not anticipate
+
+- **The solved network ran off the top of its ladder at 6×6.** It holds at 928 Ω, the
+  last rung, so its edge is beyond the sweep. That leaves the row's "fails at 1 kΩ"
+  neither confirmed nor contradicted, where the previous run had shown "fails at 300 Ω"
+  to be first order's artefact. `docs/array_size.md` says so. The test that every model
+  brackets at every size now allows exactly this, and only in that direction. Extending
+  the ladder would be a separate decision, as plan 06 said.
+- **At 676 rows the area source holds at every rung, up to 0.15.** The margin is
+  reported as "at least 1.25 bits", with no upper end.
+- **The size limit has a verdict for the first time.** The delivered spread is
+  undetermined at 36 rows and holds from 64 up, by 0–0.25 bits at 64, 0.25–0.67 at 144,
+  0.67–1.25 at 324 and at least 1.25 at 676. With 7 nm wiring, the wire is what fails, between
+  324 and 676 rows, at a size where the measured spread still holds.
+- **A test compared floats exactly and broke.** The budget records the mean of three
+  identical deterministic realizations, and (x + x + x) / 3 is not always x: 0.728 came
+  back as 0.7280000000000001. Under the old encoding these two values happened to be
+  exact. The test now uses a tolerance of 1e-12, and says why.
+- **`jsonencode` writes NaN as `null`.** An edge beyond the ladder arrives in Python as
+  `None`. The size report already handled that; the new margin rule did not until a
+  size produced one.
+
+One correction from before the declaration, recorded because it shaped the
+declaration: the first scratch runs clamped the area spread to the window. That
+flattered the both-off encoding, because the off rails sat at the clamp. Area variation
+moves a device's whole window, so the declared source has no clamp. The conclusion
+survived the correction, a little lower.
+
+### What was built
+
+- `spinn-hw/+err/area_variation.m`. Key `sigma_area_rel`, seed offset 10000, applied
+  after source 1 if both were ever set; the budget never sets both.
+- The pair `(max(w, 0), max(−w, 0))` on the continuous path, in `spinn/crossbar.py`,
+  `+model/program.m` and `apps/web/crossbar.js`. A round-trip test now pins MATLAB's
+  conductances to Python's, because the accuracy check cannot see a rail convention.
+- `run_error_budget.m` gained an optional `Sources` argument. `apps/train_crossbar.py`
+  gained `--ratio`, which writes `exports/ratio/r2p03/` and `r1p85/`.
+- `apps/report_row.py`: `margin()`, the declared rule as a pure function, with tests
+  for every verdict, for an edge beyond the ladder, and for refusing an end that is not
+  on the ladder. The row's hard-coded "below the pass mark", "100 Ω already fails" and the
+  decade sentence are now computed from the budget.
+- Both pages: the row card, the delivered-precision paragraphs, the IR numbers, the
+  references (imec read directly; ref. 15 added) and the next-steps list.
+
+358 → 384 tests.
+
+### Still open
+
+Open decision 2, the read time. Open decision 3, whether the row's IR drop moves onto the
+solved network; its numbers changed and the decision did not. Narrowing the delivered
+spread needs one of two things: a measurement at this pillar's own size, or the TMR an
+integrated thick-barrier junction actually delivers. The `gh-pages` push.

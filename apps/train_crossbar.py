@@ -42,11 +42,19 @@ with the pixel count, so an unscaled 0.5 at 676 inputs oscillates and the "ideal
 accuracy would be the optimiser's artefact -- the mistake the projected-descent
 version above already made once. At 6x6 it is exactly 0.5, so that array is unchanged.
 
+**The window ratio.** ``--ratio r`` writes the same array with ``g_max = r * g_min``,
+holding ``g_min`` at the design's 1 uS, into ``exports/ratio/``. The design's ratio
+is 3; the two integrated three-terminal devices imec measured come in at 2.03 and
+1.85 (``docs/history.md``, 2026-10-04), and the delivered spread is judged at all
+three. Training never sees the window, so the weights are identical and only the
+handoff's operating point differs. These are a sensitivity, not designs.
+
 Run (from the repo root, in this repo's venv)::
 
     .venv/Scripts/python.exe -m apps.train_crossbar
     .venv/Scripts/python.exe -m apps.train_crossbar --quick
     .venv/Scripts/python.exe -m apps.train_crossbar --grid 12
+    .venv/Scripts/python.exe -m apps.train_crossbar --ratio 2.03
 """
 from __future__ import annotations
 
@@ -55,7 +63,7 @@ import os
 
 import numpy as np
 
-from spinn.crossbar import Crossbar, accuracy
+from spinn.crossbar import G_MIN, Crossbar, accuracy
 from spinn.export import SIGNED_SCHEMES, validate_handoff, write_handoff
 from spinn.task import N_CHANNELS, N_CLASSES, ROW_GRID, load_shared_task, one_hot
 
@@ -79,6 +87,24 @@ def output_dir(grid: int) -> str:
     if grid == ROW_GRID:
         return EXPORTS
     return os.path.join(EXPORTS, "size", f"g{grid:02d}")
+
+
+def ratio_dir(ratio: float) -> str:
+    """Where a window-ratio variant lands: ``exports/ratio/r2p03`` for 2.03."""
+    return os.path.join(EXPORTS, "ratio", "r" + f"{ratio:.2f}".replace(".", "p"))
+
+
+def ratio_crossbar(n_inputs: int, n_outputs: int, ratio: float | None, **kw) -> Crossbar:
+    """The design's crossbar, or with ``g_max = ratio * g_min`` and ``g_min`` held.
+
+    Holding the off state keeps the state most devices sit in -- a zero weight is two
+    devices off -- at the design's 1 MOhm. Under a multiplicative spread only the
+    ratio reaches the accuracy, so the choice of which end to hold matters only to IR
+    drop and power, which the variants are not run for.
+    """
+    if ratio is None:
+        return Crossbar(n_inputs, n_outputs, **kw)
+    return Crossbar(n_inputs, n_outputs, g_min=G_MIN, g_max=ratio * G_MIN, **kw)
 
 
 def softmax(z: np.ndarray) -> np.ndarray:
@@ -144,6 +170,9 @@ def parse_args():
     p.add_argument("--batch", type=int, default=128)
     p.add_argument("--seed", type=int, default=SEED)
     p.add_argument("--scheme", default="differential", choices=("differential", "offset"))
+    p.add_argument("--ratio", type=float, default=None,
+                   help="g_max / g_min for a sensitivity handoff, g_min held at 1 uS; "
+                        "the row's grid only. Default: the design's window")
     p.add_argument("--quick", action="store_true", help="fast smoke config")
     return p.parse_args()
 
@@ -153,11 +182,15 @@ def main():
     if args.quick:
         args.epochs = 5
 
+    if args.ratio is not None and args.grid != ROW_GRID:
+        raise SystemExit("--ratio is a sensitivity of the row's own array; use it at grid 6")
+
     task = load_shared_task(args.grid)
-    cb = Crossbar(task.n_channels, N_CLASSES, scheme=args.scheme)
+    cb = ratio_crossbar(task.n_channels, N_CLASSES, args.ratio, scheme=args.scheme)
     if args.lr is None:
         args.lr = learning_rate(cb.n_inputs)
-    out_dir = args.out_dir or output_dir(args.grid)
+    out_dir = args.out_dir or (ratio_dir(args.ratio) if args.ratio is not None
+                               else output_dir(args.grid))
 
     # The array's own encoding, used for training as well as evaluation, so there
     # is one preprocessing path rather than two that can drift.

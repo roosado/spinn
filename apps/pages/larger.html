@@ -8,12 +8,12 @@
 
   Two numbers on this page can look like they contradict the index and do not:
 
-    the index says IR drop holds at 100 ohm and fails at 300, measured first order
+    the index says IR drop holds at 300 ohm and fails at 1000, measured first order
     on the row's nine-rung ladder;
 
     this page says the same first-order model holds at 200 and fails at 431 on the
-    sweep's fifteen-rung ladder, and that the solved network holds at 431 and fails
-    at 928.
+    sweep's fifteen-rung ladder, and that the solved network still holds at 928, the
+    top of that ladder.
 
   One model on two ladders, and then two models. The instrument's caption says so,
   because a reader arriving from section 06 lands on the 6x6 rung first.
@@ -55,11 +55,11 @@
     <noscript>
       <p class="nojs">This instrument is drawn by JavaScript, which is not running here. What it shows, from <code>docs/array_size.md</code>:</p>
       <ul class="nojs-list">
-        <li><b>36 rows</b>: first order holds at 200&nbsp;&#937; and fails at 431; solved holds at 431 and fails at 928.</li>
-        <li><b>64 rows</b>: first order 92.8 &rarr; 200&nbsp;&#937;; solved 200 &rarr; 431.</li>
-        <li><b>144 rows</b>: first order 20 &rarr; 43.1&nbsp;&#937;; solved 92.8 &rarr; 200.</li>
-        <li><b>324 rows</b>: first order 4.31 &rarr; 9.28&nbsp;&#937;; solved 20 &rarr; 43.1.</li>
-        <li><b>676 rows</b>: first order 0.928 &rarr; 2&nbsp;&#937;; solved 4.31 &rarr; 9.28.</li>
+        <li><b>36 rows</b>: first order holds at 200&nbsp;&#937; and fails at 431; solved holds at 928, the top of the ladder.</li>
+        <li><b>64 rows</b>: first order 200 &rarr; 431&nbsp;&#937;; solved 431 &rarr; 928.</li>
+        <li><b>144 rows</b>: first order 43.1 &rarr; 92.8&nbsp;&#937;; solved 92.8 &rarr; 200.</li>
+        <li><b>324 rows</b>: first order 9.28 &rarr; 20&nbsp;&#937;; solved 20 &rarr; 43.1.</li>
+        <li><b>676 rows</b>: first order 2 &rarr; 4.31&nbsp;&#937;; solved 4.31 &rarr; 9.28.</li>
       </ul>
       <p class="nojs">On the solved network, 20&nbsp;&#937; wiring holds to 324 rows and fails at 676; 2&nbsp;&#937; holds at every size swept.</p>
     </noscript>

@@ -18,10 +18,12 @@ size was run:
 **Every pass mark is 95% of that size's own ideal.** No size is graded on another's
 curve.
 
-**The size limit is judged on cited wiring only.** Wire resistance is cited (2 ohm per
-cell at 65 nm, 20 ohm at 7 nm), so IR drop can be judged against it. The device spread
-is ``UNSOURCED``, so source 1 gets no verdict against the wire: its edge is reported at
-each size and nothing is compared to it.
+**The size limit is judged on cited and measured values only.** Wire resistance is
+cited (2 ohm per cell at 65 nm, 20 ohm at 7 nm), so IR drop is judged against it. Since
+2026-10-04 the device spread is measured for this device class -- a bracket in sigma/mu
+(Doevenspeck et al. 2020) -- so area variation is judged against it too, at every size,
+by the rule the row uses. Sources 1 and 2 are required precisions and are compared to
+nothing.
 
 **Edges are brackets, never interpolated.** No fitted crossing and no fitted exponent.
 ``edge x rows^2`` is shown at both ends of each bracket instead, so a reader can see how
@@ -39,7 +41,16 @@ import os
 
 import numpy as np
 
-from apps.report_row import array_read_power, bits_from_sigma, bits_from_states
+from apps.report_row import (
+    BUDGET as ROW_BUDGET,
+    DELIVERED_SIGMA_AREA,
+    array_read_power,
+    bits_from_sigma,
+    bits_from_states,
+    edge_text,
+    margin,
+    verdict_text,
+)
 from spinn.handoff import read_handoff, read_test_set, read_weights
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -200,6 +211,10 @@ def render() -> str:
     w("Held fixed: the window (1–3 µS), the read voltage, the cell pitch — so a wire segment")
     w("is the same resistance at every size — and the differential pair.")
     w("")
+    w("**Rerun on 2026-10-04**, when the pair began storing a zero weight as two devices off")
+    w("rather than two half-switched, and area variation was added. Every number below is")
+    w("from that run; `docs/history.md` has what moved and by how much.")
+    w("")
 
     # -- table A ---------------------------------------------------------------
     w("## The arrays")
@@ -240,9 +255,45 @@ def render() -> str:
     w("")
     w("Read against each size's own ideal, as bracket ends on the row's ladders — not")
     w("interpolated. The states ladder wobbles by a sample or two at fine quantisation, as")
-    w("the row records. These are what the device must deliver at that size; the delivered")
-    w("spread is `UNSOURCED`, so **no verdict is drawn between them and the wire**.")
+    w("the row records. These are what the device must deliver at that size, in the hub's")
+    w("unit, and they are compared to nothing: the delivered spread is judged with its own")
+    w("source, next.")
     w("")
+
+    # -- table B2: the delivered spread ------------------------------------------
+    lo, hi = DELIVERED_SIGMA_AREA
+    w("## The delivered spread")
+    w("")
+    w(f"imec measured σ/μ between **{lo:.3f} and {hi:.3f}** on the two pillar sizes either side of")
+    w("this design's (Doevenspeck et al. 2020; the row has the readings). The pillar is the")
+    w("same at every size, so the delivered bracket is too. It is judged with area variation —")
+    w("each device's whole conductance times `a ~ N(1, σ)` — by the row's rule: it holds if")
+    w("the worse end holds, fails if the better end fails, and is otherwise undetermined.")
+    w("")
+    w(f"| rows | area variation holds → fails (σ/μ) | at {lo:.3f} | at {hi:.3f} | verdict |")
+    w("|---|---|---|---|---|")
+    spread_verdict = {}
+    for g in GRIDS:
+        d = data[g]
+        m = margin(d["sigma_area_rel"], DELIVERED_SIGMA_AREA)
+        spread_verdict[d["rows"]] = m["verdict"]
+        w(f"| {d['rows']} | {edge_text(m['edge'])} | {m['at_best']:.4f} | "
+          f"{m['at_worst']:.4f} | {verdict_text(m)} |")
+    w("")
+    w("At the design window's ratio of 3. The row adds the two ratios imec measured on")
+    w("integrated junctions, at 36 rows only; the larger arrays here are not rerun at them.")
+    w("")
+    by = {v: [r for r, x in spread_verdict.items() if x == v]
+          for v in ("holds", "undetermined", "fails")}
+    if by["holds"]:
+        tail = []
+        if by["undetermined"]:
+            tail.append(f"It is undetermined at {_list(by['undetermined'])} rows.")
+        if by["fails"]:
+            tail.append(f"It fails at {_list(by['fails'])} rows.")
+        w(f"**The delivered spread holds at {_list(by['holds'])} rows**, and the margin widens "
+          "with the array, as the required σ above loosens. " + " ".join(tail))
+        w("")
 
     # -- table C ---------------------------------------------------------------
     w("## IR drop, first order and solved")
@@ -281,19 +332,36 @@ def render() -> str:
     w("")
     r6 = data[GRIDS[0]]
     ex6, fo6 = r6["exact"], r6["wire_resistance_ohm"]
+    with open(ROW_BUDGET, encoding="utf-8") as fh:
+        row_wire = json.load(fh)["wire_resistance_ohm"]
+    rh, rf = row_wire["lastHolding"], row_wire["firstFailing"]
+    # jsonencode writes NaN as null, so "fails nowhere on the ladder" arrives as None.
+    fails_nowhere = ex6["firstFailing"] is None or math.isnan(ex6["firstFailing"])
+    if fails_nowhere:
+        solved = (f"holds at {ex6['lastHolding']:.3g} Ω, the top of this ladder, and fails "
+                  "nowhere on it")
+    else:
+        solved = (f"holds at {ex6['lastHolding']:.3g} Ω and fails at "
+                  f"{ex6['firstFailing']:.3g} Ω")
     w(f"**The row's own array is the first line.** At {r6['rows']}×10 first order puts the edge "
       f"between {fo6['lastHolding']:.3g} and {fo6['firstFailing']:.3g} Ω on this ladder — "
-      "the row, on its coarser one, records holding at 100 Ω and failing at 300 Ω. The solved "
-      f"network holds at {ex6['lastHolding']:.3g} Ω and fails at {ex6['firstFailing']:.3g} Ω. "
-      "**The row's “fails at 300 Ω” is a property of the first-order model and not of the "
-      "array**; its “holds at 100 Ω” is unaffected. Nothing in the row has been changed.")
+      f"the row, on its coarser one, records holding at {rh:g} Ω and failing at {rf:g} Ω. The "
+      f"solved network {solved}.")
+    if ex6["lastHolding"] >= rf:
+        w(f"**The row's “fails at {rf:g} Ω” is a property of the first-order model and not of "
+          f"the array**; its “holds at {rh:g} Ω” is unaffected.")
+    elif fails_nowhere:
+        w(f"Whether the network fails at the row's {rf:g} Ω is beyond this ladder, so the row's "
+          "failing side is neither confirmed nor contradicted here; its holding side is.")
+    w("Nothing in the row rests on the solved model; moving it there is an open decision.")
     w("")
 
     # -- the size limit ---------------------------------------------------------
     w("## The size limit")
     w("")
-    w("Judged on **cited wiring only**: 2 Ω per cell at 65 nm (Agrawal et al. 2019) and")
-    w("20 Ω at 7 nm (Victor et al. 2024). Both are ladder points, so each is read off directly.")
+    w("Judged on **cited wiring and the measured spread**: 2 Ω per cell at 65 nm (Agrawal")
+    w("et al. 2019) and 20 Ω at 7 nm (Victor et al. 2024), and the delivered bracket above.")
+    w("Every one of them is a ladder point, so each is read off directly.")
     w("")
     w("| cited wiring | solved network | first order |")
     w("|---|---|---|")
@@ -308,21 +376,33 @@ def render() -> str:
                 w("the first failure and the range should not be read as monotone.*")
                 w("")
 
-    w("**What that says about the question the page asks.** The device spread has no")
-    w("delivered value, so nothing here is a margin against it. Wire resistance does, so")
-    w("wiring can be judged: at the sizes where both cited values hold, the wire is inside")
-    w("its edge and, of the sources judged, conductance variation is the one that binds, as")
-    w("in the row; where cited wiring fails, the wire is a delivered failure that no")
-    w("amount of device precision removes.")
+    w("| rows | delivered spread | 2 Ω, solved | 20 Ω, solved | what fails |")
+    w("|---|---|---|---|---|")
+    for i, g in enumerate(GRIDS):
+        r = data[g]["rows"]
+        v = spread_verdict[r]
+        wires = [hold["exact"][ohm][i] for ohm in CITED_OHM]
+        failing = [f"{ohm:g} Ω wiring" for ohm, ok in zip(CITED_OHM, wires) if not ok]
+        if v == "fails":
+            failing.insert(0, "the spread")
+        if failing:
+            what = " and ".join(failing)
+        elif v == "undetermined":
+            what = "nothing judged fails; the spread is undetermined"
+        else:
+            what = "nothing judged"
+        w(f"| {r} | {v} | {'holds' if wires[0] else 'fails'} | "
+          f"{'holds' if wires[1] else 'fails'} | {what} |")
     w("")
     w(f"On the solved network, 7 nm wiring (20 Ω) {_where(limit['exact'][20.0])}; "
       f"65 nm wiring (2 Ω) {_where(limit['exact'][2.0])}.")
     w("")
     e20 = limit["exact"][20.0]
-    if e20["status"] == "bracket":
-        w(f"So for 7 nm wiring the binding source changes from conductance variation to the "
-          f"wire somewhere between {e20['last']} and {e20['first_fail']} rows. That is a "
-          "bracket in size, five sizes wide, and is not interpolated.")
+    if e20["status"] == "bracket" and spread_verdict.get(e20["first_fail"]) == "holds":
+        w(f"**So with 7 nm wiring the wire is what fails, between {e20['last']} and "
+          f"{e20['first_fail']} rows**, at a size where the measured spread still holds. That is "
+          "a bracket in size, five sizes wide, and is not interpolated. Where a cited wire")
+        w("fails, no amount of device precision removes it.")
         w("")
 
     # -- how far first order is off ---------------------------------------------
@@ -372,6 +452,10 @@ def render() -> str:
     w("that falls as `1/N²`. From the row's 100 Ω at 36 rows that put 20 Ω failing between 64")
     w("and 144 rows and 2 Ω between 144 and 324. The trained arrays are sparse and")
     w("differential, and the declaration said the exponent might differ.")
+    w("")
+    w("It was declared for the centred pair. The arrays below store zero as two devices")
+    w("off, which draws less current, so every measured edge sits higher than the one the")
+    w("expectation was made against; the comparison is kept as it was declared.")
     w("")
     w("| cited wiring | declared | first order | solved |")
     w("|---|---|---|---|")
@@ -436,19 +520,23 @@ def render() -> str:
     w("  tiles, which is a different study.")
     w("- **One window, one pitch.** A segment is resistance per length times the cell pitch,")
     w("  and both are held, so a different cell would change the ohm axis.")
-    w("- **The device spread is still `UNSOURCED`.** Sources 1 and 2 are reported at every")
-    w("  size and compared to nothing.")
+    w("- **The delivered spread is a bracket, for the device class.** imec's test vehicle,")
+    w("  at pillar sizes either side of this design's, judged here at one window ratio; the")
+    w("  row says what it is and is not. Sources 1 and 2 are compared to nothing.")
     w("- **The other sizes are not the shared task.** Ideal accuracy rises with the grid")
     w("  because the task gets easier, and each size's pass mark rises with it.")
-    w("- **The row itself is unchanged.** Its 6×6 IR-drop bracket is first order, and its")
-    w("  failing side is first order's; the solved network at the same size is in the table")
-    w("  above. Whether to move the row onto the solved model is a separate decision.")
+    w("- **The row's IR-drop bracket is first order.** The solved network at the same size")
+    w("  is in the table above. Whether to move the row onto it is a separate decision.")
     w("")
     w("## Sources")
     w("")
-    w("Only the two wire resistances are cited here; everything else is this project's own")
-    w("model or measurement.")
+    w("The two wire resistances and the delivered spread are cited here; everything else is")
+    w("this project's own model or measurement.")
     w("")
+    w("- Doevenspeck et al., “SOT-MRAM based Analog in-Memory Computing for DNN inference”,")
+    w("  IEEE Symposium on VLSI Technology (2020),")
+    w("  <https://ieeexplore.ieee.org/document/9265099> — σ/μ of R_P against electrical CD,")
+    w("  set by area and not by RA (Fig. 8).")
     w("- Agrawal, Lee & Roy, “X-CHANGR” (2019), <https://arxiv.org/abs/1907.00285> —")
     w("  2 Ω per crossbar node at 65 nm.")
     w("- Victor, Kim, Wang, Roy & Gupta, “WAGONN” (2024),")

@@ -35,6 +35,11 @@ function handoff_runner(h5path, recordedPath)
     out.firstLogits = ideal.logits(1, :);
     out.nSamples = numel(ideal.labels);
 
+    % The rail convention, which no accuracy can see: the handoff carries weights,
+    % both sides program rails from them, and any pair with the right difference
+    % decodes to the same logits. Reported so Python can pin it directly.
+    out.rails = model.program(h);
+
     % The orientation trap, made visible. Flattening each image column-major
     % instead of row-major is shape-valid and silently wrong, so the only evidence
     % it leaves is an accuracy that is merely poor. Recorded so the Python side can
@@ -46,6 +51,7 @@ function handoff_runner(h5path, recordedPath)
 
     out.validate = checkValidate();
     out.sources = checkSources(h);
+    out.area = checkArea(h);
     out.sweep = checkSweep(h);
     out.irDrop = checkIrDrop(h);
     if nargin >= 2 && isfile(recordedPath)
@@ -97,8 +103,9 @@ function v = checkValidate()
     % Every key, not just one: a registry entry that is present but misspelled in
     % the +err function that reads it would pass a single-key check. Each real key
     % gets a plausible typo, and each must be caught *and* traced back to itself.
-    real = ["sigma_g_rel", "states_per_device", "wire_resistance_ohm"];
-    typos = ["sigma_g_relative", "states_per_devices", "wire_resistance_ohms"];
+    real = ["sigma_g_rel", "sigma_area_rel", "states_per_device", "wire_resistance_ohm"];
+    typos = ["sigma_g_relative", "sigma_area_relative", "states_per_devices", ...
+             "wire_resistance_ohms"];
     v.eachTypoCaught = true;
     v.eachTypoSuggests = true;
     for k = 1:numel(typos)
@@ -165,6 +172,55 @@ function s = checkSources(h)
     s.irDropAcc = model.crossbar(h, struct('currents', Ibig)).accuracy;
     % Position dependence: the far corner must be starved more than the near one.
     s.irIsPositionDependent = true;
+end
+
+
+function a = checkArea(h)
+%CHECKAREA err.area_variation against what it has to be.
+%   A factor per device, mean one, spread as configured, the same draw on any base,
+%   and not clamped to the window -- plus the driver drawing it at its own seed
+%   offset, after source 1, which is what keeps every recorded sigma_g_rel run
+%   bit-identical now that a second stochastic source exists.
+    G0 = model.program(h);
+    a.ideal = model.crossbar(h).accuracy;
+    a.zeroIsIdentity = isequal(err.area_variation(G0, 0, 11), G0);
+
+    g1 = err.area_variation(G0, 0.20, 11);
+    a.acc = model.crossbar(h, struct('conductances', g1)).accuracy;
+    a.reproducible = isequal(g1, err.area_variation(G0, 0.20, 11));
+    a.seedMatters = ~isequal(g1, err.area_variation(G0, 0.20, 12));
+    % A smaller pillar lowers both ends of its window, so devices land outside the
+    % nominal one -- on both sides. Clamped, neither would.
+    a.belowWindow = any(g1(:) < h.operating_point.g_min_s);
+    a.aboveWindow = any(g1(:) > h.operating_point.g_max_s);
+
+    % The factor itself, over a probe large enough that its statistics are tight:
+    % 2e5 devices, so the mean has a standard error of 0.05/sqrt(2e5) = 1.1e-4.
+    f = err.area_variation(ones(400, 250, 2), 0.05, 5);
+    a.factorN = numel(f);
+    a.factorMean = mean(f(:));
+    a.factorStd = std(f(:));
+
+    % Proportional, exactly: one seed draws the same factors whatever it scales, so
+    % the relative perturbation of any two arrays is identical. This is the area
+    % source's form of "a draw does not depend on what else is active", and unlike
+    % source 1's it needs no exclusion for clamped devices, because there is none.
+    G2 = model.program(h, h.parameters.weights, 4);
+    r0 = err.area_variation(G0, 0.05, 42) ./ G0;
+    r2 = err.area_variation(G2, 0.05, 42) ./ G2;
+    a.factorIndependentOfBase = max(abs(r0(:) - r2(:))) < 1e-15;
+
+    % The driver: area at seed + 10000, applied after source 1's draw at seed + 0.
+    sub = 1:200;
+    one = mc.run_montecarlo_crossbar(h, struct('sigma_area_rel', 0.05, 'subset', sub), 1, 7);
+    want = model.crossbar(h, struct('conductances', ...
+        err.area_variation(G0, 0.05, 7 + 10000), 'subset', sub)).accuracy;
+    a.driverSeedOffset = one.acc == want;
+    both = mc.run_montecarlo_crossbar(h, ...
+        struct('sigma_g_rel', 0.05, 'sigma_area_rel', 0.05, 'subset', sub), 1, 7);
+    Gboth = err.area_variation(err.conductance_variation(G0, 0.05, h, 7), 0.05, 7 + 10000);
+    a.driverComposes = both.acc == model.crossbar(h, ...
+        struct('conductances', Gboth, 'subset', sub)).accuracy;
 end
 
 

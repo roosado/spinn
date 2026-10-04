@@ -19,6 +19,7 @@ import os
 import pytest
 
 from apps import report_size
+from apps.report_row import DELIVERED_SIGMA_AREA
 from apps.report_size import (
     CITED_OHM,
     GRIDS,
@@ -151,18 +152,28 @@ def test_the_wire_ladder_in_the_json_is_the_one_declared(budgets):
 
 @sizes_on_disk
 def test_every_size_bracketed_both_ways_on_both_models(budgets):
-    """A ladder that never fails has found a too-narrow ladder, not an edge."""
+    """A ladder that never fails has found a too-narrow ladder, not an edge.
+
+    First order brackets at every size. The solved network may not: since the pair
+    stores zero as two devices off (2026-10-04) it draws less current, and at 6x6 it
+    holds to the top of the declared ladder. That is allowed only in that direction
+    -- holding at every rung, which the report says is beyond the ladder -- and never
+    as a failure at the bottom, which would mean the ladder started too high.
+    """
     for g, b in budgets.items():
         assert b["wire_resistance_ohm"]["bracketed"], f"first order, {g}x{g}"
-        assert b["exact"]["bracketed"], f"solved, {g}x{g}"
+        ex = b["exact"]
+        if not ex["bracketed"]:
+            assert all(ex["exactHolds"]), f"solved, {g}x{g}: unbracketed but not by holding"
 
 
 @sizes_on_disk
-def test_only_source_one_has_a_spread(budgets):
+def test_only_the_stochastic_sources_have_a_spread(budgets):
     for b in budgets.values():
         assert max(b["states_per_device"]["accStd"]) < 1e-15
         assert max(b["wire_resistance_ohm"]["accStd"]) < 1e-15
         assert max(b["sigma_g_rel"]["accStd"]) > 0
+        assert max(b["sigma_area_rel"]["accStd"]) > 0
 
 
 @sizes_on_disk
@@ -220,10 +231,10 @@ def test_conductance_variation_is_the_binding_of_the_two_at_every_size(budgets):
 def test_the_row_size_reproduces_the_row_on_sources_one_and_two():
     """6x6 through the new training path and the new driver is the row, exactly.
 
-    Sources 1 and 2 use the row's own ladders and seeds, so they must come back
-    identical. Source 3 is on a different ladder and is compared where the two
-    agree: the row's 100 ohm holds and its 300 ohm fails on first order, so the new
-    first-order bracket has to be consistent with both.
+    Sources 1 and 2, and area variation, use the row's own ladders and seeds, so they
+    must come back identical. Source 3 is on a different ladder and is compared where
+    the two agree: the new first-order bracket has to be consistent with both ends of
+    the row's.
     """
     with open(ROW_BUDGET, encoding="utf-8") as fh:
         row = json.load(fh)
@@ -232,16 +243,27 @@ def test_the_row_size_reproduces_the_row_on_sources_one_and_two():
 
     assert new["ideal"] == row["ideal"]
     assert new["threshold"] == row["threshold"]
-    for key in ("sigma_g_rel", "states_per_device"):
+    for key in ("sigma_g_rel", "sigma_area_rel", "states_per_device"):
         for field in ("magnitudes", "accMean", "accStd", "holds", "lastHolding", "firstFailing"):
             assert new[key][field] == row[key][field], (key, field)
 
-    # The row holds at 100 ohm and fails at 300, so the edge lies in (100, 300). On this
-    # ladder that means nothing at or below 100 may fail, and nothing at 300 or above
-    # may hold: the new bracket cannot contradict either recorded point.
+    # The row's own bracket says where the edge lies; on this ladder nothing at or below
+    # the row's holding point may fail, and nothing at or above its failing point may
+    # hold. Read from the row's budget rather than typed, so a rerun cannot leave this
+    # test checking a bracket the row no longer records.
+    held, failed = (row["wire_resistance_ohm"][k] for k in ("lastHolding", "firstFailing"))
     first = new["wire_resistance_ohm"]
-    assert first["firstFailing"] > 100.0, "the row records holding at 100 ohm"
-    assert first["lastHolding"] < 300.0, "and failing at 300 ohm"
+    assert first["firstFailing"] > held, f"the row records holding at {held:g} ohm"
+    assert first["lastHolding"] < failed, f"and failing at {failed:g} ohm"
+
+
+@sizes_on_disk
+def test_the_delivered_bracket_is_on_the_area_ladder_at_every_size(budgets):
+    """So each size's verdict on the delivered spread is read off ladder points."""
+    for g, b in budgets.items():
+        mags = b["sigma_area_rel"]["magnitudes"]
+        for end in DELIVERED_SIGMA_AREA:
+            assert any(math.isclose(m, end) for m in mags), (g, end)
 
 
 # -- the committed document --------------------------------------------------------------

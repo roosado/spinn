@@ -221,9 +221,12 @@
    * Programmed rail occupancies for every device, in [0, 1] of the window.
    *
    * Returns the positive and negative rails as one interleaved pair of arrays.
-   * Under quantisation the pair is `(max(k, 0), max(-k, 0))` for the integer
-   * level `k`, which is the representation drawing the least current -- and the
-   * one whose zero weight is two devices in the same state.
+   * A pair is `(max(w, 0), max(-w, 0))`: one rail carries the weight and the
+   * other is off, with `w` the integer level `k` over `states - 1` when quantised
+   * and the weight itself when not -- so the continuous pair is the limit of the
+   * quantised one. It draws the least current a weight allows, and its zero is
+   * two devices off. Until 2026-10-04 the continuous pair was centred instead;
+   * spinn/crossbar.py has why that changed.
    */
   function program(weights, states) {
     var len = weights.length;
@@ -231,8 +234,8 @@
     if (!states) {
       for (var i = 0; i < len; i++) {
         var w = Math.max(-1, Math.min(1, weights[i]));
-        gp[i] = (1 + w) / 2;
-        gn[i] = (1 - w) / 2;
+        gp[i] = Math.max(w, 0);
+        gn[i] = Math.max(-w, 0);
       }
       return { gp: gp, gn: gn };
     }

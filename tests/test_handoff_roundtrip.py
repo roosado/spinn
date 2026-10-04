@@ -244,6 +244,22 @@ def test_matlab_reproduces_the_accuracy_python_recorded(crossed):
 
 
 @pytestmark_matlab
+def test_matlab_programs_the_rails_python_does(crossed, trained):
+    """The one convention the accuracy check above cannot see.
+
+    Any pair whose difference is the weight decodes to the same logits, so a
+    centred pair on one side and an off pair on the other would round-trip the
+    accuracy perfectly while every source that sees the rails -- the spread, the
+    wire, the power -- measured a different array. That was the state of the
+    continuous path against the quantised one until 2026-10-04.
+    """
+    cb, weights = trained[0], trained[1]
+    matlab_rails = np.moveaxis(np.asarray(crossed["rails"], dtype="f8"), -1, 0)
+    assert matlab_rails.shape == (2, cb.n_inputs, cb.n_outputs)
+    assert np.allclose(matlab_rails, cb.program(weights), rtol=1e-13, atol=0.0)
+
+
+@pytestmark_matlab
 def test_the_orientation_check_is_not_passing_for_free(crossed):
     """Flattening the images the other way must actually score differently.
 
@@ -260,10 +276,14 @@ def test_the_orientation_check_is_not_passing_for_free(crossed):
 
 @pytestmark_matlab
 def test_the_crossbar_arch_exists_and_names_only_what_is_implemented(crossed):
-    """Sources 4-7 get their keys when they get their implementations."""
+    """Sources 4-7 get their keys when they get their implementations.
+
+    ``sigma_area_rel`` got its key on 2026-10-04, the day there was a measurement
+    for it to be compared against -- not before.
+    """
     v = crossed["validate"]
     assert v["archKnown"]
-    assert v["keys"] == ["sigma_g_rel", "states_per_device", "subset",
+    assert v["keys"] == ["sigma_area_rel", "sigma_g_rel", "states_per_device", "subset",
                          "wire_resistance_ohm"]
 
 
@@ -459,7 +479,10 @@ def test_blocking_over_samples_changes_no_bit(crossed):
 
 @pytestmark_matlab
 def test_the_recorded_ir_drop_accuracies_survive_the_change(crossed):
-    """The row's own numbers, recomputed: 100 ohm holds at 0.7250, 300 fails at 0.6845.
+    """The row's own numbers, recomputed: 100 ohm at 0.7280 and 300 at 0.7100, both holding.
+
+    Under the centred pair, until 2026-10-04, they were 0.7250 and 0.6845 and 300 ohm
+    failed; storing zero as two devices off draws less current, so both now hold.
 
     Skipped without ``exports/``, which is gitignored. Where it exists this is the
     check that changing ``err.ir_drop`` has not moved a published bracket.
@@ -473,8 +496,64 @@ def test_the_recorded_ir_drop_accuracies_survive_the_change(crossed):
     with open(budget_path, encoding="utf-8") as fh:
         wire = json.load(fh)["wire_resistance_ohm"]
     recorded = dict(zip(wire["magnitudes"], wire["accMean"]))
-    assert r["acc100"] == recorded[100.0]
-    assert r["acc300"] == recorded[300.0]
+    # To an ulp, not bitwise: the budget records the *mean* of three identical
+    # deterministic realizations, and (x + x + x) / 3 is not always x -- 0.728 comes
+    # back as 0.7280000000000001. run_size_sweep.m documents the same effect on std().
+    # One digit of 2,000 is 5e-4, so 1e-12 cannot hide a moved accuracy.
+    assert r["acc100"] == pytest.approx(recorded[100.0], abs=1e-12)
+    assert r["acc300"] == pytest.approx(recorded[300.0], abs=1e-12)
+
+
+# -- the measured spread -----------------------------------------------------
+
+
+@pytestmark_matlab
+def test_area_variation_degrades_and_is_reproducible(crossed):
+    a = crossed["area"]
+    assert a["zeroIsIdentity"]
+    assert a["acc"] < a["ideal"], "a source wired up but not reaching the model"
+    assert a["reproducible"] and a["seedMatters"]
+
+
+@pytestmark_matlab
+def test_area_variation_is_not_clamped_to_the_window(crossed):
+    """The opposite of source 1, and for a physical reason.
+
+    A programming error cannot set a device outside the states it has, so source 1
+    clamps. A pillar that came out smaller than drawn has a smaller conductance in
+    *both* states, so its window moves, and devices land outside the nominal one on
+    either side. A clamp here would quietly shrink the measured spread.
+    """
+    a = crossed["area"]
+    assert a["belowWindow"] and a["aboveWindow"]
+
+
+@pytestmark_matlab
+def test_the_area_factor_has_mean_one_and_the_configured_spread(crossed):
+    """Each device times ``a ~ N(1, sigma)``: the parameter is imec's sigma/mu itself."""
+    a = crossed["area"]
+    n, sigma = a["factorN"], 0.05
+    assert a["factorMean"] == pytest.approx(1.0, abs=5 * sigma / np.sqrt(n))
+    assert a["factorStd"] == pytest.approx(sigma, abs=5 * sigma / np.sqrt(2 * n))
+
+
+@pytestmark_matlab
+def test_the_area_factor_is_the_same_draw_on_any_base(crossed):
+    assert crossed["area"]["factorIndependentOfBase"]
+
+
+@pytestmark_matlab
+def test_the_driver_draws_area_at_its_own_offset_after_source_one(crossed):
+    """Seed + 10000, so every recorded ``sigma_g_rel`` run is bit-identical.
+
+    The driver reserved offsets in strides of 10,000 before there was a second
+    stochastic source for exactly this. Both checks compare the driver's accuracy
+    with one computed by hand from the same draws, so an off-by-a-stride seed or a
+    reversed composition fails here rather than shifting a recorded edge.
+    """
+    a = crossed["area"]
+    assert a["driverSeedOffset"]
+    assert a["driverComposes"]
 
 
 # -- the driver --------------------------------------------------------------

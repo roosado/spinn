@@ -21,9 +21,9 @@
  * solves the network. The recorded budget, the published row and the main page are
  * all first order, so both are drawn here and the difference is the point rather
  * than a footnote. At 36 rows first order puts the edge between 200 and 431 ohm and
- * the network puts it between 431 and 928 -- and the row, on its own coarser ladder,
- * records holding at 100 and failing at 300. Three brackets, one array, all true,
- * and the caption under the chart is what says so.
+ * the network still holds at 928, the top of the ladder -- and the row, on its own
+ * coarser ladder, records holding at 300 and failing at 1000. Three statements, one
+ * array, all true, and the caption under the chart is what says so.
  *
  * Why the chart is normalised
  * ---------------------------
@@ -440,8 +440,8 @@
         + "over all 2,000. The fainter curves are the other four sizes. "
         + impossible
         + (grid === 6
-          ? "At 6&times;6 the main page records IR drop holding at 100&nbsp;&#937; and "
-            + "failing at 300 &mdash; the same first-order model, on the row&rsquo;s "
+          ? "At 6&times;6 the main page records IR drop holding at 300&nbsp;&#937; and "
+            + "failing at 1&nbsp;k&#937; &mdash; the same first-order model, on the row&rsquo;s "
             + "coarser nine-rung ladder. A finer ladder moves a bracket without moving "
             + "a curve."
           : "Only 6&times;6 is the shared task; this grid is internal to this repository.");

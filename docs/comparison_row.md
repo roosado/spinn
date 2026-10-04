@@ -14,9 +14,9 @@ seeds from `baseSeed = 20260908`, and assembled by `apps/report_row.py`.
 | Ideal accuracy | **0.7345** on the shared task (MNIST, 36 channels) |
 | Which source binds | **conductance variation** (device-to-device sigma) |
 | Required precision | **4.84 effective bits** on the binding source |
-| Delivered precision | `UNSOURCED` |
-| Margin | *omitted — delivered precision is not sourced* |
-| Energy per inference | `UNSOURCED`; array read power **1.577 µW** |
+| Delivered precision | **σ/μ = 0.031–0.063**, measured on this device class (Doevenspeck et al. 2020) — a bracket, see below |
+| Margin | **undetermined** at the design ratio of 3; undetermined at the measured 2.03; fails at the measured 1.85 — see below |
+| Energy per inference | `UNSOURCED`; array read power **0.988 µW** |
 | Latency per inference | `UNSOURCED` |
 
 Array **36×10**, 720 devices, differential pairs.
@@ -30,19 +30,26 @@ and standard deviation and no fitted crossing point, deliberately.
 
 | source | holds at | fails at | in effective bits |
 |---|---|---|---|
-| 1. conductance variation | σ = 0.035 of the window (0.7003) | σ = 0.05 (0.6671) | **holds at 4.84, fails at 4.32** |
+| 1. conductance variation | σ = 0.035 of the window (0.7087) | σ = 0.05 (0.6799) | **holds at 4.84, fails at 4.32** |
+| 1, measured: area variation | σ/μ = 0.05 (0.7046) | σ/μ = 0.063 (0.6929) | *judged against the delivered spread — see below* |
 | 2. resolvable states | 7 states/device | 5 states/device | holds at 3.70, fails at 3.17 |
-| 3. IR drop | 100 Ω per segment | 300 Ω per segment | *not a bit depth — see below* |
+| 3. IR drop | 300 Ω per segment | 1000 Ω per segment | *not a bit depth — see below* |
 
 **Conductance variation binds.** It demands 4.84 bits where the states knob demands 3.70, and both are
 expressed against the same conductance window, so the comparison is like for
 like. That was the prediction on record before any of this ran.
 
+**Source 1 is measured twice, and the two are never combined.** As a uniform σ
+against the window it is the required precision, in the hub's unit. As area
+variation — each device's whole conductance times `a ~ N(1, σ)`, the form imec
+measured — it is what the delivered spread is judged with. They are two models
+of one spread, so the joint run below uses the first and not both.
+
 **IR drop is deliberately not converted to bits.** It is a position-dependent
 systematic, not a spread on a stored value, so `log2(range/σ)` has no σ to take.
 Forcing it into the unit would be a category error. The statement that means
 something is the one in the table: at this array size the design tolerates
-100 Ω per wire segment and fails by 300 Ω.
+300 Ω per wire segment and fails by 1000 Ω.
 **That number is meaningless without the array size beside it**, which is why
 the size is fixed and reported. How it moves with the size — and how far the
 first-order model behind its failing side is from the network it approximates —
@@ -50,18 +57,18 @@ is measured in `docs/array_size.md`. The failing side above is first order's.
 
 **It is equally conditional on the conductance window.** A wire drop is `R·I`,
 and `I` is set by the absolute conductance of the devices — so unlike sources 1
-and 2, this bracket does not cancel the window. Holding the ratio at 3 and
-moving the window by a decade either way moves the edge past both ends of the
-swept ladder: at a tenth of this window even 1 kΩ holds, and at ten times it
+and 2, this bracket does not cancel the window. Accuracy under IR drop depends
+on `R·G` alone, so holding the ratio at 3 and moving the window by a decade
+moves the edge by a decade: at a tenth of this window 3 kΩ holds, and at ten times it
 100 Ω has already failed.
 
 **At this size and in this window, IR drop does not bind.** Published crossbar
 wiring runs from 2 Ω per cell at 65 nm (Agrawal et al. 2019),
 through 2–10 Ω across 45–65 nm, to about 20 Ω at 7 nm (Victor
-et al. 2024; Wang et al. 2023). The design holds to 100 Ω, so the wiring
-would have to be 5 times worse than the most scaled of those before this
+et al. 2024; Wang et al. 2023). The design holds to 300 Ω, so the wiring
+would have to be 15 times worse than the most scaled of those before this
 source bound. A segment is resistance per length times the cell pitch — on
-7 nm minimum-pitch wiring, 182 Ω/µm, 100 Ω is a 0.55 µm pitch — so
+7 nm minimum-pitch wiring, 182 Ω/µm, 300 Ω is a 1.65 µm pitch — so
 a cell that large is wired wider than minimum.
 
 What keeps the wires out of this budget is the window. A thin-barrier memory
@@ -71,9 +78,9 @@ which 100 Ω already fails.
 
 ## The joint run
 
-All three sources at the last magnitude each individually held: mean **0.6819** ± 0.0119, which is **below** the pass mark.
+All three sources at the last magnitude each individually held: mean **0.6709** ± 0.0120, which is **below** the pass mark.
 
-The joint drop is 0.0526 against 0.0772
+The joint drop is 0.0636 against 0.0838
 for the sum of the independent drops — **sub-additive**, not additive. That is a
 property of accuracy as a metric rather than a finding about the crossbar: a
 sample already misclassified by one source cannot be misclassified again by the
@@ -105,11 +112,20 @@ higher write voltage or current”. A read-only junction carries no write
 current, and at this resistance a series access transistor is a small fraction
 of the cell.
 
+**The integrated devices come in lower.** The three-terminal junctions with a thick
+read barrier that imec integrated and measured run at TMR 85% at RA 5 kΩ·µm²,
+falling to 68% at 50 (Doevenspeck et al. 2020, Fig. 6, at 80 nm), and 103% in a
+perpendicular four-pillar stack (Doevenspeck et al. 2021, Fig. 16) — against 200%
+here, and against the 150% imec's own analysis assumed. The design keeps 200%,
+because film-level junctions reach it and a window is a design value. But a
+delivered spread arrives as σ/μ and reaches the window through the ratio, so the
+margin below is judged at the measured ratios as well as at this one.
+
 **Other work chose other windows, for other machines.** Jung et al. (2022) built
 a 64×64 MRAM crossbar at 13 and 26 kΩ and summed *resistances* rather than
 currents, because a current-summing array of cells that conductive would draw
 too much power. imec's current-summing SOT-MRAM arrays went the other way, to
-R_on = 6 MΩ (Doevenspeck et al. 2020, as reported by Cai et al. 2021). A 7 nm
+R_on = 6 MΩ (Doevenspeck et al. 2020, Table I). A 7 nm
 simulation study used SOT junctions of 8–20 kΩ against 28–100 kΩ (Wang et al.
 2023), and domain-wall junctions have been made at 95% (Lequeux et al. 2016)
 and 164% TMR (Alamdar et al. 2021). This design sits between the two built
@@ -117,21 +133,70 @@ extremes: 26–38 times less conductive than the commodity cell, 18 times more t
 
 ## Delivered precision
 
-Still `UNSOURCED`: nobody has measured the device-to-device spread of this
-design. The one MTJ crossbar with a published spread is the commodity cell
-above — σ/R of 7.7% on its high-resistance state and 12.3% on its low,
-over 8,192 cells with the access transistor included (Jung et al. 2022). It is
-a different device, so it is not this design's delivered precision and **no
-margin is computed from it**. For scale only: the same relative spreads against
-this window's span are 0.038 and 0.18 — past the 0.035 that holds on both
-states, and past the 0.05 that fails on the low-resistance one. The binding source
-is the one to measure first.
+**Measured, for this device class, and a bracket.** imec has measured the
+device-to-device spread of this kind of junction — three-terminal, written along a
+spin-orbit-torque track and read through the barrier — on 300 mm wafers (Doevenspeck
+et al. 2020). Two of their findings make it usable for a junction they did not
+build: the spread “does not increase for increasing RA products”, and it is “mostly
+determined by process-induced area variations”. It follows the pillar's size rather
+than its barrier, and this design's pillar size is known.
+
+That pillar is 114 nm across, electrically. imec measured either side of it, across
+three barriers (their Fig. 8b, read by pixel):
+
+| electrical CD | σ/μ of R_P at RA 5, 20 and 50 kΩ·µm² |
+|---|---|
+| ≈ 90 nm | 0.049, 0.056, 0.063 |
+| ≈ 127 nm | 0.033, 0.040, 0.031 |
+
+So the delivered spread is **σ/μ between 0.031 and 0.063**, the envelope of both
+sizes, with nothing interpolated between them. It is adopted as the delivered spread
+*of the class* and not presented as more: by its authors' account it comes from a
+test vehicle and does “not represent the fundamental lower limit”, its barriers
+start at 5 kΩ·µm² against 3.4 here, and its values are read off a figure. imec's
+multi-pillar devices a year later agree with it: four pillars in parallel spread by
+σ/μ = 3.3–4.1% over 80 devices (Doevenspeck et al. 2021, Fig. 16), a single pillar's
+spread averaged over four.
+
+**Judged with the source built for it.** A spread set by area is proportional to
+conductance — a pillar that came out small is small in both states — so it is not
+source 1's uniform σ, and it is not converted into source 1's bits. Against this
+window it is 0.015–0.032 on a device that is off and 0.046–0.095 on one that is on:
+not one number. It is put against area variation instead, swept in σ/μ with both
+ends of the bracket on the ladder, so the verdict is read off ladder points rather
+than interpolated:
+
+| window ratio | area variation holds at → fails at | at σ/μ = 0.031 | at 0.063 | verdict |
+|---|---|---|---|---|
+| 3, the design | 0.05 → 0.063 | 0.7211 | 0.6929 | **undetermined** |
+| 2.03, imec 2021, four pillars, medians over 80 devices (Fig. 16) | 0.035 → 0.05 | 0.7045 | 0.6348 | **undetermined** |
+| 1.85, imec 2020, RA 5 kΩ·µm² (Fig. 6) | 0.02 → 0.031 | 0.6952 | 0.6048 | **fails**, short by up to 0.63 bits |
+
+The rule was declared before the run: it holds if the worse end of the bracket
+holds, fails if the better end fails, and is otherwise undetermined at this
+resolution.
+
+**At the design ratio the margin is undetermined, which is not the same as
+missing.** This array's edge lies between σ/μ = 0.05 and 0.063, inside the delivered
+bracket: it holds at the spread imec measured on pillars larger than this one and
+fails at the spread they measured on smaller ones. Which side of 114 nm a fabricated
+junction falls on decides it, and the test vehicle cannot.
+
+**The ratio decides as much as the spread.** At 2.03 the margin is undetermined. At
+1.85 the margin fails. A measured σ/μ reaches the window through the ratio, which is
+why the integrated TMR in the operating-point section matters to the margin and not
+only to the window. How the verdict moves with the array size is in
+`docs/array_size.md`.
+
+For scale, and nothing more: the commodity cell's measured spread is larger than
+either end — σ/R of 7.7% and 12.3% over 8,192 cells, access transistor included
+(Jung et al. 2022) — on a thin-barrier memory cell, a different device.
 
 ## Energy and latency
 
 Both are `UNSOURCED`, and the arithmetic is given so a reader can substitute.
 
-Array read power is **1.577 µW** at the design operating point,
+Array read power is **0.988 µW** at the design operating point,
 computed exactly as `mean_over_samples( sum_ij V_i² · G_ij )` over all 720
 devices at the operating point in the handoff.
 
@@ -169,9 +234,18 @@ The design values are this project's own; these are what show they can be built.
 - Alamdar et al., *Appl. Phys. Lett.* 118, 112401 (2021),
   <https://arxiv.org/abs/2010.13879> — three-terminal domain-wall MTJs for
   in-memory computing; TMR 164%, RA 31 Ω·µm².
-- Cai et al. (2021), <https://arxiv.org/abs/2110.03937> — reports Doevenspeck
-  et al. (imec, IEEE Symposium on VLSI Technology 2020) at R_on = 6 MΩ, and
-  lists Shih et al. 2020.
+- Cai et al. (2021), <https://arxiv.org/abs/2110.03937> — lists Shih et al. 2020.
+- Doevenspeck et al., “SOT-MRAM based Analog in-Memory Computing for DNN
+  inference”, IEEE Symposium on VLSI Technology (2020),
+  <https://ieeexplore.ieee.org/document/9265099> — three-terminal SOT junctions
+  on 300 mm wafers at RA 5–50 kΩ·µm²; σ/μ of R_P against electrical CD, set by
+  area and not by RA (Fig. 8); R-H loops at 80 nm, TMR 68–85% (Fig. 6); R_on =
+  6 MΩ and an assumed TMR of 150% (Table I); zero stored as two AP devices.
+- Doevenspeck et al., “Multi-pillar SOT-MRAM for Accurate Analog in-Memory DNN
+  Inference”, IEEE Symposium on VLSI Technology (2021),
+  <https://ieeexplore.ieee.org/document/9508714> — four pillars on one SOT track;
+  conductance distributions over 80 devices, a ratio of 2.03 and σ/μ of
+  3.3–4.1% per level (Fig. 16).
 - Grollier et al., “Neuromorphic spintronics”, *Nature Electronics* 3, 360–370
   (2020), <https://doi.org/10.1038/s41928-019-0360-9> — a conductance ratio
   “typically around three”.

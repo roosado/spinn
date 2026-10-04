@@ -52,6 +52,11 @@ function summary = run_size_sweep(grids, sizeDir)
 %
 %   The pass mark is not restated for the sample. It is 95% of the *full* ideal, and a
 %   sample number is a pointer rather than a verdict.
+%
+%   Area variation (sigma_area_rel, from 2026-10-04) is measured at every size by
+%   run_error_budget like the others, and has no sample twin: it is the form of
+%   source 1 the delivered spread is judged with, and nothing in the browser draws
+%   it, so there is no live number for a twin to stand behind.
 
     arguments
         grids (1,:) double = [6 8 12 18 26]

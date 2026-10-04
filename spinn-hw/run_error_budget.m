@@ -2,7 +2,10 @@ function results = run_error_budget(handoffPath, outPath, options)
 %RUN_ERROR_BUDGET Sweep each as-built error source, then all of them together.
 %   RESULTS = RUN_ERROR_BUDGET(HANDOFFPATH, OUTPATH) loads the handoff, sweeps
 %   sources 1-3 independently over magnitude ladders, runs a joint configuration,
-%   and writes RESULTS to OUTPATH as JSON.
+%   and writes RESULTS to OUTPATH as JSON. Source 1 is swept twice: as a uniform
+%   sigma against the span (the required precision, in the hub's unit) and as area
+%   variation (sigma/mu, the form imec measured, which the delivered spread is
+%   judged against). The two are never combined.
 %
 %   Not inherited: photonn kept its run_error_budget at its own repo root and only
 %   the shared harness came across. The harness is what matters -- mc.sweep,
@@ -24,6 +27,12 @@ function results = run_error_budget(handoffPath, outPath, options)
         % published row was measured on, so calling this without the option
         % reproduces it exactly; run_size_sweep passes its own.
         options.WireLadder (1,:) double = [1e1 1e2 3e2 1e3 3e3 1e4 3e4 1e5 3e5]
+        % Which sources to sweep. All of them by default. The window-ratio variants
+        % (exports/ratio/) run the area source alone: under a multiplicative spread
+        % only the ratio matters, and the other sources there would be numbers
+        % nobody asked for. The joint run needs sources 1-3 and is skipped without.
+        options.Sources (1,:) string = ["sigma_g_rel", "sigma_area_rel", ...
+                                        "states_per_device", "wire_resistance_ohm"]
     end
 
     here = fileparts(mfilename('fullpath'));
@@ -60,35 +69,64 @@ function results = run_error_budget(handoffPath, outPath, options)
     results.nDevices = h.geometry.n_rows * h.geometry.n_cols * h.geometry.devices_per_weight;
     results.scheme = h.scheme;
 
+    run = @(name) any(options.Sources == name);
+
     % -- source 1: conductance variation, stochastic -----------------------
     % Logarithmic, because the reporting unit is log2(range/sigma): an evenly
     % spaced ladder in sigma is an unevenly spaced one in bits.
-    mags1 = [0.002 0.005 0.010 0.020 0.035 0.050 0.075 0.100 0.150 0.200 0.300];
-    results.sigma_g_rel = sweepOne(h, "sigma_g_rel", mags1, N_STOCHASTIC, ...
-                                   BASE_SEED, threshold);
+    if run("sigma_g_rel")
+        mags1 = [0.002 0.005 0.010 0.020 0.035 0.050 0.075 0.100 0.150 0.200 0.300];
+        results.sigma_g_rel = sweepOne(h, "sigma_g_rel", mags1, N_STOCHASTIC, ...
+                                       BASE_SEED, threshold);
+    end
+
+    % -- source 1, measured: area variation, stochastic ---------------------
+    % sigma/mu, the quantity imec measured. 0.031 and 0.063 are on the ladder
+    % because they are the delivered bracket -- imec's measurements at the two
+    % pillar sizes either side of this design's (docs/history.md, 2026-10-04) -- so
+    % "does the delivered spread hold" is read off a ladder point rather than off
+    % an edge someone interpolated. That is how 2 and 20 ohm got onto the size
+    % sweep's wire ladder.
+    if run("sigma_area_rel")
+        mags1b = [0.010 0.020 0.031 0.035 0.050 0.063 0.075 0.100 0.150];
+        results.sigma_area_rel = sweepOne(h, "sigma_area_rel", mags1b, N_STOCHASTIC, ...
+                                          BASE_SEED, threshold);
+    end
 
     % -- source 2: resolvable states, deterministic ------------------------
     % Descending, so "more error" runs left to right like the others.
-    mags2 = [65 33 17 9 7 5 4 3 2];
-    results.states_per_device = sweepOne(h, "states_per_device", mags2, ...
-                                         N_DETERMINISTIC, BASE_SEED, threshold);
+    if run("states_per_device")
+        mags2 = [65 33 17 9 7 5 4 3 2];
+        results.states_per_device = sweepOne(h, "states_per_device", mags2, ...
+                                             N_DETERMINISTIC, BASE_SEED, threshold);
+    end
 
     % -- source 3: IR drop, deterministic ----------------------------------
     % The ladder is chosen to bracket rather than to model one wire: a device is
     % ~1/g_min ohms, and the drop starts to matter when the accumulated wire
     % resistance along a line approaches that. Published crossbar wiring is 2-20
     % ohms per cell (docs/history.md, 2026-09-11), at the bottom of this ladder.
-    mags3 = options.WireLadder;
-    results.wire_resistance_ohm = sweepOne(h, "wire_resistance_ohm", mags3, ...
-                                           N_DETERMINISTIC, BASE_SEED, threshold);
+    if run("wire_resistance_ohm")
+        mags3 = options.WireLadder;
+        results.wire_resistance_ohm = sweepOne(h, "wire_resistance_ohm", mags3, ...
+                                               N_DETERMINISTIC, BASE_SEED, threshold);
+    end
+
+    names = ["sigma_g_rel", "states_per_device", "wire_resistance_ohm"];
+    if ~all(arrayfun(run, names))
+        writeResults(results, outPath);
+        return
+    end
 
     % -- joint --------------------------------------------------------------
     % Each source set to the last magnitude it individually held at. If the
     % sources are independent, the joint accuracy drop should be close to the sum
     % of the individual drops; a joint result meaningfully worse is a real finding
     % about the crossbar rather than something to expect.
+    %
+    % Sources 1-3 only. Area variation is the measured form of source 1, not a
+    % fourth source, and stacking the two would count one spread twice.
     joint = struct();
-    names = ["sigma_g_rel", "states_per_device", "wire_resistance_ohm"];
     for n = names
         joint.(n) = results.(n).lastHolding;
     end
@@ -115,6 +153,11 @@ function results = run_error_budget(handoffPath, outPath, options)
     % What is computed is each source's bracket, which is what that judgement
     % needs.
 
+    writeResults(results, outPath);
+end
+
+
+function writeResults(results, outPath)
     txt = jsonencode(results, 'PrettyPrint', true);
     fid = fopen(outPath, 'w');
     fprintf(fid, '%s', txt);

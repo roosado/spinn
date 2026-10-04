@@ -25,10 +25,12 @@ from apps.train_crossbar import (
     fit_to_window,
     learning_rate,
     output_dir,
+    ratio_crossbar,
+    ratio_dir,
     softmax,
     train,
 )
-from spinn.crossbar import Crossbar, accuracy
+from spinn.crossbar import G_MAX, G_MIN, Crossbar, accuracy
 from spinn.task import one_hot
 
 
@@ -153,3 +155,32 @@ def test_the_rows_own_handoff_stays_where_it_was_and_the_rest_go_under_size():
     assert output_dir(6) == EXPORTS
     assert output_dir(12) == os.path.join(EXPORTS, "size", "g12")
     assert output_dir(8).endswith(os.path.join("size", "g08")), "zero-padded, so they sort"
+
+
+def test_a_window_ratio_variant_lands_under_ratio_named_by_its_ratio():
+    """``exports/ratio/r2p03``: a sensitivity, kept apart from the design's own handoff."""
+    assert ratio_dir(2.03) == os.path.join(EXPORTS, "ratio", "r2p03")
+    assert ratio_dir(1.85) == os.path.join(EXPORTS, "ratio", "r1p85")
+
+
+def test_a_window_ratio_variant_holds_g_min_and_moves_only_g_max():
+    """The design's off state stays put; only the on state follows the measured TMR.
+
+    Under a spread proportional to conductance only the ratio reaches the accuracy,
+    so which end is held is a choice about IR drop and power, which the variants are
+    not run for. Holding g_min keeps the high-resistance state -- the one most
+    devices sit in -- at the design's 1 MOhm.
+    """
+    cb = ratio_crossbar(36, 10, 2.03)
+    assert cb.g_min == G_MIN
+    assert cb.g_max == pytest.approx(2.03 * G_MIN)
+    assert cb.ratio == pytest.approx(2.03)
+    assert ratio_crossbar(36, 10, None).g_max == G_MAX, "no ratio is the design"
+
+
+def test_a_ratio_variant_computes_exactly_what_the_design_does():
+    """The window cancels in the ideal decode, so a variant's ideal is the design's."""
+    rng = np.random.default_rng(3)
+    images, w = rng.random((5, 36)), rng.uniform(-1, 1, (36, 10))
+    assert np.allclose(ratio_crossbar(36, 10, 1.85).forward(images, w),
+                       Crossbar(36, 10).forward(images, w))

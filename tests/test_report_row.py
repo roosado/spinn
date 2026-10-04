@@ -23,10 +23,15 @@ import pytest
 from apps import report_row
 from apps.report_row import (
     BUDGET,
+    DELIVERED_SIGMA_AREA,
     HANDOFF,
+    IMEC_SIGMA_MU,
+    MEASURED_RATIOS,
+    RATIO_BUDGETS,
     bits_from_sigma,
     bits_from_states,
     design_check,
+    margin,
 )
 from spinn.crossbar import Crossbar
 
@@ -117,6 +122,78 @@ def test_the_pairs_advantage_grows_towards_exactly_one_bit():
     assert at_many == pytest.approx(1.0, abs=0.01)
 
 
+# -- the margin rule -----------------------------------------------------------
+
+
+def _ladder(mags, accs, threshold=0.7):
+    holds = [a >= threshold for a in accs]
+    last = max((i for i, h in enumerate(holds) if h), default=None)
+    first = min((i for i, h in enumerate(holds) if not h), default=None)
+    return {"magnitudes": mags, "accMean": accs, "holds": holds,
+            "lastHolding": mags[last] if last is not None else float("nan"),
+            "firstFailing": mags[first] if first is not None else float("nan")}
+
+
+MAGS = [0.01, 0.02, 0.031, 0.035, 0.05, 0.063, 0.075]
+
+
+def test_the_margin_holds_when_the_worse_end_of_the_bracket_holds():
+    """And the margin is itself a bracket, because the edge is only between two rungs.
+
+    Worse end 0.063 holds, the edge is between 0.075 (holds) and nothing: here the
+    ladder fails at 0.075, so the edge lies between 0.063 and 0.075 and the margin is
+    between log2(0.063/0.063) = 0 and log2(0.075/0.063) = 0.25 bits.
+    """
+    m = margin(_ladder(MAGS, [.75, .74, .73, .72, .71, .705, .69]), (0.031, 0.063))
+    assert m["verdict"] == "holds"
+    assert m["bits"] == pytest.approx((0.0, math.log2(0.075 / 0.063)))
+
+
+def test_an_edge_beyond_the_ladder_leaves_the_margin_open_above():
+    """Holding at every rung is a lower bound, not an edge -- and MATLAB writes it as null.
+
+    ``jsonencode`` turns the NaN of "never failed" into ``null``, which arrives here as
+    ``None``. The margin is then at least ``log2(top / worse end)`` and has no upper end.
+    """
+    s = _ladder(MAGS, [.75] * 7)
+    s["firstFailing"] = None
+    m = margin(s, (0.031, 0.063))
+    assert m["verdict"] == "holds"
+    assert m["bits"] == (pytest.approx(math.log2(0.075 / 0.063)), math.inf)
+
+
+def test_the_margin_fails_when_the_better_end_fails():
+    """Short by up to log2(0.031 / 0.02) bits: the edge is between 0.02 and 0.031."""
+    m = margin(_ladder(MAGS, [.75, .71, .69, .68, .66, .64, .62]), (0.031, 0.063))
+    assert m["verdict"] == "fails"
+    assert m["short_bits"] == pytest.approx((0.0, math.log2(0.031 / 0.02)))
+
+
+def test_the_margin_is_undetermined_when_the_bracket_straddles_the_edge():
+    m = margin(_ladder(MAGS, [.75, .74, .73, .72, .71, .69, .68]), (0.031, 0.063))
+    assert m["verdict"] == "undetermined"
+    assert "bits" not in m and "short_bits" not in m
+
+
+def test_a_delivered_end_off_the_ladder_is_refused_rather_than_interpolated():
+    """The whole point of putting both ends on the ladder."""
+    with pytest.raises(ValueError, match="not on the ladder"):
+        margin(_ladder(MAGS, [.75] * 7), (0.031, 0.06))
+
+
+def test_a_ladder_that_holds_at_the_worse_end_but_not_the_better_is_refused():
+    with pytest.raises(ValueError, match="not monotone"):
+        margin(_ladder(MAGS, [.75, .74, .69, .72, .71, .705, .69]), (0.031, 0.063))
+
+
+def test_the_delivered_bracket_is_the_envelope_of_both_measured_sizes():
+    """imec's two electrical CDs either side of this design's 114 nm pillar."""
+    assert sorted(IMEC_SIGMA_MU) == [90, 127]
+    every = [v for row in IMEC_SIGMA_MU.values() for v in row]
+    assert DELIVERED_SIGMA_AREA == (min(every), max(every)) == (0.031, 0.063)
+    assert 90 < design_check(1.0e-6, 3.0e-6, 0.1)["pillar_nm"] < 127
+
+
 # -- the power arithmetic ------------------------------------------------------
 
 
@@ -154,7 +231,7 @@ def test_the_pass_mark_is_ninety_five_percent_of_ideal(result):
 
 @budget
 @pytest.mark.parametrize(
-    "source", ["sigma_g_rel", "states_per_device", "wire_resistance_ohm"]
+    "source", ["sigma_g_rel", "sigma_area_rel", "states_per_device", "wire_resistance_ohm"]
 )
 def test_every_source_bracketed_its_edge(result, source):
     """A ladder that never fails has found a too-narrow ladder, not an edge."""
@@ -166,7 +243,7 @@ def test_every_source_bracketed_its_edge(result, source):
 
 @budget
 @pytest.mark.parametrize(
-    "source", ["sigma_g_rel", "states_per_device", "wire_resistance_ohm"]
+    "source", ["sigma_g_rel", "sigma_area_rel", "states_per_device", "wire_resistance_ohm"]
 )
 def test_the_holds_flags_agree_with_the_pass_mark(result, source):
     s = result[source]
@@ -186,8 +263,9 @@ def test_the_deterministic_sources_really_have_no_spread(result):
 @budget
 def test_the_stochastic_source_spreads_more_as_it_worsens(result):
     """A variation sweep whose spread did not grow would not be varying."""
-    std = result["sigma_g_rel"]["accStd"]
-    assert std[-1] > std[0] > 0
+    for source in ("sigma_g_rel", "sigma_area_rel"):
+        std = result[source]["accStd"]
+        assert std[-1] > std[0] > 0, source
 
 
 @budget
@@ -223,6 +301,39 @@ def test_budgeting_every_source_to_its_own_edge_leaves_nothing_over(result):
     """The practical consequence, and the reason the joint run is reported at all."""
     assert not result["joint"]["holds"]
     assert result["joint"]["mean"] < result["threshold"]
+
+
+@budget
+def test_the_delivered_bracket_is_on_every_area_ladder(result):
+    """Read off ladder points, as declared -- the design's run and both variants."""
+    ladders = [result["sigma_area_rel"]["magnitudes"]]
+    for path in RATIO_BUDGETS.values():
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as fh:
+                ladders.append(json.load(fh)["sigma_area_rel"]["magnitudes"])
+    for mags in ladders:
+        for end in DELIVERED_SIGMA_AREA:
+            assert any(math.isclose(m, end) for m in mags), (end, mags)
+
+
+@budget
+@pytest.mark.parametrize("ratio", sorted(MEASURED_RATIOS))
+def test_a_ratio_variant_is_the_same_array_in_another_window(result, ratio):
+    """Same ideal, same pass mark, and the area source alone.
+
+    The budget's own guard already refused to run if MATLAB could not rebuild the
+    handoff's ideal; this checks the variant is the row's array and not another one,
+    and that it carries no number nobody asked for.
+    """
+    path = RATIO_BUDGETS[ratio]
+    if not os.path.exists(path):
+        pytest.skip(f"no budget at {path}; exports/ is gitignored")
+    with open(path, encoding="utf-8") as fh:
+        variant = json.load(fh)
+    assert variant["ideal"] == result["ideal"]
+    assert variant["threshold"] == result["threshold"]
+    assert "sigma_area_rel" in variant
+    assert not {"sigma_g_rel", "states_per_device", "wire_resistance_ohm", "joint"} & set(variant)
 
 
 # -- the committed row -------------------------------------------------------

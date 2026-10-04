@@ -24,18 +24,22 @@ from spinn.crossbar import Crossbar, accuracy, predict
 #   g_min = 1e-6, g_max = 3e-6  ->  span = 2e-6,  read_voltage = 0.1
 #   W = [[ 1.0, -1.0],
 #        [ 0.0,  0.5]]
-#   g_pos = g_min + (1+w)*1e-6 = [[3e-6, 1e-6], [2e-6, 2.5e-6]]
-#   g_neg = g_min + (1-w)*1e-6 = [[1e-6, 3e-6], [2e-6, 1.5e-6]]
+#   g_pos = g_min + max(w, 0)*2e-6  = [[3e-6, 1e-6], [1e-6, 2e-6]]
+#   g_neg = g_min + max(-w, 0)*2e-6 = [[1e-6, 3e-6], [1e-6, 1e-6]]
 #   image [1.0, 0.5], peak 1.0  ->  V = [0.1, 0.05]
-#   I_pos = [0.1*3e-6 + 0.05*2e-6,  0.1*1e-6 + 0.05*2.5e-6] = [4.00e-7, 2.25e-7]
-#   I_neg = [0.1*1e-6 + 0.05*2e-6,  0.1*3e-6 + 0.05*1.5e-6] = [2.00e-7, 3.75e-7]
+#   I_pos = [0.1*3e-6 + 0.05*1e-6,  0.1*1e-6 + 0.05*2e-6] = [3.50e-7, 2.00e-7]
+#   I_neg = [0.1*1e-6 + 0.05*1e-6,  0.1*3e-6 + 0.05*1e-6] = [1.50e-7, 3.50e-7]
 #   logits = (I_pos - I_neg) / (0.1 * 2e-6)                  = [1.0, -0.75]
+#
+# Until 2026-10-04 the continuous pair was centred, (1+w)/2 and (1-w)/2 of the span,
+# and these rails were [[3, 1], [2, 2.5]] and [[1, 3], [2, 1.5]] uS. The logits were
+# the same, as they must be -- only the currents moved.
 HAND_W = np.array([[1.0, -1.0], [0.0, 0.5]])
 HAND_IMAGE = np.array([[1.0, 0.5]])
-HAND_G_POS = np.array([[3.0e-6, 1.0e-6], [2.0e-6, 2.5e-6]])
-HAND_G_NEG = np.array([[1.0e-6, 3.0e-6], [2.0e-6, 1.5e-6]])
-HAND_I_POS = np.array([[4.00e-7, 2.25e-7]])
-HAND_I_NEG = np.array([[2.00e-7, 3.75e-7]])
+HAND_G_POS = np.array([[3.0e-6, 1.0e-6], [1.0e-6, 2.0e-6]])
+HAND_G_NEG = np.array([[1.0e-6, 3.0e-6], [1.0e-6, 1.0e-6]])
+HAND_I_POS = np.array([[3.50e-7, 2.00e-7]])
+HAND_I_NEG = np.array([[1.50e-7, 3.50e-7]])
 HAND_LOGITS = np.array([[1.0, -0.75]])
 
 
@@ -60,6 +64,49 @@ def test_a_differential_pair_encodes_the_weight_in_its_difference(bar):
     w = np.array([[-1.0, -0.25], [0.4, 1.0]])
     g = Crossbar(2, 2).program(w)
     assert np.allclose(g[0] - g[1], w * Crossbar(2, 2).span)
+
+
+def test_a_zero_weight_is_two_devices_off(bar):
+    """Both rails at ``g_min``: the state imec's pair and its multi-pillar table use.
+
+    It matters because the measured spread is proportional to conductance. A pair
+    centred on the window would hold every zero weight -- two thirds of the trained
+    array is within 0.2 of zero -- at twice the conductance, and so at twice the
+    spread, of a pair that is off.
+    """
+    g = bar.program(np.zeros((2, 2)))
+    assert np.all(g == bar.g_min)
+
+
+def test_a_pair_draws_the_least_current_its_weight_allows(bar):
+    """``g_pos + g_neg = 2*g_min + |w|*span``: one rail is always off.
+
+    Any pair representing ``w`` has ``g_pos - g_neg = w*span`` with both rails at least
+    ``g_min``, so ``2*g_min + |w|*span`` is the smallest total it can have. This is
+    the representation that reaches it.
+    """
+    w = np.array([[-1.0, -0.3], [0.25, 0.9]])
+    g = bar.program(w)
+    assert np.allclose(g[0] + g[1], 2 * bar.g_min + np.abs(w) * bar.span)
+    assert np.all(np.minimum(g[0], g[1]) == bar.g_min)
+
+
+def test_the_continuous_pair_is_the_limit_of_the_quantised_one():
+    """One representation, quantised or not.
+
+    On the quantiser's own lattice the two paths are identical; between lattice
+    points they differ by at most half a step on each rail. Before 2026-10-04 they
+    disagreed by up to half the window on a zero weight, which no accuracy shows
+    and every source that sees the rails does.
+    """
+    n = 64
+    cb, cq = Crossbar(3, 4), Crossbar(3, 4, states=n + 1)
+    on_lattice = np.array([[-1.0, -0.5, 0.0, 0.25], [1.0, 3 / 64, -5 / 64, 0.5],
+                           [-0.75, 0.125, 1 / 64, -1 / 64]])
+    assert np.array_equal(cb.program(on_lattice), cq.program(on_lattice))
+
+    w = np.random.default_rng(20260908).uniform(-1.0, 1.0, size=(3, 4))
+    assert np.max(np.abs(cb.program(w) - cq.program(w))) <= cb.span / (2 * n) + 1e-18
 
 
 def test_every_conductance_stays_inside_the_physical_window(bar):

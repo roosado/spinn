@@ -28,15 +28,24 @@ function keys = error_sources(arch)
             % every run that used it. Naming them before the parameterisation
             % existed would have guaranteed at least one rename.
             %
-            % Only sources 1-3, the comparable core. Sources 4-7 (sneak paths,
-            % read noise, ADC quantisation, retention drift) get their keys when
-            % they get their implementations, for the same reason.
+            % Only sources 1-3, the comparable core, and the measured form of
+            % source 1 that the delivered spread is judged with. Sources 4-7
+            % (sneak paths, read noise, ADC quantisation, retention drift) get
+            % their keys when they get their implementations, for the same reason.
             keys = [ ...
                 ... % 1. err.conductance_variation -- stochastic, the likely binder.
                 ... %    Relative to the window span, not in siemens: the reporting
                 ... %    unit is log2(range/sigma), so bits = -log2(sigma_g_rel)
                 ... %    directly, with no window in the conversion.
                 "sigma_g_rel", ...
+                ... % 1, measured. err.area_variation -- stochastic. Each device's
+                ... %    whole conductance times a ~ N(1, sigma): the spread imec
+                ... %    measured on this device class is set by pillar area, so it
+                ... %    is proportional to conductance and carries no window
+                ... %    clamp. sigma is their sigma/mu directly. Named 2026-10-04,
+                ... %    with the measurement it exists to be compared against.
+                ... %    Never stacked with sigma_g_rel: one spread, two models.
+                "sigma_area_rel", ...
                 ... % 2. err.quantize -- levels per *device*. Under a differential
                 ... %    pair the effective weight resolves finer than this.
                 "states_per_device", ...

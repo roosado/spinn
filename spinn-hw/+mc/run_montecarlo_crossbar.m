@@ -17,6 +17,10 @@ function stats = run_montecarlo_crossbar(handoff, errorConfig, nRealizations, ba
 %   source off):
 %     .sigma_g_rel        - err.conductance_variation (stochastic), sigma as a
 %                           fraction of the conductance span
+%     .sigma_area_rel     - err.area_variation (stochastic), each device's
+%                           conductance times a ~ N(1, sigma): the measured,
+%                           proportional form of the same spread. Applied after
+%                           sigma_g_rel if both are set; the budget never sets both
 %     .states_per_device  - err.quantize (deterministic), levels per device
 %     .wire_resistance_ohm- err.ir_drop (deterministic), ohms per wire segment
 %     .subset             - test-set indices (speed)
@@ -30,9 +34,10 @@ function stats = run_montecarlo_crossbar(handoff, errorConfig, nRealizations, ba
 %   Each stochastic source draws from its own offset of SEED rather than sharing
 %   one stream, so adding a source to a joint configuration cannot change the draw
 %   another source gets. Without that a joint run is not the sum of the
-%   independent ones it is supposed to be compared against. One source is
-%   stochastic today; the offsets are laid out now so sources 4-7 slot in without
-%   disturbing any recorded run.
+%   independent ones it is supposed to be compared against. The offsets were laid
+%   out before a second stochastic source existed so that one could slot in
+%   without disturbing any recorded run, and on 2026-10-04 one did: area
+%   variation takes the next stride, and every sigma_g_rel draw is unchanged.
 
     % Every source is selected by field presence, so a misspelled field is a
     % source that silently never runs and a tolerance curve that is flat because
@@ -40,6 +45,7 @@ function stats = run_montecarlo_crossbar(handoff, errorConfig, nRealizations, ba
     mc.validate_config(errorConfig, "crossbar");
 
     SEED_CONDUCTANCE = 0;      % offsets reserved in units of 10000; see above
+    SEED_AREA = 10000;
 
     subset = [];
     if isfield(errorConfig, 'subset'), subset = errorConfig.subset; end
@@ -77,6 +83,11 @@ function stats = run_montecarlo_crossbar(handoff, errorConfig, nRealizations, ba
         if isfield(errorConfig, 'sigma_g_rel')
             G = err.conductance_variation(G, errorConfig.sigma_g_rel, handoff, ...
                                           seed + SEED_CONDUCTANCE);
+        end
+        % After the programming spread, if both were ever set: an area factor
+        % scales whatever conductance the device was actually set to.
+        if isfield(errorConfig, 'sigma_area_rel')
+            G = err.area_variation(G, errorConfig.sigma_area_rel, seed + SEED_AREA);
         end
 
         opts = struct('conductances', G, 'voltages', V, 'subset', subset);
