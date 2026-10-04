@@ -76,17 +76,23 @@ the sweeps ran.
 
 **The result.** Conductance variation binds, at **4.84 effective bits** (holds at
 σ = 0.035 of the window, fails at 0.05). Resolvable states holds at 7, fails at 5
-(3.70 bits). IR drop holds at 100 Ω per segment, fails at 300 Ω, and is deliberately
+(3.70 bits). IR drop holds at 300 Ω per segment, fails at 1 kΩ, and is deliberately
 **not** converted to bits — it is a position-dependent systematic, not a spread on a
-stored value. All three at their individual edges together: 0.6819, below the pass mark.
+stored value. All three at their individual edges together: 0.6709, below the pass mark.
+
+**The margin.** Delivered precision is measured for this device class: σ/μ between
+0.031 and 0.063 (imec, Doevenspeck et al. 2020), a bracket, judged with area variation.
+At the design window the margin is **undetermined** — the array holds at 0.05 and fails at
+0.063, inside the bracket. At imec's measured integrated ratios it is undetermined at 2.03
+and fails at 1.85. "Undetermined" is a result to show as such, not a hole.
 
 **The design point, which is not a hole.** `g_min` = 1 µS, `g_max` = 3 µS,
 `read_voltage` = 0.1 V: a 2 nm CoFeB/MgO junction about 114 nm across, written beside and
 read through in a three-terminal cell, each step cited. Published wiring (2–20 Ω per
-cell) sits five times inside IR drop's 100 Ω edge.
+cell) sits fifteen times inside IR drop's 300 Ω edge.
 
-**The holes, which must stay visible.** Delivered precision, energy per inference and
-latency are `UNSOURCED`. Array read power is 1.577 µW, **array only** — it excludes
+**The holes, which must stay visible.** Energy per inference and latency are
+`UNSOURCED`. Array read power is 0.988 µW, **array only** — it excludes
 sense amplifiers, ADC and every digital stage after them.
 
 **Technical constraints.** Everything inlined; no external subresource. Theme-aware with

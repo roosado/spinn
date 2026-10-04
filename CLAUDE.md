@@ -34,7 +34,7 @@ belongs in the device physics and the error model.
   `python -m apps.export_web_data` and `python -m apps.export_size_data`.
 - The site is **two pages**: `site/index.html` (the argument) and `site/larger.html`
   (the same instruments at five array sizes). Both are committed. `larger.html` is 1.3 MB
-  because it inlines `size_data.js`; the index is 332 kB and carries none of it.
+  because it inlines `size_data.js`; the index is 334 kB and carries none of it.
 - **The site is published from `gh-pages`, not from `main`.** Pages serves that branch's
   root, which is the *contents* of `site/`. Building and committing the pages updates the
   repo and not the live site; publishing is
@@ -58,13 +58,13 @@ spinn/
 spinn-hw/
 ├── +mc/              # sweep, pack, validate_config, error_sources + the crossbar driver
 ├── +model/           # program, encode, crossbar — the as-built forward pass
-├── +err/             # conductance_variation, quantize, ir_drop, ir_drop_exact (+ inherited detector_noise)
+├── +err/             # conductance_variation, area_variation, quantize, ir_drop, ir_drop_exact (+ inherited detector_noise)
 ├── +io/read_handoff.m  # the one MATLAB reader
 ├── run_error_budget.m  # the sweep entry point; writes exports/error_budget.json
 └── run_size_sweep.m    # the same budget at five array sizes, and the first-order check
 
 apps/
-├── train_crossbar.py   # trains the ideal array; NumPy, no autograd
+├── train_crossbar.py   # trains the ideal array; NumPy, no autograd; --ratio for the TMR variants
 ├── report_row.py       # the error budget -> docs/comparison_row.md
 ├── report_size.py      # the size sweep -> docs/array_size.md
 ├── export_web_data.py  # weights, test set and budget -> apps/web/data.js
@@ -103,25 +103,31 @@ shared task is **0.7345** (seed `20260908`), with `readout_gain = 5.4271`.
 
 The comparable core is complete. **Conductance variation binds, at 4.84 effective
 bits**; the full row and its brackets are in `docs/comparison_row.md`, and that is the
-single statement of it — the hub refers to it rather than copying it. Delivered
-precision, energy per inference and latency are all `UNSOURCED`, so no margin is
-claimed and that column is omitted.
+single statement of it — the hub refers to it rather than copying it. **Delivered
+precision is measured for this device class**: σ/μ between 0.031 and 0.063, imec's
+measurements either side of this design's pillar (Doevenspeck et al. 2020), a bracket.
+**The margin is undetermined** at the design window — the array holds at 0.05 and fails
+at 0.063, inside the bracket — undetermined at imec's measured ratio of 2.03, and failing
+at 1.85. Energy per inference and latency are `UNSOURCED`.
 
 **The array-size sweep is done and is on the site** (`docs/array_size.md` is the single
 statement of it; `site/larger.html` shows it): grids
 6, 8, 12, 18 and 26, so 36 to 676 rows and ten columns throughout, each trained fresh on
 the same 2,000 digits. Only the column wire lengthens. On the **solved** network, cited
 7 nm wiring (20 Ω a cell) holds at 324 rows and fails at 676, and 65 nm wiring (2 Ω)
-holds at every size swept. **Only 6×6 is the shared task**; the other grids are
-spinn-internal. Its main finding is about the model: see the second decision under
-*Resolved*.
+holds at every size swept. The delivered spread holds from 64 rows up, so with 7 nm
+wiring the wire is what fails, between 324 and 676 rows. **Only 6×6 is the shared task**;
+the other grids are spinn-internal. Its main finding is about the model: see the
+decision on first order under *Resolved*.
 
 `g_min`, `g_max` and `read_voltage` — 1 µS, 3 µS, 0.1 V — are a **design point**, not a
 measurement: a CoFeB/MgO junction with a 2 nm barrier (RA ≈ 3.4 kΩ·µm², TMR 200%, a
 ~114 nm pillar), written along a separate line and read through the junction. The check
 that this can be built, and the windows other work chose, are in `docs/history.md`
 (2026-09-11). They **cancel exactly** in the decode — a test asserts the ideal accuracy
-is unchanged across unrelated windows — except in IR drop, which is `R·I`.
+is unchanged across unrelated windows — except in IR drop, which is `R·I`, and in turning
+a measured σ/μ into a spread against the window, which goes through the ratio. That is
+why the margin is also judged at the integrated TMR imec measured.
 
 ### Inherited from photonn
 
@@ -173,15 +179,17 @@ an as-built property and belongs in the error config, not the ideal design.
 The seam is proven by round trip: MATLAB rebuilds the array from the file alone and must
 reproduce the accuracy Python recorded. That is the only detector for a transposed weight
 matrix, a column-major image flatten, an assumed signed scheme or a defaulted gain — none
-of which raise.
+of which raise. It cannot see a rail convention, because any pair with the right
+difference decodes to the same logits, so a second test pins MATLAB's conductances to
+Python's directly.
 
 ---
 
 ## Plan of work
 
-**Seven plans are closed. Nothing in `plans/` is open.** The comparable core is complete
-and the row is reported; plan 06, the array-size sweep, was declared before it ran, and
-plan 07 put it on the site.
+**Eight plans are closed. Nothing in `plans/` is open.** The comparable core is complete
+and the row is reported; plan 06, the array-size sweep, was declared before it ran,
+plan 07 put it on the site, and plan 08 gave the row a delivered spread.
 
 | | | closed by | |
 |---|---|---|---|
@@ -192,6 +200,7 @@ plan 07 put it on the site.
 | 05 | the budget and the row | `3c97a6b`, `5646471` | conductance variation binds at 4.84 bits |
 | 06 | the array-size sweep | declared `89d1031` | 36 to 676 rows; first order is not the network |
 | 07 | go larger | `d6dd93f`, `add8156` | six instruments at five sizes; the network solved in the browser |
+| 08 | a delivered spread | declared `e303e00`; `2fed4b0` | imec's spread adopted; margin undetermined; zero stored as two devices off |
 
 The plan files are archived in `plans/finished_plans/` (gitignored, like all of
 `plans/`), each stamped with the commit that closed it and otherwise unedited — they
@@ -199,7 +208,8 @@ record what was believed before each piece was built, and five of the seven were
 about something that mattered — plan 07 was checked against the code before it ran and
 eleven of its statements about the codebase turned out to be wrong, which is recorded in
 the plan file rather than quietly fixed — plan 06 built an iteration of the first-order model that
-stopped converging where it was needed, and replaced it with a direct solve.
+stopped converging where it was needed, and replaced it with a direct solve — and plan 08
+expected nothing to run off a ladder, and the solved network at 6×6 did.
 `docs/history.md` carries the published version.
 
 **Do not write a further plan from that archive.** The next work is named below instead:
@@ -279,21 +289,24 @@ request from a *Deliberately deferred* item, which is the intended route.
 
 Do not assume an answer; ask.
 
-1. **A delivered spread for this device.** Delivered precision on the binding source is
-   the hole that decides the row's margin. The window can be designed; the
-   device-to-device spread of a thick-barrier, three-terminal junction cannot, and no one
-   has published it. The only MTJ-crossbar spread found (Jung et al. 2022: σ/R of 7.7%
-   and 12.3%) is for a thin-barrier STT cell and is quoted for scale only.
+1. **A delivered spread for this device. Resolved 2026-10-04** — see *Resolved*. What
+   is still open under it is the bracket's width: it straddles this array's edge, and
+   either a measurement at this pillar's own size or the TMR an integrated thick-barrier
+   junction actually delivers would decide the margin. The numbering is kept because
+   other documents cite decision 3 by number.
 2. **A read time.** Energy per inference and latency both need one, and a read time
    belongs to a sense amplifier this model deliberately excludes. Published MRAM reads
    (4–9 ns) and the commodity crossbar's settling (13–29 ns) are quoted for scale.
 
 3. **Whether the row's IR-drop source moves onto the solved network.** The size sweep
    found that the first-order model behind the row overstates the drop by a factor that
-   matters: at 6×6 the solved network holds at 431 Ω, above the 300 Ω where the row records
-   a failure. The row is unchanged and points at `docs/array_size.md`. Moving it would
-   change the recorded bracket, `exports/error_budget.json`, the browser's default wire
-   model (`apps/web/crossbar.js`) and the page's numbers — a decision, not a correction.
+   matters: at every size the solved edge sits 2.2–4.6× higher. Since 2026-10-04 the row
+   holds at 300 Ω and fails at 1 kΩ, first order, and the solved network at 6×6 holds to
+   928 Ω, the top of its ladder — so at the row's own size the failing side is neither
+   confirmed nor contradicted, where at 64 rows the two models still disagree. The row is
+   unchanged and points at `docs/array_size.md`. Moving it would change the recorded
+   bracket, `exports/error_budget.json`, the browser's default wire model
+   (`apps/web/crossbar.js`) and the page's numbers — a decision, not a correction.
 
    **`site/larger.html` does not settle this.** It draws both models at every size and
    changes nothing the row rests on: `machine()`'s `wireModel` defaults to `"firstOrder"`,
@@ -301,7 +314,7 @@ Do not assume an answer; ask.
    visible, not made.
 
    Note the third number a reader can now meet: at 6×6 the row's nine-rung ladder brackets
-   first order at 100 → 300 Ω and the sweep's fifteen-rung ladder brackets *the same model*
+   first order at 300 → 1000 Ω and the sweep's fifteen-rung ladder brackets *the same model*
    at 200 → 431 Ω. One model, two ladder resolutions. The size page's caption says so on
    the 6×6 rung; anything that changes either ladder has to keep saying it.
 
@@ -309,12 +322,31 @@ Do not assume an answer; ask.
 
 Kept so a later session does not reopen a question already answered.
 
+- **The delivered spread is imec's, for the device class, as a bracket** (2026-10-04).
+  Doevenspeck et al. (VLSI 2020) measured three-terminal SOT junctions read through a
+  thick barrier, with σ/μ set by pillar area and not by RA, so it carries to this
+  design's 114 nm pillar by size. Delivered = σ/μ 0.031–0.063, the envelope of their
+  measurements at ≈90 and ≈127 nm, read by pixel off Fig. 8b and not interpolated. It is
+  judged by its own source, `sigma_area_rel` (each device times `a ~ N(1, σ)`, no window
+  clamp), with both ends on the ladder; holds if the worse end holds, fails if the better
+  end fails, otherwise undetermined. Source 1 stays the hub-comparable required
+  precision, and the two are never stacked. The PDFs are in `IdeaInspiration/`
+  (gitignored).
+- **The window ratio stays 3** (2026-10-04), even though the integrated junctions imec
+  measured come in at TMR 85% and 103% (ratios 1.85 and 2.03, against the 150% their own
+  analysis assumed). The margin is judged at all three, through handoffs in
+  `exports/ratio/` that hold g_min at 1 µS.
+- **A pair stores zero as two devices off** (2026-10-04): `(max(w,0), max(−w,0))` on the
+  continuous path too, so it is the limit of the quantised one. The continuous pair used to
+  be centred, which no accuracy shows and every source that sees the rails does. It moved
+  IR drop up a rung (the row: 300 → 1 kΩ, was 100 → 300), power 1.577 → 0.988 µW, and
+  source 1 one rung looser at 64 and 144 rows; no ideal moved.
 - **The size sweep retrains per grid** (2026-09-19): 6, 8, 12, 18, 26, rows = g², columns
   fixed at ten. Not a fixed 36×10 network padded into bigger arrays, which models an array
   nobody would build. The learning rate scales as `0.5 · 36 / rows`, because the step of a
   softmax regression goes with the pixel count. Each size's pass mark is 95% of its own
-  ideal. The size limit is judged on cited wiring only, because the device spread is
-  `UNSOURCED`: source 1 is reported at every size and compared to nothing.
+  ideal. The size limit is judged on cited wiring and, since 2026-10-04, on the delivered
+  spread; sources 1 and 2 are required precisions and are compared to nothing.
 - **First order is not a safe direction, it is a different model** (2026-09-19). One pass
   overstates the drop, and once the drop is a modest fraction of the drive it lets a column
   node rise above its driver and reverses a cell's current — 0.0000 accuracy, below chance,
@@ -338,7 +370,8 @@ Kept so a later session does not reopen a question already answered.
   conductive draw too much power, so adopting it would model the machine they declined
   to build. Nothing about the operating point changed, so the budget was not rerun.
 - **IR drop does not bind at 36×10 in this window.** Published crossbar wiring is
-  2–20 Ω per cell from 65 nm to 7 nm; the design holds to 100 Ω. It would bind in a
+  2–20 Ω per cell from 65 nm to 7 nm; the design holds to 300 Ω (100 Ω before the pair
+  stored zero as two devices off). It would bind in a
   thin-barrier window 26–38× more conductive. A segment is resistance per length times
   the cell pitch, so a cell this size is wired wider than minimum.
 

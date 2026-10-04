@@ -132,12 +132,15 @@ build.
 **The comparable core is done, and the row is in `docs/comparison_row.md`.** The ideal
 array scores **0.7345** on the shared task; under device error, **conductance variation
 binds, at 4.84 effective bits**, ahead of resolvable states and IR drop. Delivered
-precision, energy per inference and latency are `UNSOURCED`, so no margin is claimed and
-that column is omitted rather than estimated.
+precision is measured for this device class — σ/μ between 0.031 and 0.063 (imec,
+Doevenspeck et al. 2020), a bracket — and the margin against it is **undetermined** at
+the design window: the bracket straddles the array's edge. At the window ratios imec
+measured on integrated junctions it is undetermined at 2.03 and fails at 1.85. Energy per
+inference and latency are `UNSOURCED`.
 
 The operating point is a design — a thick-barrier magnetic tunnel junction, read through
 and written beside — checked against cited device physics rather than copied from a
-device. In it, published wiring resistances sit five times inside IR drop's edge.
+device. In it, published wiring resistances sit fifteen times inside IR drop's edge.
 
 The array is 36×10 logical, 720 devices in differential pairs, and that size is fixed and
 stated because IR drop grows with it. `docs/array_size.md` sweeps it, from 36 to 676 rows,
