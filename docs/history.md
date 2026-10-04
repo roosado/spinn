@@ -1400,3 +1400,150 @@ publish**, in that order.
 
 Open decision 3 is unchanged: this page draws both wire models and moves nothing the row
 rests on. Error sources 4–7, the delivered spread and the read time are where they were.
+---
+
+## 2026-10-04 — a delivered spread, declared first
+
+**Written before anything was run**, for the reason the pass mark and the size sweep were:
+what counts as holding has to be fixed before there is a number to flatter. This entry is
+committed before the driver produces one.
+
+Open decision 1 has been the hole that keeps the row from having a margin: nobody had
+published the device-to-device spread of a three-terminal junction read through a thick
+barrier. imec has, twice, and both papers were read in full this time. The row used to
+know the first only as Cai et al. reported it.
+
+### What imec measured
+
+**Doevenspeck et al., VLSI 2020.** CoFeB/MgO/CoFeB pillars on a W spin-orbit-torque track,
+integrated on 300 mm wafers, with RA tuned to 5, 20 and 50 kΩ·µm² by the MgO thickness and
+the write unaffected. Fig. 8b gives σ/μ of R_P against the *electrical* CD for all three.
+In their words, "the coefficient of variation (σ/μ) does not increase for increasing RA
+products", the spread "is indeed mostly determined by process-induced area variations
+(Fig. 8c), which can be fully optimized at production level", and the numbers "are
+obtained from a device test vehicle and do not represent the fundamental lower limit of
+resistance variability". Their differential pair stores zero as two devices in the AP
+state.
+
+**Doevenspeck et al., VLSI 2021**, the multi-pillar paper. Four 80 nm pillars on one SOT
+track give five levels per device, and a pair gives nine. Fig. 16 has the conductance
+distributions over 80 devices. Its weight table is this repository's quantised `program()`
+at five states, row for row.
+
+### What is adopted, and what it is not
+
+imec's 2020 measurement is adopted as **the delivered spread of this device class**: a
+three-terminal junction, written on a separate line and read through the barrier, with a
+spread set by the pillar's area rather than by the barrier. That last property is what
+lets it carry to a pillar imec did not make: the spread follows the size, and the size is
+known.
+
+It is not this exact device. Their RA starts at 5 kΩ·µm² and this design's is 3.4, just
+below the range. It is a test vehicle, by their own account. Its values are read off a
+figure. And our pillar falls between two of theirs. So **delivered precision is a bracket**,
+the measurements at the sizes either side of ours, and nothing is interpolated between
+them.
+
+### The readings
+
+Fig. 8b was digitised by pixel at 800 dpi. The figure is a JPEG embedded at 320 ppi, so one
+of its pixels is about 0.001 of σ/μ, and its axis ticks are evenly spaced to the pixel.
+
+| electrical CD | RA 5 kΩ·µm² | 20 | 50 |
+|---|---|---|---|
+| ≈ 90 nm | 0.049 | 0.056 | 0.063 |
+| ≈ 127 nm | 0.033 | 0.040 | 0.031 ± 0.002 |
+
+The 50k marker at 127 nm is mostly hidden behind the 5k one and is read from its visible
+base, hence the wider error. At that size the RA ordering reverses, which is itself some
+support for "independent of RA".
+
+This design's pillar is **114 nm electrical**: 333 kΩ at 3.4 kΩ·µm² (2026-09-11). That falls
+between the two rows, so the delivered spread is the envelope of both:
+**σ/μ between A = 0.031 and B = 0.063.**
+
+**The window ratio, measured.** Fig. 6 (2020: R-H loops at 80 nm nominal) and Fig. 16
+(2021: medians over 80 devices), digitised the same way.
+
+| | R_P | R_AP | ratio | TMR |
+|---|---|---|---|---|
+| 2020, RA 5k | 1.91 MΩ | 3.54 MΩ | 1.85 | 85% |
+| 2020, RA 20k | 4.90 MΩ | 8.85 MΩ | 1.81 | 81% |
+| 2020, RA 50k | 10.83 MΩ | 18.17 MΩ | 1.68 | 68% |
+| 2021, four pillars | 77.0 µS | 37.9 µS | 2.03 | 103% |
+
+Two things in those numbers matter. The 2020 analysis assumes TMR = 150% (its Fig. 11 and
+Table I); the loops it measured run 68–85%. And this design assumes 200%, cited from
+film-level junctions (Hayakawa et al. 2005; 249% in perpendicular stacks, M. Wang et al.
+2018). The two integrated three-terminal devices that exist measure 85% and 103%.
+
+An earlier reading by eye, made in conversation before this entry, put the 2021 ratio at
+2.17. The pixel reading is 2.03, and that is the one used.
+
+The 2021 levels also cross-check the spread. Each four-pillar device spreads by σ/μ =
+3.3–4.1% across its five levels. Four pillars in parallel average independent area errors
+down by two, so that implies ~7–8% for a single 80 nm pillar, and the 2020 figure has
+7.5–9.9% at 65 nm electrical. One more number in the 2021 paper does not add up and is
+recorded rather than resolved: it states MgO at RA 2000 Ω·µm², but its conductances imply
+~52 kΩ per pillar in P, which is RA ≈ 260 at 80 nm nominal.
+
+### Declared
+
+| | |
+|---|---|
+| **The spread's profile** | A new stochastic source, `sigma_area_rel`. Each device's whole conductance is multiplied by `a ~ N(1, σ)`, drawn once per device, whatever state it holds. Area scales both states, so there is **no clamp to the window**; `a` is floored at zero, which no ladder point here can reach |
+| **Source 1 is unchanged** | uniform σ against the span, in effective bits, the hub's unit. It stays the row's required precision. The new source carries the margin |
+| **Ladder** | `[0.01 0.02 0.031 0.035 0.05 0.063 0.075 0.1 0.15]`. A and B are on it, as 2 Ω and 20 Ω were put on the size sweep's ladder, so the verdict is read off ladder points |
+| **Seeds** | `baseSeed = 20260908`, 20 realizations, seed offset `10000` (the stride the driver reserved for new stochastic sources) |
+| **Pass mark** | 95% of ideal, unchanged |
+| **Where it runs** | the row's array at the design window, ratio 3. The same weights at ratios 2.03 and 1.85, through handoffs that hold g_min at 1 µS: training never sees the window, and under a multiplicative spread only the ratio matters. And at every size of the size sweep, at ratio 3 |
+| **The window** | the design stays 1–3 µS. The two measured ratios are a sensitivity, not a redesign |
+| **The joint run** | unchanged, sources 1–3. Area variation and uniform σ are two models of one spread and are not stacked |
+
+**The margin rule, per ratio.** It *holds* if B holds. It *fails* if A fails. Otherwise it is
+**undetermined at this resolution**. Where it holds, the margin is the bracket
+`[log2(X/B), log2(Y/B)]` bits: X is the last ladder point that holds, Y the first that
+fails. Nothing is interpolated.
+
+### The encoding changes first
+
+The continuous path has stored a zero weight as two half-switched devices: both at 2 µS.
+The quantised path, imec, and the multi-pillar table all store it as two devices off, at
+g_min. Under the uniform σ the row was measured with, that difference was a detail. Under
+a spread proportional to conductance it is not: a device at mid-window carries twice the σ
+of one at g_min, and two thirds of these weights are within 0.2 of zero.
+
+From this entry on, **"differential" means `(max(w, 0), max(−w, 0))` on both paths**, so the
+continuous path is the limit of the quantised one. The ideal accuracy cannot move, because
+the effective weights are identical. What moves is everything that sees the rails: IR drop
+(less current), the array power, and source 1 a little (more devices sit at the window
+edge, where the clamp acts). So **everything recorded is rerun**: the row's budget and all
+five sizes. The handoff schema does not change, because it carries weights and not rails.
+Three implementations change together, and a test pins MATLAB's conductances to Python's.
+
+### Expectations on record, not a thesis
+
+From the browser's copy of the arithmetic. It uses a different random stream, so these are
+approximate.
+
+- **Area variation, zero = both off:**
+
+  | ratio | holds at | fails at | at A = 0.031 | at B = 0.063 | so |
+  |---|---|---|---|---|---|
+  | 3 | 0.05 (0.704) | 0.063 (0.692) | holds | fails | undetermined |
+  | 2.03 | 0.031 (0.701) | 0.035 (0.694) | holds, barely | fails | undetermined |
+  | 1.85 | 0.02 (0.711) | 0.031 (0.691) | fails | fails | fails |
+
+  **"Undetermined" is the expected verdict at the design ratio.** The measured spread
+  straddles this array's edge, so the answer depends on which side of 114 nm the
+  measurement falls.
+- **Source 1 keeps its bracket**: holds at 0.035 (0.708), fails at 0.05 (0.686). Still
+  4.84 bits.
+- **Array read power** 1.577 → about 0.99 µW.
+- **IR-drop edges move up**, in the row and at every size, because less current flows.
+
+### Not in this entry
+
+A redesign of the window. Error sources 4–7. The read time. A widget for the new source:
+the browser's copy of the physics does not get it, because nothing on either page draws
+it. The `gh-pages` push.
