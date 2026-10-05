@@ -50,3 +50,6 @@ Thumbs.db
 
 # Teaching workspace -- local learning material, never published
 learning/
+
+# Folder to save resources and some things that might inspire a new direction to take the project
+IdeaInspiration/
