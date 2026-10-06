@@ -28,8 +28,9 @@ function keys = error_sources(arch)
             % every run that used it. Naming them before the parameterisation
             % existed would have guaranteed at least one rename.
             %
-            % Only sources 1-3, the comparable core, and the measured form of
-            % source 1 that the delivered spread is judged with. Sources 4-7
+            % Only sources 1-3, the comparable core, the measured form of source 1
+            % that the delivered spread is judged with, and the write error beside
+            % source 2 that delivered levels are judged with. Sources 4-7
             % (sneak paths, read noise, ADC quantisation, retention drift) get
             % their keys when they get their implementations, for the same reason.
             keys = [ ...
@@ -49,6 +50,13 @@ function keys = error_sources(arch)
                 ... % 2. err.quantize -- levels per *device*. Under a differential
                 ... %    pair the effective weight resolves finer than this.
                 "states_per_device", ...
+                ... % 2, written. err.write_error -- stochastic. The probability that
+                ... %    a device programmed to an intermediate level lands on a
+                ... %    neighbouring one: what is left of imec's per-attempt
+                ... %    switching probability after the verified attempts spent.
+                ... %    Needs states_per_device, because it is defined on levels.
+                ... %    Named 2026-10-06, with the measurement it is judged against.
+                "write_error_rate", ...
                 ... % 3. err.ir_drop -- ohms per wire segment between adjacent
                 ... %    cells. Deterministic, position-dependent, and it grows
                 ... %    with array size, so the size belongs beside any number

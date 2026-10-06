@@ -33,6 +33,7 @@ and standard deviation and no fitted crossing point, deliberately.
 | 1. conductance variation | σ = 0.035 of the window (0.7087) | σ = 0.05 (0.6799) | **holds at 4.84, fails at 4.32** |
 | 1, measured: area variation | σ/μ = 0.05 (0.7046) | σ/μ = 0.063 (0.6929) | *judged against the delivered spread — see below* |
 | 2. resolvable states | 7 states/device | 5 states/device | holds at 3.70, fails at 3.17 |
+| 2, written: write errors, at 7 states | r = 0.022898 (0.6979) | r = 0.029718 (0.6965) | *a rate, not a bit depth — judged against delivered writes below* |
 | 3. IR drop | 300 Ω per segment | 1000 Ω per segment | *not a bit depth — see below* |
 
 **Conductance variation binds.** It demands 4.84 bits where the states knob demands 3.70, and both are
@@ -44,6 +45,13 @@ against the window it is the required precision, in the hub's unit. As area
 variation — each device's whole conductance times `a ~ N(1, σ)`, the form imec
 measured — it is what the delivered spread is judged with. They are two models
 of one spread, so the joint run below uses the first and not both.
+
+**Source 2 is measured twice too, and likewise never combined.** As levels per
+device it is the required precision in the hub's unit, and it is judged against the
+levels imec delivers. As written levels — a device programmed to one level can land
+on a neighbour — it is a write error rate, which needs a lattice to miss, so it runs
+at 7 states per device, the fewest the row holds at. A rate is not a bit depth, so
+it is not converted.
 
 **IR drop is deliberately not converted to bits.** It is a position-dependent
 systematic, not a spread on a stored value, so `log2(range/σ)` has no σ to take.
@@ -192,6 +200,115 @@ For scale, and nothing more: the commodity cell's measured spread is larger than
 either end — σ/R of 7.7% and 12.3% over 8,192 cells, access transistor included
 (Jung et al. 2022) — on a thin-barrier memory cell, a different device.
 
+## Delivered levels and write errors
+
+**Measured, for this device class.** imec's multi-pillar junctions (Doevenspeck et
+al. 2021) put four pillars on one spin-orbit-torque track, and the write current
+chooses how many of them switch: five conductance levels per device and nine per
+differential pair (their Fig. 7). Two pillars give three. The count is set by the
+pillars on the track and not by their size, so, unlike a spread, it carries to this
+design as it stands. The medians over 80 devices, in µS, read off their Fig. 16
+(each good to ±0.07):
+
+| | 4AP | 3AP/1P | 2AP/2P | 1AP/3P | 4P |
+|---|---|---|---|---|---|
+| median conductance, µS | 37.84 | 47.57 | 57.29 | 67.41 | 76.95 |
+
+The steps between them are 9.73, 9.72, 10.12 and 9.54 µS: evenly spaced, to within
+3.5% of their mean of 9.78 µS. That is the lattice `program()` assumes, so the
+paper's weight table is `program()` at five states, with zero stored as both devices
+at 4AP.
+
+**At the row's own scale, five levels per device fail:** 0.6615 against the pass
+mark of 0.6978. Three levels, the two-pillar device, also **fail** at 0.5020. The
+row's own states bracket, as a required precision, is 7 states holding and 5
+failing. A count is one rung of the states ladder, so this verdict is holds or fails
+and never undetermined.
+
+**The failure is the scale, not the device.** The row maps max|w| to full scale, so
+one outlier weight sets the lattice for all 360 weights. At five levels a weight
+rounds to zero below 1/(2·4) = 0.125 of full scale, and 177 of the row's 360 (49%)
+are that small.
+
+Put full scale at c·max|w| instead and clip what lies beyond it. The train-set
+accuracy maximiser at five states is c = 0.7, which clips 2.8% of the weights and
+leaves 145 of 360 (40%) rounding to zero. Its continuous ideal is 0.7325, against
+the row's 0.7345. At five levels it reaches 0.7110, which **holds** against the
+row's own pass mark of 0.6978; against 95% of its own ideal, 0.6959, it holds.
+
+**The row keeps max|w|.** This calibrated scale is a sensitivity, like the measured
+ratios, and not a redesign: it moves where the largest weight sits in the window and
+nothing else about the array, and it covers the row's 36×10 array only.
+Quantisation-aware training, which would fit the weights to the lattice instead, was
+tried and did worse than quantising afterwards (`docs/history.md`, 2026-10-06); it
+is machine learning, and stays out of scope.
+
+**Writing is stochastic.** imec's Fig. 11(a) gives the per-attempt maximum switching
+probability to each level, the median over 80 devices, each at its own best write
+current:
+
+| level | G1 (4AP) | G2 (3AP/1P) | G3 (2AP/2P) | G4 (1AP/3P) | G5 (4P) |
+|---|---|---|---|---|---|
+| median switching probability | 0.99 | 0.611 | 0.505 | 0.525 | 1.00 |
+
+**The model.** With probability r a device programmed to an intermediate level j
+lands on j − 1 or j + 1 instead, half each: imec's Fig. 9 shows a missed write going
+to the two neighbouring levels about equally. Level 0 is the reset state and takes
+no write pulse, and the top level switches at 1.00 (G5), so neither misses. Every
+rail of every pair is independent, and the error is applied to the programmed levels
+before the spread. It needs a lattice to miss, so it requires a number of states per
+device.
+
+A missed write can be read back and retried. Taking each attempt as independent of
+the last, as imec's own Fig. 14 does, what is left after m verified attempts is the
+miss probability to the m-th power. The best intermediate level, G2, misses 0.389 of
+the time and the worst, G3, 0.495, so the delivered rate after m attempts is the
+bracket [0.389^m, 0.495^m]. It is judged by the same rule as the spread: it holds if
+the worse end holds, fails if the better end fails, and is otherwise undetermined at
+this resolution.
+
+**For the calibrated variant at five states**, where the levels hold, the write
+source holds at r = 0.03 and fails at r = 0.058864. Accuracy against the pass mark
+of 0.6978:
+
+| attempts | delivered rate | at best end | at worst end | verdict |
+|---|---|---|---|---|
+| 1 | 0.389–0.495 | 0.6210 | 0.6019 | **fails** |
+| 2 | 0.151321–0.245025 | 0.6669 | 0.6496 | **fails** |
+| 3 | 0.058864–0.121287 | 0.6946 | 0.6807 | **fails** |
+| 4 | 0.022898–0.060037 | 0.7065 | 0.6893 | **undetermined** |
+| 5 | 0.008907–0.029718 | 0.7088 | 0.7023 | **holds** |
+| 6 | 0.003465–0.014711 | 0.7107 | 0.7072 | **holds** |
+
+**The fewest verified attempts at which it holds is m = 5**, and every larger number
+holds too. By attempts the write source fails at m = 1–3, is undetermined at m = 4,
+holds at m = 5–6. That is the number imec quote, reached here for a different
+reason: the pass mark, not a bit-error rate.
+
+**The row at its own scale.** Five levels fail before a write can matter, so the
+row's write errors are measured at 7 states, the fewest it holds at: the write
+source holds at r = 0.022898 and fails at r = 0.029718. No delivered device has 7
+levels, so that bracket is a required precision and is compared to nothing.
+
+**imec's headline is a mean.** Their Fig. 14 reads 5 write attempts to reach a rate
+of 0.001, and it is (1 − 0.74)^n: the paper's own mean switching probability over
+all five levels. That mean includes G1 and G5, which switch at 0.99 and 1.00, so it
+is higher than the switching probability of any level a write can miss. At n = 5 it
+leaves 1.19e-03 (the rate is strictly first met at 6 attempts). The intermediate
+levels' own medians leave 8.91e-03 to 2.97e-02 at the same n, 7 to 25 times as much.
+
+**What this leaves out.** Fig. 11 is each device's own best write current, so one
+current shared across an array would do worse: by how much is `UNSOURCED`. And the
+time and energy the attempts cost are not computed. They are `UNSOURCED` too, beside
+the read time below.
+
+**The geometric tension.** Four pillars at this design's 114 nm multiply the
+conductance by 4, so every IR-drop edge in ohms divides by 4: the row's 300 Ω
+holding and 1 kΩ failing (first order) become 75 Ω and 250 Ω. Keeping the 1–3 µS
+window instead needs pillars about 57 nm across, each 1/4 of the area — smaller than
+the smallest pillar in imec's spread measurement, about 65 nm electrical (Fig. 8b of
+the 2020 paper). Neither is modelled.
+
 ## Energy and latency
 
 Both are `UNSOURCED`, and the arithmetic is given so a reader can substitute.
@@ -244,8 +361,11 @@ The design values are this project's own; these are what show they can be built.
 - Doevenspeck et al., “Multi-pillar SOT-MRAM for Accurate Analog in-Memory DNN
   Inference”, IEEE Symposium on VLSI Technology (2021),
   <https://ieeexplore.ieee.org/document/9508714> — four pillars on one SOT track;
-  conductance distributions over 80 devices, a ratio of 2.03 and σ/μ of
-  3.3–4.1% per level (Fig. 16).
+  five levels per device and nine per pair (Fig. 7); where a missed write lands
+  (Fig. 9); per-level switching probabilities (Fig. 11) and the 0.74 mean behind
+  the five-attempt headline (Fig. 14); conductance distributions over 80 devices,
+  a ratio of 2.03, the five medians and σ/μ of 3.3–4.1% per level (Fig. 16);
+  the weight-noise normalisation (Fig. 17).
 - Grollier et al., “Neuromorphic spintronics”, *Nature Electronics* 3, 360–370
   (2020), <https://doi.org/10.1038/s41928-019-0360-9> — a conductance ratio
   “typically around three”.

@@ -38,7 +38,7 @@ import textwrap
 
 import numpy as np
 
-from apps.train_crossbar import ratio_dir
+from apps.train_crossbar import ratio_dir, scale_dir
 from spinn.handoff import read_handoff, read_test_set, read_weights
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -84,6 +84,66 @@ DELIVERED_SIGMA_AREA = (
     min(v for row in IMEC_SIGMA_MU.values() for v in row),
     max(v for row in IMEC_SIGMA_MU.values() for v in row),
 )
+
+#: The chance one write attempt to an intermediate level misses: 1 minus the per-attempt
+#: switching probability, as the median over 80 devices at each device's own best
+#: current. The best intermediate level (G2) switches at 0.611 and the worst (G3) at
+#: 0.505. Fig. 11(a) of Doevenspeck et al., VLSI 2021 (docs/history.md, 2026-10-06);
+#: read by pixel, and the same two numbers as run_error_budget.m's FAIL_BEST/FAIL_WORST.
+WRITE_FAIL_BEST = 0.389
+WRITE_FAIL_WORST = 0.495
+#: Verified attempts the bracket is reported at.
+WRITE_ATTEMPTS = range(1, 7)
+
+#: Conductance levels per device delivered by the four-pillar SOT track (five levels,
+#: nine per differential pair, Fig. 7), and by the two-pillar track, reported beside it.
+#: Set by the number of pillars on the track, not by their size.
+DELIVERED_LEVELS = 5
+DELIVERED_LEVELS_TWO_PILLAR = 3
+
+
+def write_bracket(m: int) -> tuple[float, float]:
+    """The write-error rates after ``m`` verified attempts: ``(best, worst)``.
+
+    A write that misses is retried and checked, so ``m`` attempts leave
+    ``p_fail ** m`` of the writes wrong at each level. Rounded to six places, as the
+    ladder in run_error_budget.m is, so both ends are rungs of it exactly.
+    """
+    return (round(WRITE_FAIL_BEST**m, 6), round(WRITE_FAIL_WORST**m, 6))
+
+
+# What imec measured on the four-pillar SOT track: Doevenspeck et al., "Multi-pillar
+# SOT-MRAM for Accurate Analog in-Memory DNN Inference", VLSI Symposium (2021). All of
+# it read by pixel off the figures (docs/history.md, 2026-10-06).
+
+#: The five levels, from all four pillars antiparallel (the lowest conductance) to all
+#: four parallel, and the median conductance of each over 80 devices, in microsiemens,
+#: good to the reading error below. Fig. 16.
+IMEC_LEVEL_LABELS = ("4AP", "3AP/1P", "2AP/2P", "1AP/3P", "4P")
+IMEC_LEVELS_US = (37.84, 47.57, 57.29, 67.41, 76.95)
+IMEC_LEVELS_READ_US = 0.07
+
+#: Per-attempt maximum switching probability to each level, the median over 80 devices,
+#: each device at its own best write current. Fig. 11(a). G1 and G5 are the end levels.
+IMEC_P_SW_MEDIANS = {"G1": 0.99, "G2": 0.611, "G3": 0.505, "G4": 0.525, "G5": 1.00}
+
+#: One mean switching probability over all five levels, from which the paper's Fig. 14 is
+#: exactly ``(1 - mean) ** n`` to a pixel, and its headline read from that curve: "5 write
+#: attempts are needed to reach a bit-error rate of 1e-3".
+IMEC_P_SW_MEAN = 0.74
+IMEC_HEADLINE = (5, 1e-3)
+
+#: The smallest electrical CD in Fig. 8b of imec's 2020 paper (Doevenspeck et al., VLSI
+#: 2020), nm: the smallest pillar anyone's spread has been measured on. The delivered
+#: bracket uses the two sizes either side of this design's pillar, not this one.
+IMEC_SMALLEST_CD_NM = 65
+
+#: The calibrated-scale variant: the row's own weights with full scale at c * max|w|, at
+#: DELIVERED_LEVELS states (apps.train_crossbar --calibrate-states). A sensitivity, like
+#: the ratio variants; the row itself keeps max|w|.
+SCALE_BUDGET = os.path.join(scale_dir(DELIVERED_LEVELS), "error_budget.json")
+SCALE_NPZ = os.path.join(scale_dir(DELIVERED_LEVELS), "crossbar_ideal.npz")
+
 
 #: The window ratios measured on integrated three-terminal junctions, and where they
 #: were read; the delivered spread is judged at each beside the design's own. TMR by
@@ -240,6 +300,124 @@ def design_verdict_prose(m: dict, pillar_nm: float) -> str:
             "delivered bracket is past this array's edge.")
 
 
+def level_verdict(sweep: dict, levels: int) -> dict:
+    """One delivered level count, read off the states ladder: holds or fails.
+
+    A count is a single value, not a bracket, so unlike :func:`margin` the verdict can
+    never be undetermined. ``levels`` has to be a rung of the ladder -- a count between
+    rungs would be an interpolation, which is refused here as it is there.
+    """
+    mags = list(sweep["magnitudes"])
+    hits = [i for i, m in enumerate(mags) if math.isclose(m, levels, rel_tol=1e-9)]
+    if not hits:
+        raise ValueError(
+            f"{levels} levels is not on the states ladder {mags}: a delivered count has "
+            "to be a rung, or the verdict would be an interpolation")
+    i = hits[0]
+    return {"levels": levels, "acc": sweep["accMean"][i],
+            "verdict": "holds" if sweep["holds"][i] else "fails"}
+
+
+def attempts_verdicts(sweep: dict) -> list[dict]:
+    """The write source judged at every number of verified attempts, by :func:`margin`.
+
+    Each entry is ``margin(sweep, write_bracket(m))`` with ``m`` and the bracket beside
+    it. The rule is the declared one and works unchanged on a write ladder, because a
+    larger rate is worse, as a larger sigma is. Both ends of every bracket have to be
+    rungs, or :func:`margin` refuses.
+    """
+    return [{"m": m, "bracket": write_bracket(m), **margin(sweep, write_bracket(m))}
+            for m in WRITE_ATTEMPTS]
+
+
+def fewest_attempts(verdicts: list[dict]) -> int | None:
+    """The smallest number of attempts whose verdict is *holds*, or None if none does."""
+    return next((v["m"] for v in verdicts if v["verdict"] == "holds"), None)
+
+
+def attempts_monotone(verdicts: list[dict]) -> bool:
+    """Whether every number of attempts above the fewest that holds holds too.
+
+    More attempts leave a smaller rate, so a verdict that stops holding as they grow is
+    not an edge but noise in the sweep, and the report says so rather than hides it.
+    True when nothing holds, because there is nothing to contradict.
+    """
+    fewest = fewest_attempts(verdicts)
+    return fewest is None or all(v["verdict"] == "holds" for v in verdicts if v["m"] > fewest)
+
+
+def verdict_runs(verdicts: list[dict]) -> str:
+    """The verdicts by attempts, runs collapsed: ``fails at m = 1–3, holds at m = 4–6``."""
+    runs: list[list] = []
+    for v in verdicts:
+        if runs and runs[-1][0] == v["verdict"]:
+            runs[-1][2] = v["m"]
+        else:
+            runs.append([v["verdict"], v["m"], v["m"]])
+    return ", ".join(
+        f"{'is undetermined' if name == 'undetermined' else name} at m = "
+        + (f"{lo}" if lo == hi else f"{lo}–{hi}")
+        for name, lo, hi in runs)
+
+
+def write_verdict_text(v) -> str:
+    """One write verdict, as a table cell: no bits, because a rate is not a bit depth.
+
+    Takes a margin (or an entry of :func:`attempts_verdicts`), or the verdict string.
+    """
+    name = v["verdict"] if isinstance(v, dict) else v
+    if name not in ("holds", "fails", "undetermined"):
+        raise ValueError(f"{name!r} is not a verdict")
+    return f"**{name}**"
+
+
+def _absent(v) -> bool:
+    """jsonencode writes NaN as null: an edge beyond the ladder arrives as None."""
+    return v is None or (isinstance(v, float) and math.isnan(v))
+
+
+def _acc_at(sweep: dict, magnitude: float) -> float:
+    for m, a in zip(sweep["magnitudes"], sweep["accMean"]):
+        if math.isclose(m, magnitude, rel_tol=1e-9):
+            return a
+    raise ValueError(f"{magnitude:g} is not on the ladder {list(sweep['magnitudes'])}")
+
+
+def write_edge_cells(sweep: dict) -> tuple[str, str]:
+    """A ladder's two edges as the "holds at" and "fails at" cells of the bracket table.
+
+    With the accuracy at each rung. An edge beyond the ladder is said as
+    :func:`edge_text` says it, and not given a value it does not have.
+    """
+    x, y = (None if _absent(sweep[k]) else sweep[k] for k in ("lastHolding", "firstFailing"))
+    holds = f"r = {x:g} ({_acc_at(sweep, x):.4f})" if x is not None else "—"
+    if y is not None:
+        fails = (f"r = {y:g} ({_acc_at(sweep, y):.4f})" if x is not None
+                 else f"{edge_text((math.nan, y))} ({_acc_at(sweep, y):.4f})")
+    else:
+        fails = edge_text((x, math.nan))
+    return holds, fails
+
+
+def write_edge_phrase(sweep: dict) -> str:
+    """The same two edges as a clause: ``holds at r = X and fails at r = Y``."""
+    x, y = (math.nan if _absent(sweep[k]) else sweep[k] for k in ("lastHolding", "firstFailing"))
+    if math.isnan(x) or math.isnan(y):
+        return edge_text((x, y))
+    return f"holds at r = {x:g} and fails at r = {y:g}"
+
+
+def rounds_to_zero(weights, levels: int) -> tuple[int, int]:
+    """How many weights land on zero when the lattice has ``levels`` steps per device.
+
+    A differential pair stores ``round(w * (levels - 1)) / (levels - 1)``, half away
+    from zero, so a weight is zero below ``1 / (2 * (levels - 1))`` of full scale and
+    not at it. Returns ``(count, total)``.
+    """
+    small = np.abs(np.asarray(weights)) < 1.0 / (2.0 * (levels - 1))
+    return int(small.sum()), int(small.size)
+
+
 def para(text: str, width: int = 84) -> list[str]:
     """A paragraph of generated prose, wrapped like the hand-written lines around it."""
     return textwrap.wrap(text, width=width, break_long_words=False, break_on_hyphens=False)
@@ -292,6 +470,264 @@ def design_check(g_min: float, g_max: float, read_voltage: float) -> dict:
     }
 
 
+_WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven",
+          8: "eight", 9: "nine"}
+
+
+def number_word(n: int) -> str:
+    return _WORDS.get(n, str(n))
+
+
+def load_scale() -> tuple[dict, dict]:
+    """The calibrated variant's budget and its ideal file.
+
+    Raises if either is missing, or if the budget predates the write source. The section
+    on delivered levels is built on it, and a document that quietly left it out would
+    look complete.
+    """
+    for path in (SCALE_BUDGET, SCALE_NPZ):
+        if not os.path.exists(path):
+            raise FileNotFoundError(
+                f"{path} is missing. The section on delivered levels needs the calibrated "
+                f"variant: `python -m apps.train_crossbar --calibrate-states {DELIVERED_LEVELS}`, "
+                "then spinn-hw/run_error_budget.m")
+    with open(SCALE_BUDGET, encoding="utf-8") as fh:
+        budget = json.load(fh)
+    if "write_error_rate" not in budget:
+        raise KeyError(f"{SCALE_BUDGET} has no write_error_rate: it predates the write source; "
+                       "re-run spinn-hw/run_error_budget.m")
+    with np.load(SCALE_NPZ) as z:
+        ideal = {k: z[k] for k in z.files}
+    if int(ideal["calibrated_states"]) != DELIVERED_LEVELS:
+        raise ValueError(f"{SCALE_NPZ} was calibrated at {int(ideal['calibrated_states'])} "
+                         f"states, not {DELIVERED_LEVELS}")
+    return budget, ideal
+
+
+def delivered_levels_lines(b: dict, weights, d: dict, cb) -> list[str]:
+    """The section on delivered levels and write errors, from the budgets and the weights.
+
+    Split out of :func:`render` because it reads three things the rest of the row does
+    not: the calibrated variant, imec's measured constants, and the row's own write block.
+    Where a sentence is only true of one outcome it raises on the other rather than say
+    it, as ``apps/report_size.py`` does.
+    """
+    L, L2 = DELIVERED_LEVELS, DELIVERED_LEVELS_TWO_PILLAR
+    thr = b["threshold"]
+    sta, wr, wir = b["states_per_device"], b["write_error_rate"], b["wire_resistance_ohm"]
+    sb, sz = load_scale()
+    sw = sb["write_error_rate"]
+    if sb["threshold"] != thr:
+        raise ValueError(f"the variant is judged at {sb['threshold']}, not the row's {thr}: "
+                         "the section says it is judged against the row's own pass mark")
+
+    plural = {"holds": "hold", "fails": "fail"}
+    v5, v3 = level_verdict(sta, L), level_verdict(sta, L2)
+    if v5["verdict"] != "fails":
+        raise ValueError(f"{L} levels hold at the row's scale; the section's account of why "
+                         "write errors are measured at more is no longer true")
+    states = int(wr["states"])
+    if states in (L, L2):
+        raise ValueError(f"the row's write errors ran at {states} states, a delivered count: "
+                         "the section says that bracket is compared to nothing")
+    if states != int(sta["lastHolding"]):
+        raise ValueError(f"the row's write errors ran at {states} states, not at the fewest "
+                         f"the row holds at ({int(sta['lastHolding'])}), which the section says")
+    cal = level_verdict(sb["states_per_device"], L)
+    own = sb["ownPassMark"]
+
+    lines = ["## Delivered levels and write errors", ""]
+
+    # -- what imec measured ----------------------------------------------------------
+    steps = np.diff(IMEC_LEVELS_US)
+    mean_step = (IMEC_LEVELS_US[-1] - IMEC_LEVELS_US[0]) / (len(IMEC_LEVELS_US) - 1)
+    uneven = float(np.max(np.abs(steps - mean_step)) / mean_step)
+    lines += para(
+        f"**Measured, for this device class.** imec's multi-pillar junctions (Doevenspeck et "
+        f"al. 2021) put {number_word(L - 1)} pillars on one spin-orbit-torque track, and the write "
+        f"current chooses how many of them switch: {number_word(L)} conductance levels per device "
+        f"and {number_word(2 * L - 1)} per differential pair (their Fig. 7). "
+        f"{number_word(L2 - 1).capitalize()} pillars give {number_word(L2)}. The count is set by the "
+        "pillars on the track and not by their size, so, unlike a spread, it carries to this "
+        "design as it stands. The medians over 80 devices, in µS, read off their Fig. 16 "
+        f"(each good to ±{IMEC_LEVELS_READ_US:g}):")
+    lines += [
+        "",
+        "| | " + " | ".join(IMEC_LEVEL_LABELS) + " |",
+        "|---|" + "---|" * len(IMEC_LEVEL_LABELS),
+        "| median conductance, µS | " + " | ".join(f"{g:.2f}" for g in IMEC_LEVELS_US) + " |",
+        "",
+    ]
+    step_text = ", ".join(f"{s:.2f}" for s in steps[:-1]) + f" and {steps[-1]:.2f}"
+    lines += para(
+        f"The steps between them are {step_text} µS: evenly spaced, to within {uneven:.1%} of "
+        f"their mean of {mean_step:.2f} µS. That is the lattice `program()` assumes, so the "
+        f"paper's weight table is `program()` at {number_word(L)} states, with zero stored as both "
+        f"devices at {IMEC_LEVEL_LABELS[0]}.")
+    lines.append("")
+
+    # -- the verdict at this size ----------------------------------------------------
+    same = v3["verdict"] == v5["verdict"]
+    lines += para(
+        f"**At the row's own scale, {number_word(L)} levels per device {plural[v5['verdict']]}:** "
+        f"{v5['acc']:.4f} against the pass mark of {thr:.4f}. "
+        f"{number_word(L2).capitalize()} levels, the two-pillar device, "
+        f"{'also ' if same else ''}**{plural[v3['verdict']]}** at {v3['acc']:.4f}. The row's own "
+        f"states bracket, as a required precision, is {int(sta['lastHolding'])} states holding "
+        f"and {int(sta['firstFailing'])} failing. A count is one rung of the states ladder, so "
+        "this verdict is holds or fails and never undetermined.")
+    lines.append("")
+
+    # -- the failure is the scale ----------------------------------------------------
+    zero_below = 1.0 / (2.0 * (L - 1))
+    k_row, total = rounds_to_zero(weights, L)
+    k_cal, _ = rounds_to_zero(sz["weights"], L)
+    c = float(sz["scale_c"])
+    clipped = float(np.mean(np.abs(weights) > c * np.abs(weights).max()))
+    lines += para(
+        "**The failure is the scale, not the device.** The row maps max|w| to full scale, so "
+        f"one outlier weight sets the lattice for all {total} weights. At {number_word(L)} levels a "
+        f"weight rounds to zero below 1/(2·{L - 1}) = {zero_below:g} of full scale, and "
+        f"{k_row} of the row's {total} ({k_row / total:.0%}) are that small.")
+    lines.append("")
+    lines += para(
+        f"Put full scale at c·max|w| instead and clip what lies beyond it. The train-set "
+        f"accuracy maximiser at {number_word(L)} states is c = {c:g}, which clips {clipped:.1%} of the "
+        f"weights and leaves {k_cal} of {total} ({k_cal / total:.0%}) rounding to zero. Its "
+        f"continuous ideal is {sb['ideal']:.4f}, against the row's {b['ideal']:.4f}. At "
+        f"{number_word(L)} levels it reaches {cal['acc']:.4f}, which **{cal['verdict']}** "
+        f"against the row's own pass mark of {thr:.4f}; against 95% of its own ideal, {own:.4f}, "
+        f"it {'holds' if cal['acc'] >= own else 'fails'}.")
+    lines.append("")
+    lines += para(
+        "**The row keeps max|w|.** This calibrated scale is a sensitivity, like the measured "
+        "ratios, and not a redesign: it moves where the largest weight sits in the window and "
+        f"nothing else about the array, and it covers the row's {b['nRows']}×{b['nCols']} array "
+        "only. Quantisation-aware training, which would fit the weights to the lattice instead, "
+        "was tried and did worse than quantising afterwards (`docs/history.md`, 2026-10-06); "
+        "it is machine learning, and stays out of scope.")
+    lines.append("")
+
+    # -- writes ----------------------------------------------------------------------
+    names = list(IMEC_P_SW_MEDIANS)
+    inner = names[1:-1]
+    best_key = max(inner, key=IMEC_P_SW_MEDIANS.get)
+    worst_key = min(inner, key=IMEC_P_SW_MEDIANS.get)
+
+    def p_text(p: float) -> str:
+        s = f"{p:.3f}"
+        return s[:-1] if s.endswith("0") else s
+
+    lines += para(
+        "**Writing is stochastic.** imec's Fig. 11(a) gives the per-attempt maximum switching "
+        "probability to each level, the median over 80 devices, each at its own best write "
+        "current:")
+    lines += [
+        "",
+        "| level | " + " | ".join(f"{k} ({lab})" for k, lab in zip(names, IMEC_LEVEL_LABELS)) + " |",
+        "|---|" + "---|" * len(names),
+        "| median switching probability | "
+        + " | ".join(p_text(IMEC_P_SW_MEDIANS[k]) for k in names) + " |",
+        "",
+    ]
+    lines += para(
+        "**The model.** With probability r a device programmed to an intermediate level j "
+        "lands on j − 1 or j + 1 instead, half each: imec's Fig. 9 shows a missed write going to "
+        "the two neighbouring levels about equally. Level 0 is the reset state and takes no write "
+        f"pulse, and the top level switches at {p_text(IMEC_P_SW_MEDIANS[names[-1]])} "
+        f"({names[-1]}), so neither misses. Every rail of every pair is independent, and the "
+        "error is applied to the programmed levels before the spread. It needs a lattice to "
+        "miss, so it requires a number of states per device.")
+    lines.append("")
+    lines += para(
+        "A missed write can be read back and retried. Taking each attempt as independent of "
+        "the last, as imec's own Fig. 14 does, what is left after m verified attempts is the "
+        f"miss probability to the m-th power. The best intermediate level, {best_key}, misses "
+        f"{WRITE_FAIL_BEST:g} of the time and the worst, {worst_key}, {WRITE_FAIL_WORST:g}, so "
+        f"the delivered rate after m attempts is the bracket "
+        f"[{WRITE_FAIL_BEST:g}^m, {WRITE_FAIL_WORST:g}^m]. It is judged by the same rule as "
+        "the spread: it holds if the worse end holds, fails if the better end fails, and is "
+        "otherwise undetermined at this resolution.")
+    lines.append("")
+
+    av = attempts_verdicts(sw)
+    fewest = fewest_attempts(av)
+    lines += para(
+        f"**For the calibrated variant at {number_word(L)} states**, where the levels "
+        f"{plural[cal['verdict']]}, the write source {write_edge_phrase(sw)}. Accuracy against the pass mark of {thr:.4f}:")
+    lines += [
+        "",
+        "| attempts | delivered rate | at best end | at worst end | verdict |",
+        "|---|---|---|---|---|",
+        *[f"| {v['m']} | {v['bracket'][0]:g}–{v['bracket'][1]:g} | {v['at_best']:.4f} | "
+          f"{v['at_worst']:.4f} | {write_verdict_text(v)} |" for v in av],
+        "",
+    ]
+    if fewest is None:
+        lines += para(f"No number of attempts up to {max(WRITE_ATTEMPTS)} holds: by attempts "
+                      f"the write source {verdict_runs(av)}.")
+    else:
+        tail = (", and every larger number holds too" if attempts_monotone(av) else
+                ", but a larger number does not: **the verdict is not monotone in the attempts**, "
+                "so the fewest is not an edge")
+        again = ""
+        if fewest == IMEC_HEADLINE[0]:
+            again = (" That is the number imec quote, reached here for a different reason: the "
+                     "pass mark, not a bit-error rate.")
+        lines += para(f"**The fewest verified attempts at which it holds is m = {fewest}**"
+                      f"{tail}. By attempts the write source {verdict_runs(av)}.{again}")
+    lines.append("")
+
+    # -- the row at its own scale ---------------------------------------------------
+    lines += para(
+        f"**The row at its own scale.** {number_word(L).capitalize()} levels fail before a write can "
+        f"matter, so the row's write errors are measured at {states} states, the fewest it "
+        f"holds at: the write source {write_edge_phrase(wr)}. No delivered device has {states} "
+        "levels, so that bracket is a required precision and is compared to nothing.")
+    lines.append("")
+
+    # -- the paper's headline ------------------------------------------------------
+    n_head, rate_head = IMEC_HEADLINE
+    left = (1.0 - IMEC_P_SW_MEAN) ** n_head
+    first_n = next(n for n in range(1, 100) if (1.0 - IMEC_P_SW_MEAN) ** n <= rate_head)
+    lo5, hi5 = write_bracket(n_head)
+    lines += para(
+        f"**imec's headline is a mean.** Their Fig. 14 reads {n_head} write attempts to reach a "
+        f"rate of {rate_head:g}, and it is (1 − {IMEC_P_SW_MEAN:g})^n: the paper's own mean "
+        f"switching probability over all five levels. That mean includes {names[0]} and "
+        f"{names[-1]}, which switch at {p_text(IMEC_P_SW_MEDIANS[names[0]])} and "
+        f"{p_text(IMEC_P_SW_MEDIANS[names[-1]])}, so it is higher than the switching "
+        f"probability of any level a write can miss. At n = {n_head} it leaves {left:.2e} (the rate is strictly first met at "
+        f"{first_n} attempts). The intermediate levels' own medians leave {lo5:.2e} to "
+        f"{hi5:.2e} at the same n, {lo5 / left:.0f} to {hi5 / left:.0f} times as much.")
+    lines.append("")
+
+    # -- what it leaves out ---------------------------------------------------------
+    lines += para(
+        "**What this leaves out.** Fig. 11 is each device's own best write current, so one "
+        "current shared across an array would do worse: by how much is `UNSOURCED`. And the "
+        "time and energy the attempts cost are not computed. They are `UNSOURCED` too, beside "
+        "the read time below.")
+    lines.append("")
+
+    # -- the geometry -----------------------------------------------------------------
+    k = L - 1
+    edge_x, edge_y = wir["lastHolding"], wir["firstFailing"]
+    half = d["pillar_nm"] / math.sqrt(k)
+    smaller = "smaller than" if half < IMEC_SMALLEST_CD_NM else "no smaller than"
+    lines += para(
+        f"**The geometric tension.** {number_word(k).capitalize()} pillars at this design's "
+        f"{d['pillar_nm']:.0f} nm multiply the conductance by {k}, so every IR-drop edge in "
+        f"ohms divides by {k}: the row's {ohms(edge_x)} holding and {ohms(edge_y)} failing "
+        f"(first order) become {ohms(edge_x / k)} and {ohms(edge_y / k)}. Keeping the "
+        f"{cb.g_min * 1e6:g}–{cb.g_max * 1e6:g} µS window instead needs pillars about "
+        f"{half:.0f} nm across, each 1/{k} of the area — {smaller} the smallest "
+        f"pillar in imec's spread measurement, about {IMEC_SMALLEST_CD_NM} nm electrical "
+        "(Fig. 8b of the 2020 paper). Neither is modelled.")
+    lines.append("")
+    return lines
+
+
 def render() -> str:
     """The row, assembled from the recorded budget and the handoff.
 
@@ -308,8 +744,13 @@ def render() -> str:
     weights = read_weights(HANDOFF)
     images, _ = read_test_set(HANDOFF)
 
+    if "write_error_rate" not in b:
+        raise KeyError(f"{BUDGET} has no write_error_rate: it predates the write source; "
+                       "re-run spinn-hw/run_error_budget.m")
     ideal, thr = b["ideal"], b["threshold"]
     sig, sta, wir = b["sigma_g_rel"], b["states_per_device"], b["wire_resistance_ohm"]
+    wr = b["write_error_rate"]
+    wr_holds, wr_fails = write_edge_cells(wr)
 
     sig_hold, sig_fail = bits_from_sigma(sig["lastHolding"]), bits_from_sigma(sig["firstFailing"])
     sta_hold = bits_from_states(int(sta["lastHolding"]), h.scheme)
@@ -381,6 +822,8 @@ def render() -> str:
         f"| 2. resolvable states | {int(sta['lastHolding'])} states/device | "
         f"{int(sta['firstFailing'])} states/device | holds at {sta_hold:.2f}, "
         f"fails at {sta_fail:.2f} |",
+        f"| 2, written: write errors, at {int(wr['states'])} states | {wr_holds} | {wr_fails} | "
+        "*a rate, not a bit depth — judged against delivered writes below* |",
         f"| 3. IR drop | {wir['lastHolding']:g} Ω per segment | "
         f"{wir['firstFailing']:g} Ω per segment | *not a bit depth — see below* |",
         "",
@@ -394,6 +837,14 @@ def render() -> str:
         "variation — each device's whole conductance times `a ~ N(1, σ)`, the form imec",
         "measured — it is what the delivered spread is judged with. They are two models",
         "of one spread, so the joint run below uses the first and not both.",
+        "",
+        *para("**Source 2 is measured twice too, and likewise never combined.** As levels "
+              "per device it is the required precision in the hub's unit, and it is judged "
+              "against the levels imec delivers. As written levels — a device programmed to "
+              "one level can land on a neighbour — it is a write error rate, which needs a "
+              "lattice to miss, so it runs at "
+              f"{int(wr['states'])} states per device, the fewest the row holds at. A rate is "
+              "not a bit depth, so it is not converted."),
         "",
         "**IR drop is deliberately not converted to bits.** It is a position-dependent",
         "systematic, not a spread on a stored value, so `log2(range/σ)` has no σ to take.",
@@ -564,6 +1015,7 @@ def render() -> str:
               f"{COMMODITY_SIGMA_REL[0]:.1%} over 8,192 cells, access transistor included "
               "(Jung et al. 2022) — on a thin-barrier memory cell, a different device."),
         "",
+        *delivered_levels_lines(b, weights, d, cb),
         "## Energy and latency",
         "",
         "Both are `UNSOURCED`, and the arithmetic is given so a reader can substitute.",
@@ -618,8 +1070,11 @@ def render() -> str:
         "- Doevenspeck et al., “Multi-pillar SOT-MRAM for Accurate Analog in-Memory DNN",
         "  Inference”, IEEE Symposium on VLSI Technology (2021),",
         "  <https://ieeexplore.ieee.org/document/9508714> — four pillars on one SOT track;",
-        "  conductance distributions over 80 devices, a ratio of 2.03 and σ/μ of",
-        "  3.3–4.1% per level (Fig. 16).",
+        "  five levels per device and nine per pair (Fig. 7); where a missed write lands",
+        "  (Fig. 9); per-level switching probabilities (Fig. 11) and the 0.74 mean behind",
+        "  the five-attempt headline (Fig. 14); conductance distributions over 80 devices,",
+        "  a ratio of 2.03, the five medians and σ/μ of 3.3–4.1% per level (Fig. 16);",
+        "  the weight-noise normalisation (Fig. 17).",
         "- Grollier et al., “Neuromorphic spintronics”, *Nature Electronics* 3, 360–370",
         "  (2020), <https://doi.org/10.1038/s41928-019-0360-9> — a conductance ratio",
         "  “typically around three”.",

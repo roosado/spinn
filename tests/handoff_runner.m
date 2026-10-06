@@ -52,6 +52,7 @@ function handoff_runner(h5path, recordedPath)
     out.validate = checkValidate();
     out.sources = checkSources(h);
     out.area = checkArea(h);
+    out.write = checkWrite(h);
     out.sweep = checkSweep(h);
     out.irDrop = checkIrDrop(h);
     if nargin >= 2 && isfile(recordedPath)
@@ -103,9 +104,10 @@ function v = checkValidate()
     % Every key, not just one: a registry entry that is present but misspelled in
     % the +err function that reads it would pass a single-key check. Each real key
     % gets a plausible typo, and each must be caught *and* traced back to itself.
-    real = ["sigma_g_rel", "sigma_area_rel", "states_per_device", "wire_resistance_ohm"];
+    real = ["sigma_g_rel", "sigma_area_rel", "states_per_device", "write_error_rate", ...
+            "wire_resistance_ohm"];
     typos = ["sigma_g_relative", "sigma_area_relative", "states_per_devices", ...
-             "wire_resistance_ohms"];
+             "write_error_rates", "wire_resistance_ohms"];
     v.eachTypoCaught = true;
     v.eachTypoSuggests = true;
     for k = 1:numel(typos)
@@ -220,6 +222,81 @@ function a = checkArea(h)
         struct('sigma_g_rel', 0.05, 'sigma_area_rel', 0.05, 'subset', sub), 1, 7);
     Gboth = err.area_variation(err.conductance_variation(G0, 0.05, h, 7), 0.05, 7 + 10000);
     a.driverComposes = both.acc == model.crossbar(h, ...
+        struct('conductances', Gboth, 'subset', sub)).accuracy;
+end
+
+
+function wr = checkWrite(h)
+%CHECKWRITE err.write_error against what it has to be.
+%   Only intermediate levels move, only by one, half up and half down, at the
+%   configured rate; the draw a device gets does not depend on the levels around
+%   it; it refuses to run without levels or off the lattice; and the driver draws
+%   it at its own seed offset, before the spread.
+    gmin = h.operating_point.g_min_s;
+    span = h.operating_point.g_max_s - gmin;
+    lvl = @(G, n) round((G - gmin) / span * n);
+    W = h.parameters.weights;
+
+    Gq = model.program(h, W, 5);
+    wr.ideal5 = model.crossbar(h, struct('conductances', Gq)).accuracy;
+    wr.zeroIsIdentity = isequal(err.write_error(Gq, 0, 5, h, 11), Gq);
+
+    g1 = err.write_error(Gq, 0.5, 5, h, 11);
+    j0 = lvl(Gq, 4);
+    j1 = lvl(g1, 4);
+    moved = j1 ~= j0;
+    wr.anyMoved = any(moved(:));
+    wr.movesByOne = all(abs(j1(:) - j0(:)) <= 1);
+    wr.onlyIntermediateMove = ~any(moved(:) & (j0(:) == 0 | j0(:) == 4));
+    wr.unmovedBitIdentical = isequal(g1(~moved), Gq(~moved));
+    wr.acc = model.crossbar(h, struct('conductances', g1)).accuracy;
+    wr.reproducible = isequal(g1, err.write_error(Gq, 0.5, 5, h, 11));
+    wr.seedMatters = ~isequal(g1, err.write_error(Gq, 0.5, 5, h, 12));
+
+    % The rate and the split, over 2e5 devices all at an intermediate level, so the
+    % moved fraction has a standard error of sqrt(0.3*0.7/2e5) = 1.0e-3.
+    probe = gmin + 2 / 4 * span * ones(400, 250, 2);
+    p = lvl(err.write_error(probe, 0.3, 5, h, 5), 4) - 2;
+    wr.probeN = numel(p);
+    wr.movedFraction = mean(p(:) ~= 0);
+    wr.upFraction = mean(p(p ~= 0) > 0);
+
+    % The draw does not depend on the level: two arrays at different intermediate
+    % levels, one seed, the same devices move in the same direction.
+    a = lvl(err.write_error(gmin + 1 / 4 * span * ones(50, 40, 2), 0.3, 5, h, 9), 4) - 1;
+    b = lvl(err.write_error(gmin + 3 / 4 * span * ones(50, 40, 2), 0.3, 5, h, 9), 4) - 3;
+    wr.drawIndependentOfLevel = isequal(a, b);
+
+    wr.needsStatesId = "";
+    try
+        err.write_error(Gq, 0.1, [], h, 1);
+    catch e
+        wr.needsStatesId = string(e.identifier);
+    end
+    wr.offLatticeId = "";
+    try
+        err.write_error(model.program(h), 0.1, 5, h, 1);
+    catch e
+        wr.offLatticeId = string(e.identifier);
+    end
+    wr.driverNeedsStatesId = "";
+    try
+        mc.run_montecarlo_crossbar(h, struct('write_error_rate', 0.1, 'subset', 1:10), 1, 1);
+    catch e
+        wr.driverNeedsStatesId = string(e.identifier);
+    end
+
+    % The driver: write at seed + 20000, before area variation at seed + 10000.
+    sub = 1:200;
+    one = mc.run_montecarlo_crossbar(h, ...
+        struct('states_per_device', 5, 'write_error_rate', 0.3, 'subset', sub), 1, 7);
+    want = model.crossbar(h, struct('conductances', ...
+        err.write_error(Gq, 0.3, 5, h, 7 + 20000), 'subset', sub)).accuracy;
+    wr.driverSeedOffset = one.acc == want;
+    both = mc.run_montecarlo_crossbar(h, struct('states_per_device', 5, ...
+        'write_error_rate', 0.3, 'sigma_area_rel', 0.05, 'subset', sub), 1, 7);
+    Gboth = err.area_variation(err.write_error(Gq, 0.3, 5, h, 7 + 20000), 0.05, 7 + 10000);
+    wr.driverComposes = both.acc == model.crossbar(h, ...
         struct('conductances', Gboth, 'subset', sub)).accuracy;
 end
 

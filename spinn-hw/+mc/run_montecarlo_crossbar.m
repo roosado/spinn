@@ -22,6 +22,11 @@ function stats = run_montecarlo_crossbar(handoff, errorConfig, nRealizations, ba
 %                           proportional form of the same spread. Applied after
 %                           sigma_g_rel if both are set; the budget never sets both
 %     .states_per_device  - err.quantize (deterministic), levels per device
+%     .write_error_rate   - err.write_error (stochastic), the probability that a
+%                           device at an intermediate level was written to a
+%                           neighbour. Needs states_per_device. Applied first,
+%                           before any spread: a device lands on some level, and
+%                           then deviates from it
 %     .wire_resistance_ohm- err.ir_drop (deterministic), ohms per wire segment
 %     .subset             - test-set indices (speed)
 %
@@ -38,6 +43,7 @@ function stats = run_montecarlo_crossbar(handoff, errorConfig, nRealizations, ba
 %   out before a second stochastic source existed so that one could slot in
 %   without disturbing any recorded run, and on 2026-10-04 one did: area
 %   variation takes the next stride, and every sigma_g_rel draw is unchanged.
+%   On 2026-10-06 write errors took the stride after that.
 
     % Every source is selected by field presence, so a misspelled field is a
     % source that silently never runs and a tolerance curve that is flat because
@@ -46,6 +52,7 @@ function stats = run_montecarlo_crossbar(handoff, errorConfig, nRealizations, ba
 
     SEED_CONDUCTANCE = 0;      % offsets reserved in units of 10000; see above
     SEED_AREA = 10000;
+    SEED_WRITE = 20000;
 
     subset = [];
     if isfield(errorConfig, 'subset'), subset = errorConfig.subset; end
@@ -62,6 +69,17 @@ function stats = run_montecarlo_crossbar(handoff, errorConfig, nRealizations, ba
         states = errorConfig.states_per_device;
     end
     baseG = model.program(handoff, handoff.parameters.weights, states);
+
+    % A write error is defined on levels, so it needs them. Refused here, before
+    % any realization, rather than as an error inside the first one.
+    writeRate = [];
+    if isfield(errorConfig, 'write_error_rate')
+        if isempty(states)
+            error('mc:run_montecarlo_crossbar:writeNeedsStates', ...
+                  'write_error_rate needs states_per_device in the same config.');
+        end
+        writeRate = errorConfig.write_error_rate;
+    end
 
     Rwire = 0;
     if isfield(errorConfig, 'wire_resistance_ohm')
@@ -80,6 +98,11 @@ function stats = run_montecarlo_crossbar(handoff, errorConfig, nRealizations, ba
         seeds(i) = seed;
 
         G = baseG;
+        % First, because it happens at writing: the level a device actually
+        % reached is what any spread then perturbs.
+        if ~isempty(writeRate)
+            G = err.write_error(G, writeRate, states, handoff, seed + SEED_WRITE);
+        end
         if isfield(errorConfig, 'sigma_g_rel')
             G = err.conductance_variation(G, errorConfig.sigma_g_rel, handoff, ...
                                           seed + SEED_CONDUCTANCE);

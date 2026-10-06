@@ -1792,3 +1792,108 @@ approximate. A verdict within a sample or two of its mark can flip.
   and the write time is no better sourced.
 - Error sources 4–7.
 - The `gh-pages` push.
+---
+
+## 2026-10-06 — delivered levels and write errors, as declared
+
+Plan 09, run as declared above. Source 2 now has a delivered value. The error that
+belongs to a magnetic junction is now modelled: a device written to the wrong level.
+
+### The verdicts
+
+| | the row, 36×10, at max\|w\| | the calibrated variant, 36×10 | by size, at max\|w\| |
+|---|---|---|---|
+| **five levels** (four pillars) | **fails**, 0.6615 against 0.6978 | **holds**, 0.7110 | fails at 36 and 64 rows; **holds at 144, 324 and 676** |
+| **three levels** (two pillars) | fails, 0.5020 | — | fails at every size |
+| **write errors**, holds → fails | at 7 states: 0.022898 → 0.029718, a required precision | at 5 states: 0.03 → 0.058864 | at 5 states: levels fail first at 36 and 64; 0.121287 → 0.151321 at 144; 0.245025 → 0.3 at 324; holds to 0.495 at 676 |
+| **fewest verified attempts that hold** | — | **5** (4 is undetermined) | 3 at 144, 2 at 324, 1 at 676 |
+
+The calibrated variant puts full scale at 0.70 of max|w|, chosen on the train set. Its
+continuous ideal is 0.7325 against the row's 0.7345, and MATLAB's guard reproduced it.
+
+**Every verdict landed where the expectations on record put it.** Where the two
+differ, the reason is the ladder, not the model:
+
+- **The row at 7 states.** Expected: holds at 0.01, fails at 0.03. Recorded: holds at
+  0.022898, fails at 0.029718. The bracket is narrower because the delivered rungs sit
+  inside it. The holding side clears the mark by 0.0001 (0.6979 against 0.697775), as
+  fragile as declared.
+- **144 rows.** The expectation said "3 or 4": m = 3 was undetermined at 20 Python
+  realizations and held at 200. MATLAB has it holding at 20.
+
+### Nothing recorded moved
+
+The row's budget and all five sizes' were rerun with the new source. Every field that
+existed before was compared, parsed, against a copy taken first, and every one is
+identical. That covers sources 1–3, area variation, the joint run, the solved network
+and the 500-digit sample. The only change is the new `write_error_rate` block. That is
+what the seed stride is for: write errors draw at offset 20000, and nothing else's draw
+can see them.
+
+### Where the plan was wrong, or loose
+
+- **The plan was drafted with quantisation-aware training as its sensitivity, at the
+  user's choice.** Scratch showed it doing worse than quantising afterwards, and showed
+  the scale doing better. The user then chose the calibrated scale instead, before
+  anything was declared. The declaration records the QAT numbers. They are the reason
+  the sensitivity is a programming choice and not a training one.
+- **"Below any spread anyone has measured"** was the declaration's phrase for pillars of
+  ~57 nm. It is too strong: imec's 2020 Fig. 8b reaches about 65 nm electrical. The
+  precise statement, now in the row and in `CLAUDE.md`, is "smaller than any pillar the
+  spread was measured on".
+- **A docstring said "most" weights round to zero at five levels.** It is 177 of 360,
+  49%. It was corrected before the commit.
+- **The paper is looser than its headline.** "5 write attempts are needed to reach the
+  BER of 1e-3" is `(1 − 0.74)^5` = 1.19e-3, and 1e-3 is first met at six. With the
+  intermediate levels' own medians, five attempts leave 8.9e-3 to 3.0e-2, 7 to 25 times
+  as much. Here five attempts suffice anyway, because this array's pass mark is not a
+  bit-error rate. The coincidence is reported as one.
+
+### What was built
+
+- `spinn-hw/+err/write_error.m`. Key `write_error_rate`, seed offset 20000, applied
+  after `program()` and before the spread.
+  - It recovers each device's level exactly from the lattice, and refuses anything off
+    the lattice or without levels.
+  - Every device gets a draw whether or not its level can move, so a device's coin
+    does not depend on what the others were programmed to.
+  - Six new MATLAB-driven tests:
+    - only intermediate levels move, and only by one;
+    - devices that did not move come back bit-identical;
+    - the moved fraction is the rate, and the split is even;
+    - the draw is independent of the level;
+    - both refusals;
+    - the driver's offset and order.
+- `run_error_budget.m` gained:
+  - the write ladder, built in one place from imec's two medians;
+  - a base config for `sweepOne`;
+  - `WriteStates` (7 for the row);
+  - `PassMark`, an absolute mark for the variant, with 95% of its own ideal recorded
+    beside it.
+
+  `run_size_sweep.m` runs the write source at 5 states.
+- `apps/train_crossbar.py --calibrate-states 5` writes `exports/scale/s5/`. It is the
+  row's own weights, clipped at `c·max|w|`, with the gain times `c`. `c` is chosen on
+  the train set over 0.30–1.00, ties to the larger. There is no MATLAB change and no
+  schema change.
+- `apps/report_row.py` gained the helpers `level_verdict`, `attempts_verdicts`,
+  `fewest_attempts` and a direction-free `write_verdict_text`, all pure and tested.
+  - A new section in the row, "Delivered levels and write errors", carries imec's
+    readings as named constants.
+  - The edges table gains its "2, written" row.
+  - The render refuses to print a sentence the budget would make false.
+- `apps/report_size.py` gained the same verdicts at every size.
+- The index page has a paragraph on levels and writes, an updated reference 15, and a
+  next step: price the writes. The size page has one sentence on the device instrument.
+
+384 → 451 tests.
+
+### Still open
+
+- The write current. imec's switching probabilities are each device's at its own best
+  current; a shared array current is `UNSOURCED`.
+- The time and energy of the attempts, `UNSOURCED`, beside the read time (open
+  decision 2).
+- The four-pillar device as a whole, with its own spread and ratio together.
+- Open decision 3.
+- The `gh-pages` push.

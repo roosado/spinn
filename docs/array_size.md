@@ -58,8 +58,8 @@ directions, and neither is explained here.
 Read against each size's own ideal, as bracket ends on the row's ladders — not
 interpolated. The states ladder wobbles by a sample or two at fine quantisation, as
 the row records. These are what the device must deliver at that size, in the hub's
-unit, and they are compared to nothing: the delivered spread is judged with its own
-source, next.
+unit, and in bits they are compared to nothing: the delivered spread is judged with its
+own source, next, and the delivered levels against the states ladder after that.
 
 ## The delivered spread
 
@@ -81,6 +81,37 @@ At the design window's ratio of 3. The row adds the two ratios imec measured on
 integrated junctions, at 36 rows only; the larger arrays here are not rerun at them.
 
 **The delivered spread holds at 64, 144, 324 and 676 rows**, and the margin widens with the array, as the required σ above loosens. It is undetermined at 36 rows.
+
+## Delivered levels and write errors
+
+imec's four-pillar track delivers five conductance levels per device and its
+two-pillar track three (Doevenspeck et al. 2021; the row has the readings). A count
+is one rung of the states ladder, so each is read off directly, as holds or fails
+and never undetermined. It is set by the pillars on the track and not by their size,
+so it is the same at every size here. It is judged at the max|w| scale the row uses:
+the row's calibrated scale is a sensitivity of its own 36×10 array and is not rerun
+here.
+
+Write errors run at 5 states at every size, and are judged by the row's rule against
+[0.389^m, 0.495^m] after m verified attempts. Where five levels fail, the array
+fails before a write can matter, so the table says so and judges no attempts there.
+
+| rows | five levels | three levels | write errors at 5 states, holds → fails | fewest verified attempts that hold |
+|---|---|---|---|---|
+| 36 | **fails** (0.6615) | **fails** (0.5020) | levels fail first | levels fail first |
+| 64 | **fails** (0.7615) | **fails** (0.6880) | levels fail first | levels fail first |
+| 144 | **holds** (0.8745) | **fails** (0.8380) | 0.121287 → 0.151321 | 3 |
+| 324 | **holds** (0.8915) | **fails** (0.7450) | 0.245025 → 0.3 | 2 |
+| 676 | **holds** (0.9045) | **fails** (0.8175) | holds at every rung to 0.495 | 1 |
+
+The levels cells give the verdict and, in brackets, the accuracy against that size's
+pass mark. The write ladder is read at the ladder points either side of where the
+mean crosses it, and a verdict within a sample or two of its mark can move between
+runs.
+
+**Five levels per device hold at 144, 324 and 676 rows and fail at 36 and 64 rows.**
+Three levels hold at no size swept. Where five levels hold, the fewest verified
+attempts that hold are 3 at 144 rows, 2 at 324 rows and 1 at 676 rows.
 
 ## IR drop, first order and solved
 
@@ -220,7 +251,11 @@ weights' mapping onto the window and is not covered.
   and both are held, so a different cell would change the ohm axis.
 - **The delivered spread is a bracket, for the device class.** imec's test vehicle,
   at pillar sizes either side of this design's, judged here at one window ratio; the
-  row says what it is and is not. Sources 1 and 2 are compared to nothing.
+  row says what it is and is not. In bits, sources 1 and 2 are compared to nothing.
+- **The delivered levels and writes are for the device class, at the row's scale.** Five
+  levels are judged at the max|w| scale the row uses, and the row's calibrated scale is a
+  36×10 sensitivity, not rerun here. Fig. 11 is each device's own best write current, and
+  one current shared across an array would do worse: `UNSOURCED`.
 - **The other sizes are not the shared task.** Ideal accuracy rises with the grid
   because the task gets easier, and each size's pass mark rises with it.
 - **The row's IR-drop bracket is first order.** The solved network at the same size
@@ -228,13 +263,18 @@ weights' mapping onto the window and is not covered.
 
 ## Sources
 
-The two wire resistances and the delivered spread are cited here; everything else is
-this project's own model or measurement.
+The two wire resistances, the delivered spread, the delivered levels and the switching
+probabilities are cited here; everything else is this project's own model or
+measurement.
 
 - Doevenspeck et al., “SOT-MRAM based Analog in-Memory Computing for DNN inference”,
   IEEE Symposium on VLSI Technology (2020),
   <https://ieeexplore.ieee.org/document/9265099> — σ/μ of R_P against electrical CD,
   set by area and not by RA (Fig. 8).
+- Doevenspeck et al., “Multi-pillar SOT-MRAM for Accurate Analog in-Memory DNN
+  Inference”, IEEE Symposium on VLSI Technology (2021),
+  <https://ieeexplore.ieee.org/document/9508714> — five levels per device from four
+  pillars, three from two (Fig. 7); per-level switching probabilities (Fig. 11).
 - Agrawal, Lee & Roy, “X-CHANGR” (2019), <https://arxiv.org/abs/1907.00285> —
   2 Ω per crossbar node at 65 nm.
 - Victor, Kim, Wang, Roy & Gupta, “WAGONN” (2024),

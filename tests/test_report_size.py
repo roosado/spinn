@@ -19,7 +19,13 @@ import os
 import pytest
 
 from apps import report_size
-from apps.report_row import DELIVERED_SIGMA_AREA
+from apps.report_row import (
+    DELIVERED_LEVELS,
+    DELIVERED_LEVELS_TWO_PILLAR,
+    DELIVERED_SIGMA_AREA,
+    WRITE_ATTEMPTS,
+    write_bracket,
+)
 from apps.report_size import (
     CITED_OHM,
     GRIDS,
@@ -28,6 +34,8 @@ from apps.report_size import (
     _path,
     at,
     bracket_in_size,
+    delivered_at,
+    fewest_text,
 )
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -37,6 +45,27 @@ sizes_on_disk = pytest.mark.skipif(
     not all(os.path.exists(_path(g, "error_budget.json")) and
             os.path.exists(_path(g, "crossbar_handoff.h5")) for g in GRIDS),
     reason="no size sweep on disk; run apps.train_crossbar --grid g and "
+           "spinn-hw/run_size_sweep.m (exports/ is gitignored)",
+)
+
+
+def _sizes_have_writes() -> bool:
+    """Whether every size's budget on disk carries the write source -- older ones do not."""
+    try:
+        for g in GRIDS:
+            with open(_path(g, "error_budget.json"), encoding="utf-8") as fh:
+                if "write_error_rate" not in json.load(fh):
+                    return False
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+#: The tests that read the write source at every size skip, with the reason, on budgets
+#: recorded before it existed.
+writes_on_disk = pytest.mark.skipif(
+    not _sizes_have_writes(),
+    reason="the size budgets on disk predate the write source; re-run "
            "spinn-hw/run_size_sweep.m (exports/ is gitignored)",
 )
 
@@ -105,6 +134,78 @@ def test_holding_again_after_failing_is_flagged_and_the_first_failure_is_kept():
     br = bracket_in_size(SIZES, [True, True, False, True, False])
     assert (br["last"], br["first_fail"]) == (64, 144)
     assert not br["monotone"], "the bracket is real but the range must not read as monotone"
+
+
+# -- delivered levels and write errors --------------------------------------------------
+
+STATES = [65, 33, 17, 9, 7, 5, 4, 3, 2]
+RATES = sorted({1e-4, 3e-4, 1e-3, 3e-3, 1e-2, 3e-2, 0.1, 0.3}
+               | {e for m in WRITE_ATTEMPTS for e in write_bracket(m)})
+
+
+def _sweep(mags, accs, threshold):
+    holds = [a >= threshold for a in accs]
+    last = max((i for i, h in enumerate(holds) if h), default=None)
+    first = min((i for i, h in enumerate(holds) if not h), default=None)
+    return {"magnitudes": mags, "accMean": accs, "holds": holds,
+            "lastHolding": None if last is None else mags[last],
+            "firstFailing": None if first is None else mags[first]}
+
+
+def _size(five_acc, three_acc, write_accs, rows=144, states=DELIVERED_LEVELS, threshold=0.8):
+    """A size's budget as far as delivered_at reads it."""
+    accs = [0.9] * 5 + [five_acc, 0.5, three_acc, 0.4]
+    write = _sweep(RATES, write_accs, threshold)
+    write["states"] = states
+    return {"rows": rows, "states_per_device": _sweep(STATES, accs, threshold),
+            "write_error_rate": write}
+
+
+def test_where_five_levels_fail_no_attempts_are_judged():
+    """The array fails before a write can matter, so there is nothing to bracket."""
+    x = delivered_at(_size(0.7, 0.5, [0.7] * len(RATES), rows=36))
+    assert x["five"]["verdict"] == "fails" and x["three"]["verdict"] == "fails"
+    assert x["writes"] is None and x["fewest"] is None
+
+
+def test_where_five_levels_hold_the_write_ladder_is_read_for_its_edge_and_its_attempts():
+    accs = [0.9 - 0.5 * r for r in RATES]          # holds while 0.9 - 0.5r >= 0.8: r <= 0.2
+    x = delivered_at(_size(0.85, 0.5, accs))
+    assert x["five"]["verdict"] == "holds" and x["three"]["verdict"] == "fails"
+    assert x["writes"] == "0.151321 → 0.245025"
+    assert x["fewest"] == 3 and x["monotone"]
+    assert fewest_text(x) == "3"
+
+
+def test_a_write_ladder_that_never_fails_is_said_to_run_off_its_end():
+    x = delivered_at(_size(0.85, 0.5, [0.9] * len(RATES), rows=676))
+    assert x["writes"] == "holds at every rung to 0.495"
+    assert x["fewest"] == 1
+
+
+def test_no_attempts_that_hold_is_reported_as_none_up_to_the_most_tried():
+    x = delivered_at(_size(0.85, 0.5, [0.79] * len(RATES)))
+    assert x["fewest"] is None
+    assert fewest_text(x) == f"none up to {max(WRITE_ATTEMPTS)}"
+
+
+def test_a_count_off_the_states_ladder_is_refused_at_a_size_too():
+    b = _size(0.85, 0.5, [0.9] * len(RATES))
+    b["states_per_device"] = _sweep([65, 33, 17, 9, 7, 4, 2], [0.9] * 7, 0.8)
+    with pytest.raises(ValueError, match="not on the states ladder"):
+        delivered_at(b)
+
+
+def test_a_write_source_run_at_another_state_count_is_refused():
+    with pytest.raises(ValueError, match="not the 5"):
+        delivered_at(_size(0.85, 0.5, [0.9] * len(RATES), states=7))
+
+
+def test_a_size_budget_that_predates_the_write_source_is_refused():
+    b = _size(0.85, 0.5, [0.9] * len(RATES))
+    del b["write_error_rate"]
+    with pytest.raises(KeyError, match="write_error_rate"):
+        delivered_at(b)
 
 
 # -- the recorded budgets ----------------------------------------------------------
@@ -258,6 +359,45 @@ def test_the_row_size_reproduces_the_row_on_sources_one_and_two():
 
 
 @sizes_on_disk
+@writes_on_disk
+def test_every_size_ran_its_write_source_at_the_delivered_five_levels(budgets):
+    """Said in the report: the same five states at every size, whether or not they hold."""
+    for g, b in budgets.items():
+        assert b["write_error_rate"]["states"] == DELIVERED_LEVELS, g
+        assert b["write_error_rate"]["threshold"] == b["threshold"], g
+
+
+@sizes_on_disk
+@writes_on_disk
+def test_every_write_bracket_end_is_on_every_sizes_write_ladder(budgets):
+    """So each size's verdict is read off ladder points, to the bit."""
+    for g, b in budgets.items():
+        mags = b["write_error_rate"]["magnitudes"]
+        assert mags == sorted(set(mags)), g
+        for m in WRITE_ATTEMPTS:
+            for end in write_bracket(m):
+                assert end in mags, (g, m, end)
+
+
+@sizes_on_disk
+@writes_on_disk
+def test_both_delivered_level_counts_are_rungs_of_every_sizes_states_ladder(budgets):
+    from apps.report_row import level_verdict
+
+    for g, b in budgets.items():
+        for n in (DELIVERED_LEVELS, DELIVERED_LEVELS_TWO_PILLAR):
+            assert level_verdict(b["states_per_device"], n)["levels"] == n, (g, n)
+
+
+@sizes_on_disk
+@writes_on_disk
+def test_the_write_source_has_a_spread_at_every_size_where_it_ran_to_a_failure(budgets):
+    """It draws random neighbours, so its realizations differ -- unlike the states knob."""
+    for g, b in budgets.items():
+        assert max(b["write_error_rate"]["accStd"]) > 0, g
+
+
+@sizes_on_disk
 def test_the_delivered_bracket_is_on_the_area_ladder_at_every_size(budgets):
     """So each size's verdict on the delivered spread is read off ladder points."""
     for g, b in budgets.items():
@@ -270,6 +410,7 @@ def test_the_delivered_bracket_is_on_the_area_ladder_at_every_size(budgets):
 
 
 @sizes_on_disk
+@writes_on_disk
 def test_the_committed_document_matches_what_report_size_produces_now():
     """The same bargain ``test_report_row.py`` makes for the row.
 

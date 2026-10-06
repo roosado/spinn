@@ -57,6 +57,11 @@ function summary = run_size_sweep(grids, sizeDir)
 %   run_error_budget like the others, and has no sample twin: it is the form of
 %   source 1 the delivered spread is judged with, and nothing in the browser draws
 %   it, so there is no live number for a twin to stand behind.
+%
+%   Write errors (write_error_rate, from 2026-10-06) are measured at every size the
+%   same way, at 5 states per device -- the delivered four-pillar count, where the
+%   row's 7 is only the fewest it holds at. They have no sample twin either: there is
+%   no browser copy of the write model, so no live number to stand behind.
 
     arguments
         grids (1,:) double = [6 8 12 18 26]
@@ -67,6 +72,7 @@ function summary = run_size_sweep(grids, sizeDir)
     addpath(here);
 
     CITED_OHM = [2 20];             % 65 nm (Agrawal 2019) and 7 nm (Victor 2024)
+    WRITE_STATES = 5;               % levels per device the four-pillar junction delivers (imec 2021)
 
     k = -6:8;
     ladder = 2 * 10 .^ (k / 3);
@@ -81,7 +87,8 @@ function summary = run_size_sweep(grids, sizeDir)
         out = dir + "/error_budget.json";
         fprintf('\n=== grid %dx%d (%d rows) ===\n', g, g, g * g);
 
-        results = run_error_budget(handoff, out, WireLadder = ladder);
+        results = run_error_budget(handoff, out, WireLadder = ladder, ...
+                                   WriteStates = WRITE_STATES);
 
         % The array this run rebuilt must be the one it was told about.
         assert(results.nRows == g * g, ...

@@ -23,15 +23,37 @@ import pytest
 from apps import report_row
 from apps.report_row import (
     BUDGET,
+    DELIVERED_LEVELS,
+    DELIVERED_LEVELS_TWO_PILLAR,
     DELIVERED_SIGMA_AREA,
     HANDOFF,
+    IMEC_HEADLINE,
+    IMEC_LEVEL_LABELS,
+    IMEC_LEVELS_US,
+    IMEC_P_SW_MEAN,
+    IMEC_P_SW_MEDIANS,
     IMEC_SIGMA_MU,
     MEASURED_RATIOS,
     RATIO_BUDGETS,
+    SCALE_BUDGET,
+    SCALE_NPZ,
+    WRITE_ATTEMPTS,
+    WRITE_FAIL_BEST,
+    WRITE_FAIL_WORST,
+    attempts_monotone,
+    attempts_verdicts,
     bits_from_sigma,
     bits_from_states,
     design_check,
+    fewest_attempts,
+    level_verdict,
     margin,
+    rounds_to_zero,
+    verdict_runs,
+    write_bracket,
+    write_edge_cells,
+    write_edge_phrase,
+    write_verdict_text,
 )
 from spinn.crossbar import Crossbar
 
@@ -42,11 +64,34 @@ budget = pytest.mark.skipif(
     reason="no error budget on disk; run spinn-hw/run_error_budget.m",
 )
 
+
+
+def _has_writes(path: str) -> bool:
+    """Whether a budget on disk carries the write source -- older ones do not."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return "write_error_rate" in json.load(fh)
+    except (OSError, ValueError):
+        return False
+
+
 #: Regenerating the row needs the handoff as well as the budget -- it recomputes
-#: the array read power from the weights and the test set, not just from the sweep.
+#: the array read power from the weights and the test set, not just from the sweep --
+#: and, for the section on delivered levels, the calibrated variant and the write source
+#: in both budgets.
 row = pytest.mark.skipif(
-    not (os.path.exists(BUDGET) and os.path.exists(HANDOFF)),
-    reason="no budget or handoff on disk; exports/ is gitignored and regenerable",
+    not (os.path.exists(HANDOFF) and os.path.exists(SCALE_NPZ)
+         and _has_writes(BUDGET) and _has_writes(SCALE_BUDGET)),
+    reason="no budget, handoff or calibrated variant with the write source on disk; "
+           "exports/ is gitignored and regenerable",
+)
+
+#: The calibrated variant's budget, for the tests that read it.
+variant = pytest.mark.skipif(
+    not _has_writes(SCALE_BUDGET),
+    reason=f"no calibrated variant with the write source at {SCALE_BUDGET}; run "
+           f"apps.train_crossbar --calibrate-states {DELIVERED_LEVELS} and "
+           "spinn-hw/run_error_budget.m",
 )
 
 
@@ -314,6 +359,295 @@ def test_the_delivered_bracket_is_on_every_area_ladder(result):
     for mags in ladders:
         for end in DELIVERED_SIGMA_AREA:
             assert any(math.isclose(m, end) for m in mags), (end, mags)
+
+
+@pytest.mark.parametrize(
+    "m, bracket",
+    [
+        (1, (0.389, 0.495)),
+        (2, (0.151321, 0.245025)),
+        (3, (0.058864, 0.121287)),
+        (4, (0.022898, 0.060037)),
+        (5, (0.008907, 0.029718)),
+        (6, (0.003465, 0.014711)),
+    ],
+)
+def test_the_write_bracket_after_m_attempts_is_the_declared_one(m, bracket):
+    """``[0.389^m, 0.495^m]``, to six places, as declared in docs/history.md (2026-10-06).
+
+    Hard-coded, so a change to either constant or to the rounding is a failure here
+    rather than a ladder that quietly moves.
+    """
+    assert write_bracket(m) == bracket
+    assert m in WRITE_ATTEMPTS
+
+
+def test_the_write_attempts_are_one_to_six():
+    assert list(WRITE_ATTEMPTS) == [1, 2, 3, 4, 5, 6]
+
+
+# -- delivered levels and write errors -----------------------------------------------
+
+#: The row's states ladder, descending, and a write ladder built as the declared one is:
+#: the eight round rates and both ends of every bracket.
+STATES = [65, 33, 17, 9, 7, 5, 4, 3, 2]
+RATES = sorted({1e-4, 3e-4, 1e-3, 3e-3, 1e-2, 3e-2, 0.1, 0.3}
+               | {e for m in WRITE_ATTEMPTS for e in write_bracket(m)})
+
+
+def _writes(slope=0.5, base=0.75, threshold=0.69):
+    """A write ladder whose accuracy falls linearly with the rate, holds to ~0.1."""
+    return _ladder(RATES, [base - slope * r for r in RATES], threshold)
+
+
+def test_a_delivered_level_count_that_holds_is_read_off_its_rung():
+    s = _ladder(STATES, [.735, .735, .72, .72, .701, .66, .63, .50, .42], 0.6978)
+    v = level_verdict(s, 7)
+    assert v == {"levels": 7, "acc": .701, "verdict": "holds"}
+
+
+def test_a_delivered_level_count_that_fails_is_read_off_its_rung():
+    s = _ladder(STATES, [.735, .735, .72, .72, .701, .66, .63, .50, .42], 0.6978)
+    assert level_verdict(s, 5) == {"levels": 5, "acc": .66, "verdict": "fails"}
+    assert level_verdict(s, 3)["verdict"] == "fails"
+
+
+def test_a_level_count_off_the_states_ladder_is_refused_rather_than_interpolated():
+    s = _ladder(STATES, [.7] * 9, 0.6)
+    with pytest.raises(ValueError, match="not on the states ladder"):
+        level_verdict(s, 6)
+
+
+def test_a_level_count_is_never_undetermined():
+    """A count is one rung, so there is no bracket for it to straddle."""
+    s = _ladder(STATES, [.735, .735, .72, .72, .701, .66, .63, .50, .42], 0.6978)
+    assert {level_verdict(s, n)["verdict"] for n in STATES} <= {"holds", "fails"}
+
+
+def test_the_attempts_are_judged_by_the_declared_rule_at_each_bracket():
+    """Holds to 0.1, so m=3 straddles it: its better end holds and its worse end does not."""
+    av = attempts_verdicts(_writes())
+    assert [v["m"] for v in av] == list(WRITE_ATTEMPTS)
+    assert [v["bracket"] for v in av] == [write_bracket(m) for m in WRITE_ATTEMPTS]
+    assert [v["verdict"] for v in av] == [
+        "fails", "fails", "undetermined", "holds", "holds", "holds"]
+    assert av[3]["at_best"] == pytest.approx(0.75 - 0.5 * 0.022898)
+    assert av[3]["at_worst"] == pytest.approx(0.75 - 0.5 * 0.060037)
+
+
+def test_attempts_are_refused_on_a_ladder_that_lacks_a_bracket_end():
+    """Both ends have to be rungs, or the verdict would be an interpolation."""
+    mags = [r for r in RATES if r != 0.058864]
+    with pytest.raises(ValueError, match="not on the ladder"):
+        attempts_verdicts(_ladder(mags, [0.75 - 0.5 * r for r in mags], 0.69))
+
+
+def test_attempts_survive_an_edge_beyond_the_ladder():
+    """MATLAB writes "holds at every rung" as a null failing edge; every m then holds."""
+    s = _ladder(RATES, [0.9] * len(RATES), 0.69)
+    s["firstFailing"] = None
+    av = attempts_verdicts(s)
+    assert {v["verdict"] for v in av} == {"holds"}
+    assert all(math.isinf(v["bits"][1]) for v in av)
+
+
+def test_the_fewest_attempts_that_hold_is_the_first_that_does():
+    av = attempts_verdicts(_writes())
+    assert fewest_attempts(av) == 4
+    assert attempts_monotone(av)
+
+
+def test_no_attempts_that_hold_is_none_and_is_not_a_contradiction():
+    av = attempts_verdicts(_writes(base=0.5))
+    assert fewest_attempts(av) is None
+    assert attempts_monotone(av)
+
+
+def test_a_larger_number_of_attempts_that_stops_holding_is_flagged():
+    """More attempts leave a smaller rate, so this is noise, and it must show."""
+    verdicts = [{"m": 1, "verdict": "fails"}, {"m": 2, "verdict": "holds"},
+                {"m": 3, "verdict": "undetermined"}, {"m": 4, "verdict": "holds"}]
+    assert fewest_attempts(verdicts) == 2
+    assert not attempts_monotone(verdicts)
+
+
+def test_the_verdicts_by_attempts_collapse_into_runs():
+    assert verdict_runs(attempts_verdicts(_writes())) == (
+        "fails at m = 1–2, is undetermined at m = 3, holds at m = 4–6")
+    assert verdict_runs([{"m": 1, "verdict": "holds"}]) == "holds at m = 1"
+
+
+@pytest.mark.parametrize("name", ["holds", "fails", "undetermined"])
+def test_a_write_verdict_is_a_word_and_never_bits(name):
+    assert write_verdict_text(name) == f"**{name}**"
+    assert write_verdict_text({"verdict": name, "bits": (1.0, 2.0)}) == f"**{name}**"
+
+
+def test_a_write_verdict_that_is_not_a_verdict_is_refused():
+    with pytest.raises(ValueError, match="not a verdict"):
+        write_verdict_text("passes")
+
+
+def test_a_write_ladders_edges_become_table_cells_with_their_accuracies():
+    holds, fails = write_edge_cells(_writes())
+    assert holds == f"r = 0.1 ({0.75 - 0.05:.4f})"
+    assert fails == f"r = 0.121287 ({0.75 - 0.5 * 0.121287:.4f})"
+    assert write_edge_phrase(_writes()) == "holds at r = 0.1 and fails at r = 0.121287"
+
+
+def test_a_write_edge_beyond_the_ladder_is_said_as_edge_text_says_it():
+    never_fails = _ladder(RATES, [0.9] * len(RATES), 0.69)
+    never_fails["firstFailing"] = None
+    holds, fails = write_edge_cells(never_fails)
+    assert holds.startswith(f"r = {RATES[-1]:g} (")
+    assert fails == f"holds at every rung to {RATES[-1]:g}"
+    assert write_edge_phrase(never_fails) == f"holds at every rung to {RATES[-1]:g}"
+
+    never_holds = _ladder(RATES, [0.5] * len(RATES), 0.69)
+    never_holds["lastHolding"] = None
+    holds, fails = write_edge_cells(never_holds)
+    assert holds == "—"
+    assert fails.startswith(f"fails at every rung from {RATES[0]:g} (")
+    assert write_edge_phrase(never_holds) == f"fails at every rung from {RATES[0]:g}"
+
+
+def test_a_weight_rounds_to_zero_strictly_below_half_a_step():
+    """At five levels the step is 1/4, so half of it is 0.125 -- and 0.125 rounds up.
+
+    Round half away from zero, as the array does, so the boundary weight is not zero.
+    Checked against the array's own quantiser rather than against the formula.
+    """
+    w = np.array([[0.124, 0.125], [-0.1, 0.5], [-0.126, 0.0]])
+    assert rounds_to_zero(w, 5) == (3, 6)
+    q = Crossbar(3, 2, states=5).quantise_weights(w)
+    assert int(np.sum(q == 0)) == 3
+
+
+def test_the_pillar_counts_set_the_levels_and_the_pair_doubles_them_less_one():
+    assert DELIVERED_LEVELS == len(IMEC_LEVELS_US) == len(IMEC_LEVEL_LABELS) == 5
+    assert DELIVERED_LEVELS_TWO_PILLAR == 3
+    assert Crossbar(1, 1, states=DELIVERED_LEVELS).representable_weights == 9
+
+
+def test_imecs_five_levels_are_evenly_spaced_to_a_few_percent():
+    """Why ``program()``'s even lattice is the paper's: the steps differ by under 4%."""
+    g = np.array(IMEC_LEVELS_US)
+    steps = np.diff(g)
+    assert np.all(steps > 0)
+    assert np.max(np.abs(steps / steps.mean() - 1.0)) < 0.04
+
+
+def test_the_write_constants_are_one_minus_the_best_and_worst_intermediate_medians():
+    """The two numbers the ladder is built from come from Fig. 11(a), not from each other."""
+    inner = [p for k, p in IMEC_P_SW_MEDIANS.items() if k not in ("G1", "G5")]
+    assert round(1.0 - max(inner), 6) == WRITE_FAIL_BEST
+    assert round(1.0 - min(inner), 6) == WRITE_FAIL_WORST
+    assert IMEC_P_SW_MEDIANS["G5"] == 1.0
+
+
+def test_imecs_headline_is_a_mean_that_five_attempts_do_not_quite_reach():
+    """(1 - 0.74)^5 is 1.19e-3: 1e-3 is strictly first met at six attempts."""
+    n, rate = IMEC_HEADLINE
+    assert (1.0 - IMEC_P_SW_MEAN) ** n == pytest.approx(1.19e-3, rel=0.01)
+    assert (1.0 - IMEC_P_SW_MEAN) ** n > rate > (1.0 - IMEC_P_SW_MEAN) ** (n + 1)
+
+
+def test_the_calibrated_variant_lives_under_its_own_directory():
+    assert os.path.dirname(SCALE_BUDGET) == os.path.dirname(SCALE_NPZ)
+    assert os.path.basename(os.path.dirname(SCALE_BUDGET)) == f"s{DELIVERED_LEVELS}"
+
+
+def test_a_missing_calibrated_variant_is_refused_rather_than_left_out(monkeypatch, tmp_path):
+    """The section is built on it; a document without it would look complete."""
+    monkeypatch.setattr(report_row, "SCALE_BUDGET", str(tmp_path / "error_budget.json"))
+    with pytest.raises(FileNotFoundError, match="calibrated variant"):
+        report_row.load_scale()
+
+
+def test_a_calibrated_budget_that_predates_the_write_source_is_refused(monkeypatch, tmp_path):
+    path = tmp_path / "error_budget.json"
+    path.write_text(json.dumps({"states_per_device": {}}), encoding="utf-8")
+    npz = tmp_path / "crossbar_ideal.npz"
+    np.savez(npz, calibrated_states=DELIVERED_LEVELS)
+    monkeypatch.setattr(report_row, "SCALE_BUDGET", str(path))
+    monkeypatch.setattr(report_row, "SCALE_NPZ", str(npz))
+    with pytest.raises(KeyError, match="write_error_rate"):
+        report_row.load_scale()
+
+
+@budget
+def test_the_write_bracket_is_on_the_write_ladder(result):
+    """Both ends of every bracket are rungs, to the bit: read off, not interpolated.
+
+    Exact float equality, not isclose. The ladder is built from the same two constants
+    on each side, rounded to six places, so it either agrees to the bit or the two
+    sides have drifted apart.
+    """
+    if "write_error_rate" not in result:
+        pytest.skip("this budget predates the write source; re-run spinn-hw/run_error_budget.m")
+    mags = result["write_error_rate"]["magnitudes"]
+    assert mags == sorted(set(mags))
+    for m in WRITE_ATTEMPTS:
+        for end in write_bracket(m):
+            assert end in mags, (m, end, mags)
+
+
+@budget
+def test_the_row_ran_its_write_source_at_the_fewest_states_it_holds_at(result):
+    """Said in the row, so checked here: that is where the write source ran."""
+    if "write_error_rate" not in result:
+        pytest.skip("this budget predates the write source; re-run spinn-hw/run_error_budget.m")
+    assert result["write_error_rate"]["states"] == result["states_per_device"]["lastHolding"]
+    assert result["write_error_rate"]["threshold"] == result["threshold"]
+
+
+@pytest.fixture(scope="module")
+def scale():
+    with open(SCALE_BUDGET, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+@budget
+@variant
+def test_the_calibrated_variant_is_judged_against_the_rows_own_pass_mark(result, scale):
+    """The question is whether five levels carry this task to the row's standard."""
+    assert scale["threshold"] == result["threshold"]
+    assert scale["ownPassMark"] == pytest.approx(0.95 * scale["ideal"])
+    assert scale["write_error_rate"]["threshold"] == result["threshold"]
+
+
+@variant
+def test_the_calibrated_variant_carries_only_the_two_sources_it_was_run_for(scale):
+    assert {"states_per_device", "write_error_rate"} <= set(scale)
+    assert not {"sigma_g_rel", "sigma_area_rel", "wire_resistance_ohm", "joint"} & set(scale)
+
+
+@variant
+def test_the_calibrated_variant_wrote_at_the_delivered_five_levels(scale):
+    assert scale["write_error_rate"]["states"] == DELIVERED_LEVELS
+
+
+@variant
+def test_every_write_bracket_end_is_on_the_calibrated_variants_ladder(scale):
+    mags = scale["write_error_rate"]["magnitudes"]
+    for m in WRITE_ATTEMPTS:
+        for end in write_bracket(m):
+            assert end in mags, (m, end)
+
+
+@variant
+def test_both_delivered_level_counts_are_rungs_of_the_calibrated_states_ladder(scale):
+    for n in (DELIVERED_LEVELS, DELIVERED_LEVELS_TWO_PILLAR):
+        assert level_verdict(scale["states_per_device"], n)["levels"] == n
+
+
+@variant
+def test_the_variants_ideal_file_says_what_it_was_calibrated_for(scale):
+    with np.load(SCALE_NPZ) as z:
+        assert int(z["calibrated_states"]) == DELIVERED_LEVELS
+        assert 0.0 < float(z["scale_c"]) <= 1.0
+        assert float(z["ideal_accuracy"]) == scale["ideal"]
+        assert float(np.abs(z["weights"]).max()) == pytest.approx(1.0)
 
 
 @budget

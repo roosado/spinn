@@ -22,8 +22,10 @@ curve.
 cited (2 ohm per cell at 65 nm, 20 ohm at 7 nm), so IR drop is judged against it. Since
 2026-10-04 the device spread is measured for this device class -- a bracket in sigma/mu
 (Doevenspeck et al. 2020) -- so area variation is judged against it too, at every size,
-by the rule the row uses. Sources 1 and 2 are required precisions and are compared to
-nothing.
+by the rule the row uses. Since 2026-10-06 the levels per device and the write error rate
+are measured for it as well (Doevenspeck et al. 2021), so source 2 is judged against the
+delivered levels, and the write source against the delivered write bracket. In bits,
+sources 1 and 2 are required precisions and are compared to nothing.
 
 **Edges are brackets, never interpolated.** No fitted crossing and no fitted exponent.
 ``edge x rows^2`` is shown at both ends of each bracket instead, so a reader can see how
@@ -43,12 +45,23 @@ import numpy as np
 
 from apps.report_row import (
     BUDGET as ROW_BUDGET,
+    DELIVERED_LEVELS,
+    DELIVERED_LEVELS_TWO_PILLAR,
     DELIVERED_SIGMA_AREA,
+    WRITE_ATTEMPTS,
+    WRITE_FAIL_BEST,
+    WRITE_FAIL_WORST,
     array_read_power,
+    attempts_monotone,
+    attempts_verdicts,
     bits_from_sigma,
     bits_from_states,
     edge_text,
+    fewest_attempts,
+    level_verdict,
     margin,
+    number_word,
+    para,
     verdict_text,
 )
 from spinn.handoff import read_handoff, read_test_set, read_weights
@@ -145,6 +158,45 @@ def _list(xs) -> str:
 
 def _bits_pair(sigma_block: dict) -> tuple[float, float]:
     return bits_from_sigma(sigma_block["lastHolding"]), bits_from_sigma(sigma_block["firstFailing"])
+
+
+def _nan_if_absent(v):
+    return math.nan if v is None else v
+
+
+def delivered_at(b: dict) -> dict:
+    """What the delivered levels and the write source say at one size.
+
+    Five levels and three are each one rung of the states ladder, read off as holds or
+    fails. The write source ran at five states, and is only reported where five levels
+    hold: where they fail the array fails before a write can matter, so there is nothing
+    for a write to add and no attempts are judged. Otherwise ``fewest`` is the smallest
+    number of verified attempts that holds, or None, and ``monotone`` is false if a
+    larger number of attempts then fails to hold.
+    """
+    if "write_error_rate" not in b:
+        raise KeyError(f"the {b['rows']}-row budget has no write_error_rate: it predates "
+                       "the write source; re-run spinn-hw/run_size_sweep.m")
+    wr = b["write_error_rate"]
+    if int(wr["states"]) != DELIVERED_LEVELS:
+        raise ValueError(f"the {b['rows']}-row write source ran at {wr['states']} states, "
+                         f"not the {DELIVERED_LEVELS} the section says")
+    five = level_verdict(b["states_per_device"], DELIVERED_LEVELS)
+    three = level_verdict(b["states_per_device"], DELIVERED_LEVELS_TWO_PILLAR)
+    out = {"rows": b["rows"], "five": five, "three": three,
+           "writes": None, "fewest": None, "monotone": True}
+    if five["verdict"] == "holds":
+        av = attempts_verdicts(wr)
+        out["writes"] = edge_text((_nan_if_absent(wr["lastHolding"]),
+                                   _nan_if_absent(wr["firstFailing"])))
+        out["fewest"] = fewest_attempts(av)
+        out["monotone"] = attempts_monotone(av)
+    return out
+
+
+def fewest_text(x: dict) -> str:
+    """The fewest verified attempts that hold at one size, as :func:`delivered_at` found it."""
+    return f"none up to {max(WRITE_ATTEMPTS)}" if x["fewest"] is None else str(x["fewest"])
 
 
 def render() -> str:
@@ -256,8 +308,8 @@ def render() -> str:
     w("Read against each size's own ideal, as bracket ends on the row's ladders — not")
     w("interpolated. The states ladder wobbles by a sample or two at fine quantisation, as")
     w("the row records. These are what the device must deliver at that size, in the hub's")
-    w("unit, and they are compared to nothing: the delivered spread is judged with its own")
-    w("source, next.")
+    w("unit, and in bits they are compared to nothing: the delivered spread is judged with its")
+    w("own source, next, and the delivered levels against the states ladder after that.")
     w("")
 
     # -- table B2: the delivered spread ------------------------------------------
@@ -294,6 +346,72 @@ def render() -> str:
         w(f"**The delivered spread holds at {_list(by['holds'])} rows**, and the margin widens "
           "with the array, as the required σ above loosens. " + " ".join(tail))
         w("")
+
+    # -- table B3: the delivered levels and writes -------------------------------------
+    n5, n3 = DELIVERED_LEVELS, DELIVERED_LEVELS_TWO_PILLAR
+    delivered = [delivered_at(data[g]) for g in GRIDS]
+    w("## Delivered levels and write errors")
+    w("")
+
+    def prose(text):
+        for line in para(text):
+            w(line)
+
+    prose(f"imec's four-pillar track delivers {number_word(n5)} conductance levels per device "
+          f"and its two-pillar track {number_word(n3)} (Doevenspeck et al. 2021; the row has the readings). A count "
+          "is one rung of the states ladder, so each is read off directly, as holds or "
+          "fails and never undetermined. It is set by the pillars on the track and not by their "
+          "size, so it is the same at every size here. It is judged at the max|w| scale the "
+          "row uses: the row's calibrated scale is a sensitivity of its own 36×10 array and "
+          "is not rerun here.")
+    w("")
+    prose(f"Write errors run at {n5} states at every size, and are judged by the row's rule "
+          f"against [{WRITE_FAIL_BEST:g}^m, {WRITE_FAIL_WORST:g}^m] after m verified attempts. "
+          f"Where {number_word(n5)} levels fail, the array fails before a write can matter, so "
+          "the table says so and judges no attempts there.")
+    w("")
+    w(f"| rows | {number_word(n5)} levels | {number_word(n3)} levels | write errors at {n5} states, "
+      "holds → fails | fewest verified attempts that hold |")
+    w("|---|---|---|---|---|")
+    for x in delivered:
+        cells = [f"**{x[k]['verdict']}** ({x[k]['acc']:.4f})" for k in ("five", "three")]
+        if x["writes"] is None:
+            tail = ["levels fail first", "levels fail first"]
+        else:
+            fewest = fewest_text(x)
+            if not x["monotone"]:
+                fewest += " (not monotone: a larger number fails)"
+            tail = [x["writes"], fewest]
+        w(f"| {x['rows']} | {cells[0]} | {cells[1]} | {tail[0]} | {tail[1]} |")
+    w("")
+    prose("The levels cells give the verdict and, in brackets, the accuracy against that "
+          "size's pass mark. The write ladder is read at the ladder points either side of "
+          "where the mean crosses it, and a verdict within a sample or two of its mark can "
+          "move between runs.")
+    w("")
+
+    def at_rows(rows_):
+        return f"{_list(rows_)} rows" if rows_ else "no size swept"
+
+    five_hold = [x["rows"] for x in delivered if x["five"]["verdict"] == "holds"]
+    five_fail = [x["rows"] for x in delivered if x["five"]["verdict"] == "fails"]
+    three_hold = [x["rows"] for x in delivered if x["three"]["verdict"] == "holds"]
+    summary = (f"**{number_word(n5).capitalize()} levels per device hold at {at_rows(five_hold)} and "
+               f"fail at {at_rows(five_fail)}.** {number_word(n3).capitalize()} levels hold at "
+               f"{at_rows(three_hold)}.")
+    if five_hold:
+        per = [f"{fewest_text(x)} at {x['rows']} rows"
+               for x in delivered if x["five"]["verdict"] == "holds"]
+        summary += (f" Where {number_word(n5)} levels hold, the fewest verified attempts that hold "
+                    f"are {_list(per)}.")
+    prose(summary)
+    w("")
+    for x in delivered:
+        if not x["monotone"]:
+            prose(f"*At {x['rows']} rows the write verdict holds at some number of attempts and "
+                  "fails at a larger one; the fewest is not an edge and should not be read as "
+                  "one.*")
+            w("")
 
     # -- table C ---------------------------------------------------------------
     w("## IR drop, first order and solved")
@@ -522,7 +640,11 @@ def render() -> str:
     w("  and both are held, so a different cell would change the ohm axis.")
     w("- **The delivered spread is a bracket, for the device class.** imec's test vehicle,")
     w("  at pillar sizes either side of this design's, judged here at one window ratio; the")
-    w("  row says what it is and is not. Sources 1 and 2 are compared to nothing.")
+    w("  row says what it is and is not. In bits, sources 1 and 2 are compared to nothing.")
+    w("- **The delivered levels and writes are for the device class, at the row's scale.** Five")
+    w("  levels are judged at the max|w| scale the row uses, and the row's calibrated scale is a")
+    w("  36×10 sensitivity, not rerun here. Fig. 11 is each device's own best write current, and")
+    w("  one current shared across an array would do worse: `UNSOURCED`.")
     w("- **The other sizes are not the shared task.** Ideal accuracy rises with the grid")
     w("  because the task gets easier, and each size's pass mark rises with it.")
     w("- **The row's IR-drop bracket is first order.** The solved network at the same size")
@@ -530,13 +652,18 @@ def render() -> str:
     w("")
     w("## Sources")
     w("")
-    w("The two wire resistances and the delivered spread are cited here; everything else is")
-    w("this project's own model or measurement.")
+    w("The two wire resistances, the delivered spread, the delivered levels and the switching")
+    w("probabilities are cited here; everything else is this project's own model or")
+    w("measurement.")
     w("")
     w("- Doevenspeck et al., “SOT-MRAM based Analog in-Memory Computing for DNN inference”,")
     w("  IEEE Symposium on VLSI Technology (2020),")
     w("  <https://ieeexplore.ieee.org/document/9265099> — σ/μ of R_P against electrical CD,")
     w("  set by area and not by RA (Fig. 8).")
+    w("- Doevenspeck et al., “Multi-pillar SOT-MRAM for Accurate Analog in-Memory DNN")
+    w("  Inference”, IEEE Symposium on VLSI Technology (2021),")
+    w("  <https://ieeexplore.ieee.org/document/9508714> — five levels per device from four")
+    w("  pillars, three from two (Fig. 7); per-level switching probabilities (Fig. 11).")
     w("- Agrawal, Lee & Roy, “X-CHANGR” (2019), <https://arxiv.org/abs/1907.00285> —")
     w("  2 Ω per crossbar node at 65 nm.")
     w("- Victor, Kim, Wang, Roy & Gupta, “WAGONN” (2024),")

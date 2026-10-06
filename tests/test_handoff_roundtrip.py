@@ -279,12 +279,13 @@ def test_the_crossbar_arch_exists_and_names_only_what_is_implemented(crossed):
     """Sources 4-7 get their keys when they get their implementations.
 
     ``sigma_area_rel`` got its key on 2026-10-04, the day there was a measurement
-    for it to be compared against -- not before.
+    for it to be compared against -- not before. ``write_error_rate`` got its key on
+    2026-10-06, for the same reason.
     """
     v = crossed["validate"]
     assert v["archKnown"]
     assert v["keys"] == ["sigma_area_rel", "sigma_g_rel", "states_per_device", "subset",
-                         "wire_resistance_ohm"]
+                         "wire_resistance_ohm", "write_error_rate"]
 
 
 @pytestmark_matlab
@@ -554,6 +555,75 @@ def test_the_driver_draws_area_at_its_own_offset_after_source_one(crossed):
     a = crossed["area"]
     assert a["driverSeedOffset"]
     assert a["driverComposes"]
+
+
+# -- write errors ------------------------------------------------------------
+
+
+@pytestmark_matlab
+def test_write_errors_degrade_and_are_reproducible(crossed):
+    w = crossed["write"]
+    assert w["zeroIsIdentity"]
+    assert w["anyMoved"], "a source wired up but moving nothing"
+    assert w["acc"] < w["ideal5"], "a source wired up but not reaching the model"
+    assert w["reproducible"] and w["seedMatters"]
+
+
+@pytestmark_matlab
+def test_only_intermediate_levels_move_and_only_to_a_neighbour(crossed):
+    """The model imec's figures support, and nothing more.
+
+    Level 0 is the reset state and gets no write pulse; the top level switches at
+    1.00 in Fig. 11(a); a miss lands next door (Fig. 9). Every device that did not
+    move must come back bit-identical, or the source is perturbing what it claims
+    to leave alone.
+    """
+    w = crossed["write"]
+    assert w["movesByOne"]
+    assert w["onlyIntermediateMove"]
+    assert w["unmovedBitIdentical"]
+
+
+@pytestmark_matlab
+def test_the_moved_fraction_is_the_rate_and_the_split_is_even(crossed):
+    w = crossed["write"]
+    n, rate = w["probeN"], 0.3
+    assert w["movedFraction"] == pytest.approx(rate, abs=5 * np.sqrt(rate * (1 - rate) / n))
+    moved = rate * n
+    assert w["upFraction"] == pytest.approx(0.5, abs=5 * np.sqrt(0.25 / moved))
+
+
+@pytestmark_matlab
+def test_a_devices_write_draw_does_not_depend_on_its_level(crossed):
+    """The same coin for the same device, whatever it was programmed to.
+
+    Without this, programming one weight differently would reshuffle which other
+    devices miss, and two configurations could not be compared draw for draw.
+    """
+    assert crossed["write"]["drawIndependentOfLevel"]
+
+
+@pytestmark_matlab
+def test_write_errors_refuse_to_run_without_levels_or_off_the_lattice(crossed):
+    """A write error is defined on levels. Silently treating a continuous array as
+    one would invent a lattice the configuration never asked for."""
+    w = crossed["write"]
+    assert w["needsStatesId"] == "err:write_error:needsStates"
+    assert w["offLatticeId"] == "err:write_error:offLattice"
+    assert w["driverNeedsStatesId"] == "mc:run_montecarlo_crossbar:writeNeedsStates"
+
+
+@pytestmark_matlab
+def test_the_driver_draws_write_errors_at_their_own_offset_before_the_spread(crossed):
+    """Seed + 20000, the stride after area variation's, applied before it.
+
+    A device lands on some level, possibly the wrong one, and then deviates from
+    it. Both checks compare the driver with an accuracy computed by hand from the
+    same draws, so an off-by-a-stride seed or a reversed order fails here.
+    """
+    w = crossed["write"]
+    assert w["driverSeedOffset"]
+    assert w["driverComposes"]
 
 
 # -- the driver --------------------------------------------------------------

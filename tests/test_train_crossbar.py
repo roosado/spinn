@@ -14,24 +14,32 @@ The test below is what would have caught it.
 """
 from __future__ import annotations
 
+import inspect
+import os
+import sys
+
 import numpy as np
 import pytest
 
-import os
-
 from apps.train_crossbar import (
     EXPORTS,
+    SCALE_CANDIDATES,
+    calibrate_scale,
     cross_entropy,
     fit_to_window,
     learning_rate,
+    main,
     output_dir,
     ratio_crossbar,
     ratio_dir,
+    scale_dir,
+    scale_to_window,
     softmax,
     train,
 )
 from spinn.crossbar import G_MAX, G_MIN, Crossbar, accuracy
-from spinn.task import one_hot
+from spinn.handoff import read_handoff
+from spinn.task import load_shared_task, one_hot
 
 
 def test_softmax_is_a_distribution_and_survives_large_logits():
@@ -184,3 +192,168 @@ def test_a_ratio_variant_computes_exactly_what_the_design_does():
     images, w = rng.random((5, 36)), rng.uniform(-1, 1, (36, 10))
     assert np.allclose(ratio_crossbar(36, 10, 1.85).forward(images, w),
                        Crossbar(36, 10).forward(images, w))
+
+
+# -- the calibrated scale --------------------------------------------------------
+#
+# The row maps max|w| to full scale. The calibrated variant puts full scale at c*max|w|
+# instead and chooses c on the train set. It is a programming choice and not training,
+# and the row keeps max|w|; these tests pin the choice and the handoff it writes.
+
+ROW_IDEAL = os.path.join(EXPORTS, "crossbar_ideal.npz")
+
+needs_row = pytest.mark.skipif(
+    not os.path.exists(ROW_IDEAL),
+    reason="exports/ is gitignored; run apps.train_crossbar first",
+)
+
+
+def _brute_force(w, x, y, states):
+    """Every candidate's train accuracy, with the quantiser written out independently."""
+    n = states - 1
+    accs = []
+    for c in SCALE_CANDIDATES:
+        scaled = np.clip(w / (c * np.abs(w).max()), -1.0, 1.0)
+        q = np.sign(scaled * n) * np.floor(np.abs(scaled * n) + 0.5) / n
+        accs.append(accuracy(x @ q, y))
+    return accs
+
+
+def test_a_calibrated_variant_lands_under_scale_named_by_its_states():
+    """``exports/scale/s5``: a sensitivity, kept apart from the design's own handoff."""
+    assert scale_dir(5) == os.path.join(EXPORTS, "scale", "s5")
+    assert scale_dir(3) == os.path.join(EXPORTS, "scale", "s3")
+
+
+def test_the_candidates_are_exactly_0p30_to_1p00_in_steps_of_0p05():
+    """Built from integers, so 0.35 is the literal 0.35 and not an accumulated step."""
+    assert len(SCALE_CANDIDATES) == 15
+    assert SCALE_CANDIDATES == tuple(k / 100 for k in range(30, 101, 5))
+    assert SCALE_CANDIDATES[0] == 0.30 and SCALE_CANDIDATES[1] == 0.35
+    assert SCALE_CANDIDATES[-1] == 1.0
+
+
+def test_calibration_never_sees_test_data():
+    """It takes the weights and the *train* arrays; nothing in its signature is a test set."""
+    names = list(inspect.signature(calibrate_scale).parameters)
+    assert names[:4] == ["weights", "x_train", "train_labels", "states"]
+    assert not [n for n in names if "test" in n]
+
+
+def test_calibration_picks_the_train_accuracy_maximiser_and_ties_go_to_the_larger_c():
+    """Labels are the continuous array's own argmax, so quantisation is all that costs.
+
+    Seed 16 is chosen because the best accuracy is reached at two candidates that are
+    not neighbours -- 0.45 and 0.90 -- so "first maximum" and "last maximum" differ,
+    and the precondition below fails loudly if the synthetic problem ever stops being
+    a tie.
+    """
+    rng = np.random.default_rng(16)
+    w = rng.normal(size=(8, 4))
+    w[0, 0] = 5.0  # the outlier that sets the lattice at c = 1
+    x = rng.random((60, 8))
+    y = np.argmax(x @ w, axis=1)
+
+    accs = _brute_force(w, x, y, 3)
+    best = max(accs)
+    tied = [c for c, a in zip(SCALE_CANDIDATES, accs) if a == best]
+    assert len(tied) > 1, "the problem must contain a tie for this test to mean anything"
+    assert accs[-1] < best, "and c = 1 must not already be the answer"
+
+    assert calibrate_scale(w, x, y, 3) == max(tied)
+    assert calibrate_scale(w, x, y, 3) > min(tied)
+
+
+def test_when_every_candidate_ties_the_answer_is_c_equal_one():
+    """The identity pattern quantises to itself at every c, so all fifteen tie."""
+    w = np.eye(3)
+    x = np.eye(3)
+    y = np.arange(3)
+    assert calibrate_scale(w, x, y, 2) == 1.0
+
+
+def test_scaling_at_c_equal_one_is_the_rows_own_fit_to_the_window():
+    w = np.array([[5.4, -2.0], [0.1, -0.3]])
+    assert np.array_equal(scale_to_window(w, 1.0), fit_to_window(w)[0])
+
+
+def test_scaling_below_one_clips_the_outliers_to_the_rails_and_nothing_else():
+    w = np.array([[1.0, -1.0], [0.5, -0.25]])
+    out = scale_to_window(w, 0.5)
+    assert np.array_equal(out, np.array([[1.0, -1.0], [1.0, -0.5]]))
+
+
+@needs_row
+def test_the_calibrated_weights_quantise_exactly_as_the_search_saw_them():
+    """On the row's own weights: in the window, full scale touched, same lattice point."""
+    weights = np.load(ROW_IDEAL)["weights"]
+    task = load_shared_task()
+    full = Crossbar(36, 10)
+    x_train = full.encode(task.train_images) / full.read_voltage
+    cb = Crossbar(36, 10, states=5)
+
+    c = calibrate_scale(weights, x_train, task.train_labels, 5)
+    assert c in SCALE_CANDIDATES
+
+    w_cal = np.clip(weights / c, -1.0, 1.0)
+    assert np.abs(w_cal).max() == 1.0
+    assert w_cal.min() >= -1.0 and w_cal.max() <= 1.0
+    # The row's weights are already fitted, so max|w| is 1 and w / c is w / (c * max|w|).
+    assert np.array_equal(w_cal, scale_to_window(weights, c))
+
+    searched = cb.quantise_weights(np.clip(weights / (c * np.abs(weights).max()), -1.0, 1.0))
+    assert np.array_equal(cb.quantise_weights(w_cal), searched)
+
+
+def _run_main(monkeypatch, out_dir, *extra):
+    argv = ["train_crossbar", "--quick", "--out-dir", str(out_dir), *extra]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+
+def test_the_calibrated_handoff_carries_clipped_weights_and_the_gain_times_c(
+    monkeypatch, tmp_path, capsys
+):
+    """Same training as the row, so the calibrated gain is the row's gain times ``c``.
+
+    ``--quick`` is five epochs, which is enough to pin the arithmetic and is not the
+    row's accuracy. ``--out-dir`` keeps both runs out of ``exports/``.
+    """
+    row, cal = tmp_path / "row", tmp_path / "cal"
+    _run_main(monkeypatch, row)
+    _run_main(monkeypatch, cal, "--calibrate-states", "5")
+    capsys.readouterr()
+
+    zr, zc = np.load(row / "crossbar_ideal.npz"), np.load(cal / "crossbar_ideal.npz")
+    c = float(zc["scale_c"])
+    assert c in SCALE_CANDIDATES and int(zc["calibrated_states"]) == 5
+    assert "scale_c" not in zr.files, "the row's record is unchanged"
+
+    assert float(zc["readout_gain"]) == float(zr["readout_gain"]) * c
+    assert np.array_equal(zc["weights"], np.clip(zr["weights"] / c, -1.0, 1.0))
+    assert np.abs(zc["weights"]).max() == 1.0
+
+    # The ideal recorded is the continuous accuracy of the clipped weights, through the array.
+    task = load_shared_task(train=False)
+    assert float(zc["ideal_accuracy"]) == accuracy(
+        Crossbar(36, 10).forward(task.test_images, zc["weights"]), task.test_labels
+    )
+
+    h = read_handoff(cal / "crossbar_handoff.h5")
+    assert h.constant("readout_gain") == float(zc["readout_gain"])
+    assert h.constant("g_max_s") == G_MAX and h.constant("g_min_s") == G_MIN
+
+
+def test_calibration_is_refused_off_the_rows_own_array(monkeypatch, tmp_path):
+    """Like ``--ratio``: a sensitivity of the 36x10 row, and not of the size sweep."""
+    monkeypatch.setattr(sys, "argv", ["train_crossbar", "--calibrate-states", "5",
+                                      "--grid", "12", "--out-dir", str(tmp_path)])
+    with pytest.raises(SystemExit, match="grid 6"):
+        main()
+
+
+def test_calibration_and_a_window_ratio_are_not_stacked(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys, "argv", ["train_crossbar", "--calibrate-states", "5",
+                                      "--ratio", "2.03", "--out-dir", str(tmp_path)])
+    with pytest.raises(SystemExit, match="--ratio"):
+        main()

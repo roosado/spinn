@@ -509,6 +509,23 @@
         larger array swept, the same spread holds.
       </p>
       <p>
+        <strong>So are its levels, and its writes.</strong> imec's four-pillar junction
+        gives five levels per device and nine per pair, evenly spaced over 80
+        devices<sup class="r">15</sup>, and its weight table is this array's own at five
+        states. At this size five levels fail &mdash; 0.6615 against a pass mark of
+        0.6978 &mdash; but that is the scale and not the device: putting the largest
+        weight at full scale lets one outlier set the lattice, and with full scale at 0.7
+        of it, chosen on the training digits, five levels hold at 0.7110. The row keeps
+        its own scale; this is a sensitivity. Writing is stochastic. An intermediate level
+        is reached on 50.5&ndash;61% of attempts, and a miss lands on a neighbouring level,
+        so against that array verified writes hold at five attempts per device and are
+        undetermined at four. The paper's own &ldquo;10<sup>&minus;3</sup> after five
+        attempts&rdquo; averages in the two levels that never miss; the intermediate levels
+        alone leave 0.9&ndash;3% of them wrong. From 144 rows up five levels hold at the
+        row's own scale, and the attempts needed fall to three, then two, then one at
+        676 rows.
+      </p>
+      <p>
         The accuracy and the bit depths do not depend on the operating point &mdash; the
         window and the drive cancel exactly in the decode, and a test asserts the ideal
         accuracy is unchanged across unrelated windows. The energy figure does.
@@ -541,7 +558,7 @@
         <li><b>12</b> C. Wang, Victor &amp; Gupta (2023). 182&nbsp;&#937;/&micro;m wiring at 7&nbsp;nm over a 108&nbsp;nm SOT-MRAM cell; simulated SOT junctions of 8&ndash;100&nbsp;k&#937;. <a href="https://arxiv.org/abs/2307.04261">arXiv:2307.04261</a></li>
         <li><b>13</b> Wei et al., ISSCC (2019). A 7&nbsp;Mb STT-MRAM with 4&nbsp;ns read sensing in 22FFL; known from the reference list of ref.&nbsp;6, not read.</li>
         <li><b>14</b> Shih et al. (2020). An 8&nbsp;Mb STT-MRAM macro with 9&nbsp;ns read access in 16&nbsp;nm FinFET; known from the reference list of Cai et al. (2021), <a href="https://arxiv.org/abs/2110.03937">arXiv:2110.03937</a>, not read.</li>
-        <li><b>15</b> Doevenspeck et al. (imec), &ldquo;Multi-pillar SOT-MRAM for Accurate Analog in-Memory DNN Inference&rdquo;, IEEE Symposium on VLSI Technology (2021). Four pillars on one SOT track; over 80 devices, a conductance ratio of 2.03 and &sigma;/&mu; of 3.3&ndash;4.1% per level. <a href="https://ieeexplore.ieee.org/document/9508714">IEEE Xplore 9508714</a></li>
+        <li><b>15</b> Doevenspeck et al. (imec), &ldquo;Multi-pillar SOT-MRAM for Accurate Analog in-Memory DNN Inference&rdquo;, IEEE Symposium on VLSI Technology (2021). Four pillars on one SOT track: five evenly spaced levels per device; over 80 devices, a conductance ratio of 2.03 and &sigma;/&mu; of 3.3&ndash;4.1% per level; median per-attempt switching probabilities of 0.505&ndash;0.611 for the intermediate levels. <a href="https://ieeexplore.ieee.org/document/9508714">IEEE Xplore 9508714</a></li>
       </ol>
     </div>
   </section>
@@ -570,6 +587,15 @@
           the margin, and so would the TMR an integrated thick-barrier junction actually
           delivers: at the ratios imec measured, the verdict moves from undetermined to
           failing.
+        </span>
+      </li>
+      <li>
+        <b>Price the writes</b>
+        <span>
+          Five verified attempts per device cost a write time and an energy, and neither
+          is sourced. And the switching probabilities imec measured are each device's at
+          its own best current; a current shared across an array would switch less
+          reliably, by an amount nobody has measured.
         </span>
       </li>
       <li>
