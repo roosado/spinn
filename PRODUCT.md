@@ -86,6 +86,15 @@ At the design window the margin is **undetermined** — the array holds at 0.05 
 0.063, inside the bracket. At imec's measured integrated ratios it is undetermined at 2.03
 and fails at 1.85. "Undetermined" is a result to show as such, not a hole.
 
+**Levels and writes.** imec's four-pillar junction delivers five levels per device and
+nine per pair (Doevenspeck et al. 2021). At 36×10 five levels fail at the row's own
+scale (0.6615 against 0.6978) and hold with a calibrated scale (0.7110, full scale at
+0.7·max|w|, chosen on the train set). A write to an intermediate level misses on
+38.9–49.5% of attempts and lands on a neighbour, so verified writes need five attempts
+at that array; at the row's own scale write errors are measured at 7 states and hold to
+a rate of 0.0229, failing at 0.0297. From 144 rows up five levels hold at the row's own
+scale, needing three, two and one attempts at 144, 324 and 676 rows.
+
 **The design point, which is not a hole.** `g_min` = 1 µS, `g_max` = 3 µS,
 `read_voltage` = 0.1 V: a 2 nm CoFeB/MgO junction about 114 nm across, written beside and
 read through in a three-terminal cell, each step cited. Published wiring (2–20 Ω per

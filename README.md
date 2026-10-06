@@ -135,8 +135,11 @@ binds, at 4.84 effective bits**, ahead of resolvable states and IR drop. Deliver
 precision is measured for this device class — σ/μ between 0.031 and 0.063 (imec,
 Doevenspeck et al. 2020), a bracket — and the margin against it is **undetermined** at
 the design window: the bracket straddles the array's edge. At the window ratios imec
-measured on integrated junctions it is undetermined at 2.03 and fails at 1.85. Energy per
-inference and latency are `UNSOURCED`.
+measured on integrated junctions it is undetermined at 2.03 and fails at 1.85. imec's
+four-pillar junction delivers five levels per device (Doevenspeck et al. 2021): at the
+row's own scale five fail, but with full scale chosen on the training digits they hold,
+and verified writes then need five attempts per device. From 144 rows up five levels
+hold at the row's own scale. Energy per inference and latency are `UNSOURCED`.
 
 The operating point is a design — a thick-barrier magnetic tunnel junction, read through
 and written beside — checked against cited device physics rather than copied from a

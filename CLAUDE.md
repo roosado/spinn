@@ -58,7 +58,7 @@ spinn/
 spinn-hw/
 ├── +mc/              # sweep, pack, validate_config, error_sources + the crossbar driver
 ├── +model/           # program, encode, crossbar — the as-built forward pass
-├── +err/             # conductance_variation, area_variation, quantize, ir_drop, ir_drop_exact (+ inherited detector_noise)
+├── +err/             # conductance_variation, area_variation, quantize, write_error, ir_drop, ir_drop_exact (+ inherited detector_noise)
 ├── +io/read_handoff.m  # the one MATLAB reader
 ├── run_error_budget.m  # the sweep entry point; writes exports/error_budget.json
 └── run_size_sweep.m    # the same budget at five array sizes, and the first-order check
@@ -109,6 +109,12 @@ measurements either side of this design's pillar (Doevenspeck et al. 2020), a br
 **The margin is undetermined** at the design window — the array holds at 0.05 and fails
 at 0.063, inside the bracket — undetermined at imec's measured ratio of 2.03, and failing
 at 1.85. Energy per inference and latency are `UNSOURCED`.
+
+**Delivered levels and write errors are measured for this device class too**, since
+2026-10-06 (imec's four-pillar junction, Doevenspeck et al. 2021). Five levels per
+device fail at the row's own scale (0.6615) and hold with full scale calibrated on the
+train set (0.7110, `exports/scale/s5/`). Verified writes then need five attempts per
+device. Both sit beside source 2, and nothing the row records moved.
 
 **The array-size sweep is done and is on the site** (`docs/array_size.md` is the single
 statement of it; `site/larger.html` shows it): grids
@@ -187,9 +193,10 @@ Python's directly.
 
 ## Plan of work
 
-**Eight plans are closed. Nothing in `plans/` is open.** The comparable core is complete
+**Nine plans are closed. Nothing in `plans/` is open.** The comparable core is complete
 and the row is reported; plan 06, the array-size sweep, was declared before it ran,
-plan 07 put it on the site, and plan 08 gave the row a delivered spread.
+plan 07 put it on the site, plan 08 gave the row a delivered spread, and plan 09 gave
+source 2 delivered levels and a write error.
 
 | | | closed by | |
 |---|---|---|---|
@@ -201,6 +208,7 @@ plan 07 put it on the site, and plan 08 gave the row a delivered spread.
 | 06 | the array-size sweep | declared `89d1031` | 36 to 676 rows; first order is not the network |
 | 07 | go larger | `d6dd93f`, `add8156` | six instruments at five sizes; the network solved in the browser |
 | 08 | a delivered spread | declared `e303e00`; `2fed4b0` | imec's spread adopted; margin undetermined; zero stored as two devices off |
+| 09 | delivered levels and write errors | declared `fa97674`; `35b4d02` | five levels fail at 36 rows at max\|w\|, hold calibrated and from 144 rows; writes need five attempts |
 
 The plan files are archived in `plans/finished_plans/` (gitignored, like all of
 `plans/`), each stamped with the commit that closed it and otherwise unedited — they
@@ -209,7 +217,9 @@ about something that mattered — plan 07 was checked against the code before it
 eleven of its statements about the codebase turned out to be wrong, which is recorded in
 the plan file rather than quietly fixed — plan 06 built an iteration of the first-order model that
 stopped converging where it was needed, and replaced it with a direct solve — and plan 08
-expected nothing to run off a ladder, and the solved network at 6×6 did.
+expected nothing to run off a ladder, and the solved network at 6×6 did — and plan 09
+was drafted with quantisation-aware training as its sensitivity, which scratch showed doing
+worse than simply choosing the quantisation scale, so it was replaced before the declaration.
 `docs/history.md` carries the published version.
 
 **Do not write a further plan from that archive.** The next work is named below instead:
@@ -228,6 +238,8 @@ request from a *Deliberately deferred* item, which is the intended route.
   N×N matrix engine, so the MZI mesh is its like-for-like counterpart, not the D²NN.
 - Error sources, platform-native and in this order: conductance variation, resolvable
   states, IR drop; then sneak paths, read noise, ADC quantisation, retention drift.
+  Measured forms sit *beside* a source without renumbering anything: area variation
+  beside source 1 (2026-10-04), write errors beside source 2 (2026-10-06).
 - One row in `/compare`, reported once, here.
 
 ### Do not build
@@ -293,7 +305,10 @@ Do not assume an answer; ask.
    is still open under it is the bracket's width: it straddles this array's edge, and
    either a measurement at this pillar's own size or the TMR an integrated thick-barrier
    junction actually delivers would decide the margin. The numbering is kept because
-   other documents cite decision 3 by number.
+   other documents cite decision 3 by number. Also open under it, since 2026-10-06:
+   imec's switching probabilities are each device's at its own best write current, so
+   a current shared across an array is `UNSOURCED`, as are the time and energy that
+   the write attempts cost.
 2. **A read time.** Energy per inference and latency both need one, and a read time
    belongs to a sense amplifier this model deliberately excludes. Published MRAM reads
    (4–9 ns) and the commodity crossbar's settling (13–29 ns) are quoted for scale.
@@ -322,6 +337,37 @@ Do not assume an answer; ask.
 
 Kept so a later session does not reopen a question already answered.
 
+- **Delivered levels are the four-pillar count, 5 per device** (2026-10-06), with the
+  two-pillar 3 beside it (Doevenspeck et al., VLSI 2021). This is a count, set by the
+  pillars on a track and not by their size, so it carries. The levels are evenly
+  spaced (Fig. 16), and the paper's weight table is `program()` at five states.
+  **Only the count is adopted.** The window and plan 08's spread stay. Four pillars at
+  114 nm would quadruple the conductance (IR edges ÷4). ~57 nm pillars would keep the
+  window, but they are smaller than any pillar the spread was measured on (imec 2020
+  reaches ≈65 nm electrical). That tension is stated, not modelled.
+- **Write errors sit beside source 2, judged per level** (2026-10-06).
+  - `write_error_rate`: an intermediate level `0 < j < n` lands on `j ± 1` with
+    probability `r`, half each way.
+  - Level 0 is the reset state and gets no pulse. The top level switches at 1.00
+    (Fig. 11a).
+  - It is applied before the spread, at seed offset 20000.
+  - Delivered after `m` verified attempts is `[0.389^m, 0.495^m]`, from the best and
+    worst intermediate medians, by plan 08's margin rule.
+  - The paper's "1e-3 after 5 attempts" uses one 74% mean that includes the two
+    levels that never miss. It is reported, not used.
+  - It runs at 7 states on the row (the fewest it holds at, a required precision only)
+    and at 5 at every size.
+- **The calibrated scale is a sensitivity, not the row** (2026-10-06).
+  - The row maps `max|w|` to full scale, so one outlier sets the lattice and about half
+    the weights round to zero at five levels.
+  - `apps/train_crossbar.py --calibrate-states 5` puts full scale at `c·max|w|`, with
+    `c` chosen on the train set (0.70). It is a programming choice, not training, and
+    it is judged against the row's own pass mark.
+  - **Quantisation-aware training was tried and did worse** (0.579–0.669 against
+    0.711, oscillating). It stays out, with the rest of the ML content.
+- **Python and MATLAB can differ by one test digit at a quantised rung** (2026-10-06).
+  The cause is exact top-2 logit ties, settled by summation order. MATLAB's budget is
+  the record.
 - **The delivered spread is imec's, for the device class, as a bracket** (2026-10-04).
   Doevenspeck et al. (VLSI 2020) measured three-terminal SOT junctions read through a
   thick barrier, with σ/μ set by pillar area and not by RA, so it carries to this
