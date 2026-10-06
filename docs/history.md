@@ -1650,3 +1650,145 @@ Open decision 2, the read time. Open decision 3, whether the row's IR drop moves
 solved network; its numbers changed and the decision did not. Narrowing the delivered
 spread needs one of two things: a measurement at this pillar's own size, or the TMR an
 integrated thick-barrier junction actually delivers. The `gh-pages` push.
+---
+
+## 2026-10-06 — delivered levels and write errors, declared first
+
+**Written before anything was run**, as plan 08's declaration was, and committed before
+the driver produces a number.
+
+Source 2 has been a required precision compared to nothing. The row holds at 7 states
+per device (0.701) and fails at 5 (0.6615, against a pass mark of 0.6978). The edge loosens
+as the array grows: 7 → 5 at 36 and 64 rows, 5 → 4 at 144, 4 → 3 at 324 and 676. And
+nothing here has modelled the error that sets a magnetic junction apart from the other
+analog memories. Its switching is stochastic, so a device can be written to the wrong
+level.
+
+### What imec measured
+
+**Doevenspeck et al., VLSI 2021**, the multi-pillar paper, already the source of the 2.03
+ratio. This time all of it was read, by pixel at 800 dpi, with every extraction overlaid
+on the figure and checked by eye.
+
+- **Levels.** Four 80 nm pillars on one SOT track give five conductance levels per device
+  (Fig. 7) and nine per pair. Two pillars give three. The write is VCMA-assisted, and the
+  current selects how many pillars switch, because each pillar sees a different voltage
+  along the track (Fig. 10).
+- **The levels are evenly spaced.** These are the Fig. 16 medians over 80 devices, in µS,
+  ±0.07:
+
+  | 4AP | 3AP/1P | 2AP/2P | 1AP/3P | 4P |
+  |---|---|---|---|---|
+  | 37.84 | 47.57 | 57.29 | 67.41 | 76.95 |
+
+  The steps are 9.73, 9.72, 10.12 and 9.54 µS. That is the even lattice `program()`
+  already assumes. The paper's weight table is `program()` at five states, zero included
+  (both devices at 4AP).
+- **The spread is multiplicative.** σ/median is 3.5–3.9% at every level (whole-curve
+  probit fits). The tails are not quite normal, and the lower tail is longer.
+- **Fig. 17's σw, 4.8–8.2%, is the absolute spread of the differential weight as a
+  fraction of the full span.** The paper does not say so. It is inferred, but
+  `√(σ_G1² + σ_G2²) / 38.4 µS` reproduces all nine of its values from Fig. 16's σ to 1e-4.
+- **Writing.** Fig. 11(a) gives the per-attempt maximum switching probability over 80
+  devices, each at its own best current:
+
+  | level | G1 (4AP) | G2 | G3 | G4 | G5 (4P) |
+  |---|---|---|---|---|---|
+  | median | ≈0.99 | **0.611** | **0.505** | **0.525** | 1.00 |
+  | quartiles | 0.976–0.998 | 0.521–0.772 | 0.452–0.601 | 0.475–0.657 | collapsed at 1.00 |
+
+  Fig. 9 shows where a failed write goes: **to the two neighbouring levels, about
+  equally**. At G4's peak, G3 holds 0.28 and G5 0.27.
+- **The headline is a calculation.** "5 write attempts are needed to reach the BER of
+  1e-3" is Fig. 14, and Fig. 14 is exactly `(1 − 0.74)^n` to a pixel. The 0.74 is one mean
+  over all five levels, including the two that never fail. At n = 5 that gives 1.19e-3,
+  so 1e-3 is strictly first met at six attempts. With the intermediate levels' own
+  medians, five attempts leave 9e-3 to 3e-2.
+- **Two traps in the figures**, recorded so nobody falls into them later:
+  - Fig. 13's accuracy axis is `log(100 − acc)`, not linear.
+  - Fig. 11(b)'s in-figure title says it starts from 4AP, but its caption says the P state.
+- **The RA does not add up**, as the 2026-10-04 entry already recorded. Nothing here uses
+  this paper's absolute conductances, only its ratios and relative spreads.
+
+### What scratch showed before this was declared
+
+These are Python runs made in conversation. They are approximate and are not results.
+
+- **"Fails at 5" is the scale, not the device.** The row maps `max|w|` to full scale, so
+  one outlier weight sets the lattice. Put full scale at `c·max|w|` instead, choose `c` on
+  the *train* set, and clip the larger weights: five states then give **0.711**, which
+  holds. Clipping costs the continuous ideal 0.7345 → 0.7325. This is a programming
+  choice, not a training one.
+- **Naive quantisation-aware training does worse** than quantising afterwards. A
+  straight-through estimator at five states gives:
+  - 0.579 at `max|w|`;
+  - 0.662 at `c = 0.7`;
+  - never more than 0.669 at any learning rate tried, oscillating throughout.
+
+  imec's sufficiency claim (nine levels recover their floating-point accuracy, Fig. 3)
+  rests on learned-scale QAT with distillation (their ref. [5]). That is real machine
+  learning, and it stays out of scope. Tried and recorded, not adopted.
+- **Python and MATLAB can disagree by one sample.** The quantised accuracy differs by a
+  single test digit at two rungs. The cause is exact top-2 logit ties, settled by
+  summation order: two or three digits at five states, about 190 at two. The recorded
+  budget is MATLAB's, and it wins.
+
+### What is adopted, and what it is not
+
+| | |
+|---|---|
+| **Delivered levels** | **5 per device** for this device class: the four-pillar count. 3, the two-pillar count, is reported beside it. A count carries by construction, because it is set by the pillars on the track, not by their size. It is a single value on the states ladder, so the verdict is *holds* or *fails*, never undetermined |
+| **Not adopted** | the four-pillar device as a whole: its own spread and its own ratio. The window stays 1–3 µS, and the delivered spread stays plan 08's bracket. The geometric cost is stated, not modelled. Four pillars at this design's 114 nm quadruple the conductance, so every IR-drop edge in ohms divides by four. Keeping the window instead needs ~57 nm pillars, below any spread anyone has measured |
+| **A new source, `write_error_rate`** | beside source 2, as the area source sits beside source 1, so sources 4–7 keep their numbers. With probability `r`, a device programmed to an intermediate level `0 < j < n` lands on `j − 1` or `j + 1`, each with probability ½. Level 0 is the reset state and gets no write pulse. Level `n` switches at ≈1.0 (Fig. 11a). Every rail is independent. It is applied after `program()` and before the spread, and recovers `j` exactly from the lattice. It requires `states_per_device` |
+| **Delivered write errors** | after `m` verified attempts, the bracket `[0.389^m, 0.495^m]`: the best and the worst intermediate median, judged by plan 08's margin rule. The headline is the fewest `m` that holds. The paper's 74% mean is reported for comparison and is not used. Fig. 11 is each device's *best* current, and a write current shared across an array would do worse: **UNSOURCED** |
+| **A calibrated-scale sensitivity** | the row's own weights, with full scale at `c·max|w|`. `c` is the train-set accuracy maximiser over `0.30:0.05:1.00` at five states, ties to the larger. The handoff carries `clip(w/(c·max|w|), −1, 1)`, and the readout gain times `c`, so `program()` at five states performs the calibrated quantisation exactly. No MATLAB change and no schema change. It lives in `exports/scale/s5/` and covers 36×10 only, like the ratio variants. **The row keeps `max|w|`**, and its recorded source-2 bracket stays as it is |
+
+### Declared
+
+| | |
+|---|---|
+| **Ladder** | `[1e-4 3e-4 1e-3 3e-3 1e-2 3e-2 0.1 0.3]` ∪ `{0.389^m, 0.495^m : m = 1…6}`, built from the two constants in one place on each side. A test pins the two sides equal |
+| **Seeds** | `baseSeed = 20260908`, 20 realizations, and seed offset `20000`, the next stride the driver reserved |
+| **Where it runs** | the row at **7 states**, the fewest it holds at. That is a required precision, and it is labelled as such. Every size at **5 states**, where 36 and 64 rows report "levels fail first". The calibrated variant at **5 states** |
+| **Pass mark** | 95% of ideal, unchanged, except for the calibrated variant. The variant is judged against the row's own **0.697775**, because the question is whether five levels carry this task to the row's standard. 95% of its own ideal is reported beside it |
+| **The joint run** | unchanged: sources 1–3 |
+
+**The margin rule, per `m`, is plan 08's.** It *holds* if `0.495^m` holds. It *fails* if
+`0.389^m` fails. Otherwise it is *undetermined at this resolution*. Nothing is
+interpolated.
+
+### Expectations on record, not a thesis
+
+These come from Python with a different random stream and 20 realizations, so they are
+approximate. A verdict within a sample or two of its mark can flip.
+
+- **Levels:**
+  - The row: 5 fails (0.6615), and so does 3.
+  - By size: 5 fails at 36 and 64 rows and holds at 144, 324 and 676. 3 fails at every
+    size.
+  - **The calibrated variant: 5 holds**, at `c = 0.70`, with 0.711.
+- **Write errors, the row at 7 states:** holds at 0.01 (0.699) and fails at 0.03 (0.694).
+  The array has about six digits of margin at 7 states, so this bracket is fragile.
+- **Write errors, the calibrated variant at 5 states:** holds at 0.03 (0.700) and fails at
+  0.059 (0.692).
+  - m = 1–3 fail.
+  - m = 4 is undetermined.
+  - **m = 5 holds**. That is imec's own number, reached here for a different reason.
+- **Write errors at 5 states, by size** (the fewest attempts that hold):
+  - 144 rows: 3 or 4. m = 3 is undetermined at 20 realizations and holds at 200.
+  - 324 rows: 2.
+  - 676 rows: 1.
+
+  At 324 and 676 rows the ladder never reaches an edge, and that is reported as running
+  off its end.
+
+### Not in this entry
+
+- The four-pillar device as a whole, with its own spread and ratio.
+- Quantisation-aware training.
+- Moving the row to the calibrated scale.
+- A browser copy or widget for write errors.
+- The write time and energy the attempts cost. The read time is still open decision 2,
+  and the write time is no better sourced.
+- Error sources 4–7.
+- The `gh-pages` push.
